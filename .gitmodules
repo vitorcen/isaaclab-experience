@@ -4,3 +4,6 @@
 [submodule "IsaacSim"]
 	path = IsaacSim
 	url = https://github.com/isaac-sim/IsaacSim.git
+[submodule "LeIsaac"]
+	path = LeIsaac
+	url = https://github.com/LightwheelAI/leisaac.git
