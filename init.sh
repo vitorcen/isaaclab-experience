@@ -120,12 +120,40 @@ check_nvidia_driver() {
 init_submodule() {
     log_info "初始化 Git Submodule..."
 
-    if [ ! -d "IsaacSim/.git" ]; then
-        log_info "初始化 IsaacSim submodule..."
-        git submodule update --init --recursive
-    else
-        log_info "IsaacSim submodule 已存在"
+    # 只初始化顶层 submodule，避免递归拉取 LeIsaac/dependencies/IsaacLab 造成重复克隆
+    git submodule update --init
+    log_info "Submodule 初始化完成"
+}
+
+# 将 LeIsaac/dependencies/IsaacLab 软链到仓库顶层 IsaacLab，避免重复仓库副本
+link_leisaac_isaaclab() {
+    if [ ! -d "LeIsaac" ] || [ ! -d "IsaacLab" ]; then
+        log_warn "LeIsaac 或 IsaacLab 不存在，跳过软链接配置"
+        return
     fi
+
+    mkdir -p LeIsaac/dependencies
+    local dep_path="LeIsaac/dependencies/IsaacLab"
+    local link_target="../../IsaacLab"
+
+    if [ -L "$dep_path" ]; then
+        log_info "LeIsaac 依赖 IsaacLab 已是软链接"
+        return
+    fi
+
+    if [ -d "$dep_path" ]; then
+        if [ -z "$(ls -A "$dep_path")" ]; then
+            rmdir "$dep_path"
+            ln -s "$link_target" "$dep_path"
+            log_info "已创建软链接: $dep_path -> $link_target"
+        else
+            log_warn "$dep_path 已存在且非空，跳过自动软链接（避免覆盖现有内容）"
+        fi
+        return
+    fi
+
+    ln -s "$link_target" "$dep_path"
+    log_info "已创建软链接: $dep_path -> $link_target"
 }
 
 # 配置 Git LFS
@@ -205,15 +233,18 @@ show_next_steps() {
     echo ""
     log_info "下一步操作："
     echo ""
-    echo "  1. 构建 IsaacSim:"
+    echo "  1. 下载 LeIsaac 资产（新机器必做）:"
+    echo "     ./leisaac.sh"
+    echo ""
+    echo "  2. 构建 IsaacSim:"
     echo "     cd IsaacSim"
     echo "     ./build.sh"
     echo ""
-    echo "  2. 运行 IsaacSim:"
+    echo "  3. 运行 IsaacSim:"
     echo "     cd IsaacSim/_build/linux-x86_64/release"
     echo "     ./isaac-sim.sh"
     echo ""
-    echo "  3. 查看文档:"
+    echo "  4. 查看文档:"
     echo "     https://docs.isaacsim.omniverse.nvidia.com/latest/index.html"
     echo ""
     log_warn "注意：首次运行可能需要几分钟来加载扩展和缓存着色器"
@@ -243,6 +274,7 @@ main() {
 
     # 初始化 submodule
     init_submodule
+    link_leisaac_isaaclab
 
     # 配置 Git LFS
     setup_git_lfs

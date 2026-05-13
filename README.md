@@ -4,19 +4,62 @@ NVIDIA Isaac Sim 和 Isaac Lab 学习与实践项目，包含完整的机器人�
 
 ---
 
-## 项目结构
+## 快速体验（无需训练）
 
+无需训练，直接运行预训练策略观察机器人行为。
+
+### 🦎 四足机器人 — ANYmal-C 在崎岖地形行走
+
+![ANYmal-C](doc/images/Anymal-C-Direct.jpg)
+
+### 🚶 人形机器人 — Unitree G1 行走
+
+![Unitree-G1](doc/images/Unitree-G1.jpg)
+
+### 其他可用演示
+
+- **倒立摆平衡**（Cartpole）：经典控制任务，最快上手
+- **四足运动**：ANYmal-C/D、Ant、Unitree A1/Go1/Go2
+- **人形运动**：Unitree G1/H1、Humanoid、AMP 基于运动先验的自然运动
+- **灵巧手操作**：Shadow Hand、Allegro Hand 物体操作
+- **机械臂任务**：Franka 开柜子
+- **飞行器**：Quadcopter 悬停和位置控制
+
+### 一键运行
+
+```bash
+conda activate isaaclab
+cd IsaacLab && python scripts/reinforcement_learning/rsl_rl/play.py \
+    --task Isaac-Cartpole-Direct-v0 \
+    --use_pretrained_checkpoint \
+    --num_envs 64
 ```
-isaaclab-experience/
-├── IsaacLab/                  # Isaac Lab 源码（submodule）
-│   ├── source/                # 核心源码
-│   ├── apps/                  # 应用程序
-│   └── docs/                  # 文档
-└── IsaacSim/                  # Isaac Sim 源码（submodule）
-    ├── source/                # 核心源码
-    ├── tools/                 # 工具集
-    └── docs/                  # 文档
-```
+
+完整演示列表和使用说明见：
+- 📘 [SCRIPTS.md](./SCRIPTS.md) — Markdown 文档
+- 📓 [SCRIPTS.ipynb](./SCRIPTS.ipynb) — 可直接执行的 Jupyter notebook
+
+---
+
+## 核心功能
+
+### Isaac Lab
+
+- **机器人模型库**: 16+ 常见机器人模型（机械臂、四足、人形等）
+- **预配置环境**: 30+ 可直接训练的强化学习环境
+- **物理仿真**: 刚体、铰接系统、可变形物体
+- **传感器**: RGB/深度/分割相机、IMU、接触传感器、光线投射器
+- **RL 框架集成**: RSL RL、SKRL、RL Games、Stable Baselines
+- **多智能体支持**: 多智能体强化学习
+
+### Isaac Sim
+
+- **资产导入**: URDF、MJCF、CAD 格式支持
+- **机器人调优**: 物理精度、计算效率、真实感优化
+- **机器人仿真**: 控制器、运动生成、运动学求解器
+- **RTX 传感器**: 基于光线追踪的高保真传感器仿真
+- **ROS 集成**: ROS/ROS2 桥接支持
+- **合成数据生成**: 用于训练 AI 模型的数据生成工具
 
 ---
 
@@ -49,13 +92,8 @@ isaaclab-experience/
 ### 1. 安装基础工具
 
 ```bash
-# 更新系统
 sudo apt-get update
-
-# 安装 build-essential
 sudo apt-get install build-essential
-
-# 安装 Git LFS
 sudo apt-get install git-lfs
 git lfs install
 ```
@@ -81,8 +119,6 @@ g++ --version
 
 有两种安装方式：**pip 安装（推荐）** 或 **源码构建**。
 
----
-
 ### 方式一：pip 安装 Isaac Sim（推荐）
 
 这是最简单快速的方式，使用 NVIDIA 官方的 pip 包。
@@ -105,17 +141,13 @@ git submodule update --init --recursive IsaacLab
 Isaac Sim 需要 Python 3.11：
 
 ```bash
-# 创建 Python 3.11 环境
 conda create -n isaaclab python=3.11 -y
-
-# 激活环境
 conda activate isaaclab
 ```
 
 #### 4. 安装 Isaac Sim pip 包
 
 ```bash
-# 安装 Isaac Sim 核心包和扩展缓存
 pip install isaacsim-rl isaacsim-extscache-physics isaacsim-extscache-kit-sdk isaacsim-extscache-kit \
     --extra-index-url https://pypi.nvidia.com
 ```
@@ -135,12 +167,7 @@ cd IsaacLab
 #### 6. 验证安装
 
 ```bash
-# 运行 Cartpole 强化学习环境
-# pip 安装方式：
 python scripts/reinforcement_learning/rsl_rl/train.py --task Isaac-Cartpole-Direct-v0
-
-# 源码安装方式：
-./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py --task Isaac-Cartpole-Direct-v0
 ```
 
 ---
@@ -187,67 +214,24 @@ ln -s ../IsaacSim/_build/linux-x86_64/release _isaac_sim
 #### 5. 验证安装
 
 ```bash
-# 运行示例
-# pip 安装方式：
-python scripts/reinforcement_learning/rsl_rl/train.py --task Isaac-Cartpole-Direct-v0
-
-# 源码安装方式：
 ./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py --task Isaac-Cartpole-Direct-v0
 ```
 
 ---
 
-## 核心功能
+## 项目结构
 
-### Isaac Lab
-
-- **机器人模型库**: 16+ 常见机器人模型（机械臂、四足、人形等）
-- **预配置环境**: 30+ 可直接训练的强化学习环境
-- **物理仿真**: 刚体、铰接系统、可变形物体
-- **传感器**: RGB/深度/分割相机、IMU、接触传感器、光线投射器
-- **RL 框架集成**: RSL RL、SKRL、RL Games、Stable Baselines
-- **多智能体支持**: 多智能体强化学习
-
-### Isaac Sim
-
-- **资产导入**: URDF、MJCF、CAD 格式支持
-- **机器人调优**: 物理精度、计算效率、真实感优化
-- **机器人仿真**: 控制器、运动生成、运动学求解器
-- **RTX 传感器**: 基于光线追踪的高保真传感器仿真
-- **ROS 集成**: ROS/ROS2 桥接支持
-- **合成数据生成**: 用于训练 AI 模型的数据生成工具
-
----
-
-## 快速体验（无需训练）
-
-### 📘 [演示与推理指南（isaaclab-demos.md）](./isaaclab-demos.md)
-
-无需训练，直接运行预训练策略观察机器人行为：
-
-- **倒立摆平衡**：经典控制任务，快速上手
-- **四足机器人**：ANYmal-C、Ant 在崎岖地形行走
-
-  ![ANYmal-C](doc/images/Anymal-C-Direct.jpg)
-
-- **人形机器人**：Unitree G1/H1、人形行走、基于运动先验的自然运动
-
-  ![Unitree-G1](doc/images/Unitree-G1.jpg)
-
-- **灵巧手操作**：Shadow Hand、Allegro Hand 物体操作
-- **机械臂任务**：Franka 开柜子
-- **飞行器**：四旋翼悬停和位置控制
-
-**一键运行示例**：
-```bash
-cd IsaacLab
-./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/play.py \
-    --task Isaac-Cartpole-Direct-v0 \
-    --use_pretrained_checkpoint \
-    --num_envs 64
 ```
-
-完整演示列表和使用说明见：[isaaclab-demos.md](./isaaclab-demos.md)
+isaaclab-experience/
+├── IsaacLab/                  # Isaac Lab 源码（submodule）
+│   ├── source/                # 核心源码
+│   ├── apps/                  # 应用程序
+│   └── docs/                  # 文档
+└── IsaacSim/                  # Isaac Sim 源码（submodule）
+    ├── source/                # 核心源码
+    ├── tools/                 # 工具集
+    └── docs/                  # 文档
+```
 
 ---
 
@@ -334,10 +318,7 @@ git submodule update --init --recursive
 确保安装了最新的 NVIDIA 驱动（推荐 550+）：
 
 ```bash
-# 检查当前驱动
 nvidia-smi
-
-# 如果需要安装最新驱动（需要 sudo 权限）
 sudo apt-get install nvidia-driver-550 nvidia-utils-550
 ```
 
@@ -345,19 +326,17 @@ sudo apt-get install nvidia-driver-550 nvidia-utils-550
 
 ---
 
-## Docker 支持（推荐）
+## Docker 支持
 
 使用 Docker 可以避免环境配置问题：
 
 ### 安装 Docker 和 NVIDIA Container Toolkit
 
 ```bash
-# 安装 Docker
 curl -fsSL https://get.docker.com -o get-docker.sh
 sudo sh get-docker.sh
 sudo usermod -aG docker $USER
 
-# 安装 NVIDIA Container Toolkit
 distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
 curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | sudo apt-key add -
 curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.list | sudo tee /etc/apt/sources.list.d/nvidia-docker.list

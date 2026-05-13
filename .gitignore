@@ -35,6 +35,7 @@ videos/
 # Temporary files
 *.tmp
 *.bak
+.cache/
 
 # Local helper files
 AGENTS.md
