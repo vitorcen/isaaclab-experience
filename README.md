@@ -4,19 +4,38 @@ NVIDIA Isaac Sim 和 Isaac Lab 学习与实践项目，包含完整的机器人�
 
 ---
 
-## ✨ VLA 实测：GR00T N1.5 在 LeIsaac SO-101 上 Pick Orange
+## ✨ VLA 推理实测：LeIsaac SO-101 PickOrange
 
 ![LeIsaac GR00T N1.5 Pick Orange](doc/images/leisaac-gr00t.jpg)
 
-把 NVIDIA Isaac-GR00T N1.5 视觉-语言-动作模型（LightwheelAI 在仿真录制数据上微调的 `leisaac-pick-orange-v0` checkpoint）通过远程推理服务接入 LeIsaac SO-101 单臂仿真。
+把多个开源 VLA（视觉-语言-动作）模型通过远程推理服务接入 LeIsaac SO-101 单臂 Isaac Sim 仿真，对比同一 PickOrange 任务下的表现。
 
 - **任务**：`Pick up the orange and place it on the plate`
 - **机器人**：SO-101 follower（6 DOF：5 关节 + gripper）
-- **观测**：双相机（wrist + front, 480×640 RGB）+ 关节状态
-- **模型**：GR00T N1.5（3B 参数，DiT diffusion action head，`new_embodiment` tag + `so100_dualcam` data config）
-- **结果**：1 轮 episode 成功率 **1/1**，机器人从初始位姿移动到橙子上方、合爪抓取、移送到盘子并松开
+- **观测**：双相机（front + wrist，480×640 RGB）+ 关节状态
+- **入口**：📓 [LeIsaac.ipynb](./LeIsaac.ipynb)（每个子章节都是「下载 → 启 server → 跑推理」一键 cell）
 
-推理协议：Isaac Sim 客户端 → ZMQ `:5555` → GR00T N1.5 inference server（独立 conda env），每个 action chunk ~100ms。仓库内的 `server/start_server.sh` 可一键启动；详细命令与坑点见 `scripts/` 目录。
+### 已接入的 VLA 模型
+
+| 子章节 | 模型 ckpt                                                                                                    | 类型                                                | server                          | port | 状态                 |
+| ------ | ------------------------------------------------------------------------------------------------------------ | --------------------------------------------------- | ------------------------------- | ---- | -------------------- |
+| §1    | [`hi-space/GR00T-N1.6-3B-Pick-Orange`](https://huggingface.co/hi-space/GR00T-N1.6-3B-Pick-Orange)             | GR00T N1.6（3B，flow-matching action head）         | `run_gr00t_server.py`         | 5555 | ✅**实测成功** |
+| §2    | [`LightwheelAI/leisaac-pick-orange-v0`](https://huggingface.co/LightwheelAI/leisaac-pick-orange-v0)           | GR00T N1.5（3B，DiT diffusion action head）         | `inference_service.py`        | 5555 | ✅**实测成功** |
+| §3    | [`shadowHokage/act_policy`](https://huggingface.co/shadowHokage/act_policy)                                   | ACT（~80M，纯 vision + state → action chunk）      | LeRobot async `policy_server` | 8080 | ✅**实测成功** |
+| §3    | [`edge-inference/smolvla-so101-pick-orange`](https://huggingface.co/edge-inference/smolvla-so101-pick-orange) | SmolVLA（~450M，SmolVLM2 backbone + Action Expert） | LeRobot async `policy_server` | 8080 | ✅ 通推理链路        |
+| §4    | [`hi-space/GR00T-N1.7-3B-Pick-Orange`](https://huggingface.co/hi-space/GR00T-N1.7-3B-Pick-Orange)             | GR00T N1.7（3B）                                    | `run_gr00t_server.py` (N1.7)  | 5555 | ⛔ 推理 infra 未搭   |
+
+GR00T 系列三条共用 ZMQ :5555，任一时刻只能跑一个；§3 LeRobot async server 在独立的 :8080，可与 GR00T 共存。
+
+### 推理基础设施
+
+- **HF 默认 cache**：所有 ckpt 落 `~/.cache/huggingface/hub/`，`AutoModel.from_pretrained("repo_id")` 直接命中
+- **统一 server 管理**：`scripts/policy_server.sh start|stop {gr00t-n15|gr00t-n16|lerobot} [MODEL_PATH]`
+- **通用 HF 下载器**：`scripts/download_hf_model.sh REPO_ID`（基于 `hf download`，幂等）
+- **client 端自动适配**：`policy_inference.py` 会读 ckpt 的 `config.json` 推断 image feature 名字，避免 SmolVLA base 时代的 `camera1/2/3` 硬编码污染 fine-tune 路径
+- **LeIsaac submodule patch 维护**：`patches/leisaac/*.patch` + `scripts/apply_leisaac_patches.sh`（幂等 apply）
+
+详细命令、坑点、conda env 配置见 [`scripts/README.md`](./scripts/README.md)。
 
 ---
 
@@ -52,9 +71,12 @@ cd IsaacLab && python scripts/reinforcement_learning/rsl_rl/play.py \
 ```
 
 快速体验（预训练策略，无需训练）：
-- 📓 [DEMO.ipynb](./DEMO.ipynb) — 可直接执行的 Jupyter notebook
+
+- 📓 [LeIsaac.ipynb](./LeIsaac.ipynb) — **LeIsaac SO-101 PickOrange VLA 推理对比**（GR00T N1.5/N1.6/N1.7 + LeRobot ACT/SmolVLA）
+- 📓 [DEMO.ipynb](./DEMO.ipynb) — 通用 server 后台启动 + GR1 robocasa tabletop demo
 
 完整演示列表和使用说明见：
+
 - 📘 [SCRIPTS.md](./SCRIPTS.md) — Markdown 文档
 - 📓 [SCRIPTS.ipynb](./SCRIPTS.ipynb) — 可直接执行的 Jupyter notebook
 
@@ -87,11 +109,13 @@ cd IsaacLab && python scripts/reinforcement_learning/rsl_rl/play.py \
 ### 硬件要求
 
 **本地工作站（最低配置）**：
+
 - GPU: NVIDIA RTX 4080 或更高
 - 推荐: RTX 5080 / RTX 5880 Ada
 - 最佳: RTX PRO 6000 Blackwell Workstation
 
 **数据中心（最低配置）**：
+
 - GPU: NVIDIA A40 或更高
 - 推荐: L40S / L20
 - 最佳: RTX PRO 6000 Blackwell Server
@@ -172,6 +196,7 @@ pip install isaacsim-rl isaacsim-extscache-physics isaacsim-extscache-kit-sdk is
 ```
 
 > **重要**：
+>
 > - 确保 conda 环境已激活
 > - 首次安装会下载约 5-10 GB 数据，需要稳定网络
 > - 安装时间取决于网络速度，通常 10-30 分钟
@@ -211,6 +236,7 @@ cd IsaacSim
 ```
 
 > 注意：
+>
 > - 构建需要互联网连接
 > - 需要 20+ GB 磁盘空间
 > - 构建时间：1-3 小时（首次）
@@ -282,14 +308,16 @@ isaaclab-experience/
 **原因**：conda 环境中的 cmake 包装器与系统 cmake 冲突。
 
 **解决方案**：
+
 1. **方案一（推荐）**：确保 conda 环境已激活
+
    ```bash
    conda activate isaaclab
    cd IsaacLab
    ./isaaclab.sh --install
    ```
-
 2. **方案二**：如果仍然失败，临时退出 conda 使用系统环境：
+
    ```bash
    conda deactivate
    # 注意：只有在 pip 安装方式下才需要 conda 环境
@@ -302,13 +330,15 @@ isaaclab-experience/
 **原因**：Isaac Sim 未安装或 conda 环境未激活。
 
 **解决方案**：
+
 - **pip 安装**：确保已安装 `isaacsim-rl` 且 conda 环境已激活
+
   ```bash
   conda activate isaaclab
   pip list | grep isaacsim
   ```
-
 - **源码构建**：确保 IsaacSim 已构建完成
+
   ```bash
   cd IsaacSim
   ./build.sh
@@ -373,11 +403,11 @@ sudo systemctl restart docker
 
 ## 版本兼容性
 
-| Isaac Lab 版本 | Isaac Sim 版本 |
-|---------------|---------------|
-| `main` 分支    | 4.5 / 5.0 / 5.1 |
-| `v2.3.X`      | 4.5 / 5.0 / 5.1 |
-| `v2.2.X`      | 4.5 / 5.0      |
+| Isaac Lab 版本 | Isaac Sim 版本  |
+| -------------- | --------------- |
+| `main` 分支  | 4.5 / 5.0 / 5.1 |
+| `v2.3.X`     | 4.5 / 5.0 / 5.1 |
+| `v2.2.X`     | 4.5 / 5.0       |
 
 ---
 

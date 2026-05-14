@@ -133,16 +133,14 @@ start_lerobot_server() {
         echo "        set LEROBOT_PYTHON or ensure 'conda' is on PATH with env 'lerobot'"
         exit 1
     fi
-    if [ ! -d "$LEROBOT_DIR/src" ]; then
-        echo "[ERROR] lerobot src not found: $LEROBOT_DIR/src (set LEROBOT_DIR to override)"
-        exit 1
-    fi
-
-    # v0.4+ entry; this server runs make_pre_post_processors so SmolVLA base's
-    # step-based normalizer stats (stored in standalone safetensors) are loaded.
-    # The LeIsaac SO-101 client's RemotePolicyConfig already carries the
-    # rename_map field v0.4+ added, so the existing transport copy is compatible.
-    nohup "${DETACH[@]}" bash -lc "PYTHONPATH='$LEROBOT_DIR/src':\${PYTHONPATH:-} '$LEROBOT_PYTHON' -m lerobot.async_inference.policy_server --host '$LEROBOT_HOST' --port '$LEROBOT_PORT'" > "$LOG_DIR/lerobot_server.log" 2>&1 < /dev/null &
+    # Use the conda env's installed lerobot (>= v0.5.1) instead of the vendored
+    # v0.4.2 submodule: newer SmolVLA ckpts (e.g. edge-inference/smolvla-so101-pick-orange)
+    # carry config.json fields (use_peft, compile_model, compile_mode) that
+    # draccus rejects on v0.4.2's stricter dataclass. The wire protocol is
+    # backward-compatible: LeIsaac client's RemotePolicyConfig carries
+    # rename_map (added in v0.4+), still accepted by v0.5+.
+    # To pin the old vendored copy: prepend `PYTHONPATH=$LEROBOT_DIR/src:`.
+    nohup "${DETACH[@]}" bash -lc "'$LEROBOT_PYTHON' -m lerobot.async_inference.policy_server --host '$LEROBOT_HOST' --port '$LEROBOT_PORT'" > "$LOG_DIR/lerobot_server.log" 2>&1 < /dev/null &
     echo $! > "$LOG_DIR/lerobot_server.pid"
     echo "[INFO] LeRobot server launched, pid=$(cat "$LOG_DIR/lerobot_server.pid"), bind=$LEROBOT_HOST:$LEROBOT_PORT"
     if wait_for_port "$LEROBOT_PORT" 20 0.5; then
