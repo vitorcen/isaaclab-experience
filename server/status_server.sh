@@ -26,7 +26,16 @@ show_pid_status "lerobot_server" "$LOG_DIR/lerobot_server.pid"
 echo ""
 
 echo "[INFO] server ports:"
-ss -ltn | grep -E ':5555|:8080' || true
+if command -v ss >/dev/null 2>&1; then
+    ss -ltn 2>/dev/null | grep -E ':5555|:8080' || true
+elif command -v lsof >/dev/null 2>&1; then
+    lsof -nP -iTCP:5555 -sTCP:LISTEN 2>/dev/null || true
+    lsof -nP -iTCP:8080 -sTCP:LISTEN 2>/dev/null || true
+elif command -v netstat >/dev/null 2>&1; then
+    netstat -an 2>/dev/null | grep -E "[.:](5555|8080)[[:space:]]+" | grep -i LISTEN || true
+else
+    echo "[WARN] no port-check tool found (ss/lsof/netstat)"
+fi
 
 echo ""
 echo "[INFO] gr00t log tail:"

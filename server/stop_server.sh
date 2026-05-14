@@ -29,4 +29,13 @@ pkill -f 'lerobot.async_inference.policy_server' 2>/dev/null || true
 
 sleep 1
 echo "[INFO] remaining ports:"
-ss -ltn | grep -E ':5555|:8080' || true
+if command -v ss >/dev/null 2>&1; then
+    ss -ltn 2>/dev/null | grep -E ':5555|:8080' || true
+elif command -v lsof >/dev/null 2>&1; then
+    lsof -nP -iTCP:5555 -sTCP:LISTEN 2>/dev/null || true
+    lsof -nP -iTCP:8080 -sTCP:LISTEN 2>/dev/null || true
+elif command -v netstat >/dev/null 2>&1; then
+    netstat -an 2>/dev/null | grep -E "[.:](5555|8080)[[:space:]]+" | grep -i LISTEN || true
+else
+    echo "[WARN] no port-check tool found (ss/lsof/netstat)"
+fi

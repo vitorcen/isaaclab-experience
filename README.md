@@ -35,6 +35,9 @@ cd IsaacLab && python scripts/reinforcement_learning/rsl_rl/play.py \
     --num_envs 64
 ```
 
+快速体验（预训练策略，无需训练）：
+- 📓 [DEMO.ipynb](./DEMO.ipynb) — 可直接执行的 Jupyter notebook
+
 完整演示列表和使用说明见：
 - 📘 [SCRIPTS.md](./SCRIPTS.md) — Markdown 文档
 - 📓 [SCRIPTS.ipynb](./SCRIPTS.ipynb) — 可直接执行的 Jupyter notebook
