@@ -7,9 +7,13 @@ WORK_DIR="$(cd "$ROOT_DIR/.." && pwd)"
 LOG_DIR="$ROOT_DIR/logs"
 mkdir -p "$LOG_DIR"
 
-# sibling repos (override with env vars if your layout differs)
+# sibling / vendored repos (override with env vars if your layout differs).
+# GR00T is treated as a sibling repo because the 6GB+ weights live outside.
+# LeRobot is vendored as a git submodule at $ROOT_DIR/lerobot, pinned to a
+# version the LeIsaac SO-101 client was written against (currently v0.3.3),
+# so the whole LeRobot path is self-contained.
 GR00T_DIR="${GR00T_DIR:-$WORK_DIR/Isaac-GR00T}"
-LEROBOT_DIR="${LEROBOT_DIR:-$WORK_DIR/lerobot}"
+LEROBOT_DIR="${LEROBOT_DIR:-$ROOT_DIR/lerobot}"
 
 # bind hosts: default 0.0.0.0 so other machines on the LAN can connect.
 # set to 127.0.0.1 if you want loopback-only.
@@ -97,10 +101,20 @@ start_gr00t_server() {
         echo "[ERROR] GR00T repo not found: $GR00T_DIR (set GR00T_DIR to override)"
         exit 1
     fi
-    nohup "${DETACH[@]}" bash -lc "cd '$GR00T_DIR' && uv run --extra=gpu python gr00t/eval/run_gr00t_server.py --embodiment-tag GR1 --model-path nvidia/GR00T-N1.6-3B --host '$GR00T_HOST' --port '$GR00T_PORT'" > "$LOG_DIR/gr00t_server.log" 2>&1 < /dev/null &
+    local wrapper_arg=""
+    if [ "${GR00T_SIM_WRAPPER:-0}" = "1" ]; then
+        wrapper_arg="--use-sim-policy-wrapper"
+        echo "[INFO] sim policy wrapper enabled"
+    fi
+    # default: N1.6 robocasa demo; override via env for finetune ckpts (e.g. LightwheelAI SO-101)
+    local model_path="${GR00T_MODEL_PATH:-nvidia/GR00T-N1.6-3B}"
+    local embodiment_tag="${GR00T_EMBODIMENT_TAG:-GR1}"
+    echo "[INFO] GR00T model: $model_path (embodiment=$embodiment_tag)"
+    nohup "${DETACH[@]}" bash -lc "cd '$GR00T_DIR' && uv run --extra=gpu python gr00t/eval/run_gr00t_server.py --embodiment-tag $embodiment_tag --model-path '$model_path' --host '$GR00T_HOST' --port '$GR00T_PORT' $wrapper_arg" > "$LOG_DIR/gr00t_server.log" 2>&1 < /dev/null &
     echo $! > "$LOG_DIR/gr00t_server.pid"
     echo "[INFO] GR00T server launched, pid=$(cat "$LOG_DIR/gr00t_server.pid"), bind=$GR00T_HOST:$GR00T_PORT"
-    if wait_for_port "$GR00T_PORT" 6 0.5; then
+    # GR00T loads ~7GB ckpt; give it generous startup window
+    if wait_for_port "$GR00T_PORT" 120 1; then
         echo "[INFO] GR00T server is listening on :$GR00T_PORT"
     else
         echo "[WARN] GR00T server not ready yet (it may still be building dependencies)."
@@ -124,6 +138,10 @@ start_lerobot_server() {
         exit 1
     fi
 
+    # v0.4+ entry; this server runs make_pre_post_processors so SmolVLA base's
+    # step-based normalizer stats (stored in standalone safetensors) are loaded.
+    # The LeIsaac SO-101 client's RemotePolicyConfig already carries the
+    # rename_map field v0.4+ added, so the existing transport copy is compatible.
     nohup "${DETACH[@]}" bash -lc "PYTHONPATH='$LEROBOT_DIR/src':\${PYTHONPATH:-} '$LEROBOT_PYTHON' -m lerobot.async_inference.policy_server --host '$LEROBOT_HOST' --port '$LEROBOT_PORT'" > "$LOG_DIR/lerobot_server.log" 2>&1 < /dev/null &
     echo $! > "$LOG_DIR/lerobot_server.pid"
     echo "[INFO] LeRobot server launched, pid=$(cat "$LOG_DIR/lerobot_server.pid"), bind=$LEROBOT_HOST:$LEROBOT_PORT"

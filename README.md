@@ -4,6 +4,22 @@ NVIDIA Isaac Sim 和 Isaac Lab 学习与实践项目，包含完整的机器人�
 
 ---
 
+## ✨ VLA 实测：GR00T N1.5 在 LeIsaac SO-101 上 Pick Orange
+
+![LeIsaac GR00T N1.5 Pick Orange](doc/images/leisaac-gr00t.jpg)
+
+把 NVIDIA Isaac-GR00T N1.5 视觉-语言-动作模型（LightwheelAI 在仿真录制数据上微调的 `leisaac-pick-orange-v0` checkpoint）通过远程推理服务接入 LeIsaac SO-101 单臂仿真。
+
+- **任务**：`Pick up the orange and place it on the plate`
+- **机器人**：SO-101 follower（6 DOF：5 关节 + gripper）
+- **观测**：双相机（wrist + front, 480×640 RGB）+ 关节状态
+- **模型**：GR00T N1.5（3B 参数，DiT diffusion action head，`new_embodiment` tag + `so100_dualcam` data config）
+- **结果**：1 轮 episode 成功率 **1/1**，机器人从初始位姿移动到橙子上方、合爪抓取、移送到盘子并松开
+
+推理协议：Isaac Sim 客户端 → ZMQ `:5555` → GR00T N1.5 inference server（独立 conda env），每个 action chunk ~100ms。仓库内的 `server/start_server.sh` 可一键启动；详细命令与坑点见 `scripts/` 目录。
+
+---
+
 ## 快速体验（无需训练）
 
 无需训练，直接运行预训练策略观察机器人行为。

@@ -1,0 +1,29 @@
+From 2581231048c4390c3f84401bc1d28893e1b0a177 Mon Sep 17 00:00:00 2001
+From: isaaclab-experience <isaaclab-experience@local>
+Date: Thu, 14 May 2026 13:53:16 +0800
+Subject: [PATCH 2/2] isaaclab-experience: replace dependencies/IsaacLab
+ submodule with symlink to parent IsaacLab
+
+---
+ dependencies/IsaacLab | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+ mode change 160000 => 120000 dependencies/IsaacLab
+
+diff --git a/dependencies/IsaacLab b/dependencies/IsaacLab
+deleted file mode 160000
+index 3c6e67b..0000000
+--- a/dependencies/IsaacLab
++++ /dev/null
+@@ -1 +0,0 @@
+-Subproject commit 3c6e67bb5c7ada942a6d1884ab69338f57596f77
+diff --git a/dependencies/IsaacLab b/dependencies/IsaacLab
+new file mode 120000
+index 0000000..98316ff
+--- /dev/null
++++ b/dependencies/IsaacLab
+@@ -0,0 +1 @@
++../../IsaacLab
+\ No newline at end of file
+-- 
+2.43.0
+

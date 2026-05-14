@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NVIDIA Isaac GR00T N1.6 模型说明</title>
+<style>
+:root {
+  --bg: #fafafa;
+  --fg: #1a1a1a;
+  --muted: #555;
+  --border: #d4d4d4;
+  --accent: #76b900;       /* NVIDIA green */
+  --accent-dark: #4a7400;
+  --code-bg: #f1f3f4;
+  --table-head: #f0f5e8;
+  --warn: #b35900;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  line-height: 1.65;
+}
+.container { max-width: 980px; margin: 0 auto; padding: 32px 24px 80px; }
+header {
+  border-bottom: 3px solid var(--accent);
+  padding-bottom: 16px;
+  margin-bottom: 32px;
+}
+header .tag {
+  display: inline-block;
+  background: var(--accent);
+  color: #fff;
+  padding: 2px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+h1 { font-size: 28px; margin: 4px 0 8px; }
+header .sub { color: var(--muted); font-size: 14px; }
+h2 {
+  font-size: 22px;
+  margin: 40px 0 12px;
+  padding-left: 10px;
+  border-left: 4px solid var(--accent);
+}
+h3 { font-size: 17px; margin: 24px 0 8px; color: var(--accent-dark); }
+p, li { font-size: 15px; }
+code {
+  background: var(--code-bg);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: "SFMono-Regular", Consolas, Menlo, monospace;
+  font-size: 13px;
+}
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 12px 16px;
+  overflow-x: auto;
+  font-size: 13px;
+  line-height: 1.5;
+}
+pre code { background: transparent; padding: 0; }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+  font-size: 14px;
+}
+th, td {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+th {
+  background: var(--table-head);
+  font-weight: 600;
+}
+tr:nth-child(even) td { background: #fff; }
+a { color: var(--accent-dark); text-decoration: none; border-bottom: 1px dotted var(--accent-dark); }
+a:hover { color: var(--accent); border-bottom-style: solid; }
+.note {
+  background: #fff8e6;
+  border-left: 4px solid var(--warn);
+  padding: 10px 16px;
+  margin: 16px 0;
+  font-size: 14px;
+  border-radius: 0 4px 4px 0;
+}
+.ok {
+  background: #eff7e3;
+  border-left: 4px solid var(--accent);
+  padding: 10px 16px;
+  margin: 16px 0;
+  font-size: 14px;
+  border-radius: 0 4px 4px 0;
+}
+ul { padding-left: 22px; }
+ul li { margin-bottom: 4px; }
+.badge {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  margin-right: 4px;
+}
+.badge-green { background: var(--accent); color: #fff; border-color: var(--accent); }
+.badge-gray  { background: #eee; color: #555; }
+footer {
+  margin-top: 60px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--muted);
+}
+.toc {
+  background: #fff;
+  border: 1px solid var(--border);
+  padding: 12px 20px;
+  border-radius: 4px;
+  margin-bottom: 32px;
+}
+.toc ol { margin: 4px 0; padding-left: 22px; }
+.toc li { font-size: 14px; margin: 2px 0; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <div class="tag">NVIDIA Isaac GR00T</div>
+  <h1>GR00T N1.6 模型说明</h1>
+  <div class="sub">开源视觉-语言-动作（VLA）通用人形机器人基础模型 · 3B 参数 · 跨形态适配</div>
+</header>
+
+<div class="toc">
+  <strong>目录</strong>
+  <ol>
+    <li><a href="#overview">模型概述</a></li>
+    <li><a href="#arch">网络架构</a></li>
+    <li><a href="#whatsnew">N1.6 相对 N1.5 的改进</a></li>
+    <li><a href="#embodiments">支持的机器人形态（Embodiment）</a></li>
+    <li><a href="#benchmarks">官方 Sim Benchmark</a></li>
+    <li><a href="#checkpoints">公开 Checkpoint</a></li>
+    <li><a href="#workflow">使用流程</a></li>
+    <li><a href="#integration">本项目中的集成</a></li>
+    <li><a href="#refs">参考资料</a></li>
+  </ol>
+</div>
+
+<h2 id="overview">1. 模型概述</h2>
+<p>
+GR00T N1.6 是 NVIDIA 发布的开源 <strong>视觉-语言-动作（Vision-Language-Action, VLA）</strong>基础模型，
+目标是为通用人形机器人提供一个跨形态、跨任务的策略骨架。模型以多模态输入（图像 + 语言指令 + 本体状态）为条件，
+通过<strong>扩散动作头</strong>（diffusion action head）输出连续动作序列。
+</p>
+<ul>
+  <li><strong>参数规模</strong>：3B（30 亿参数）</li>
+  <li><strong>权重</strong>：开源，<a href="https://huggingface.co/nvidia/GR00T-N1.6-3B" target="_blank">HuggingFace nvidia/GR00T-N1.6-3B</a></li>
+  <li><strong>训练数据</strong>：1 万小时以上机器人数据，覆盖双臂、半人形、全人形多类形态</li>
+  <li><strong>定位</strong>：预训练 base 模型，可直接 zero-shot 部署部分任务，亦可在用户少量数据上 post-training 适配新形态/新任务</li>
+</ul>
+
+<h2 id="arch">2. 网络架构</h2>
+<p>
+GR00T N1.6 采用<strong>视觉-语言基础模型 + 扩散变换器（DiT）动作头</strong>的双塔结构：
+</p>
+<ul>
+  <li><strong>VLM 主干</strong>：从图像与语言中提取多模态上下文表征，支持开放词汇任务描述</li>
+  <li><strong>动作头</strong>：DiT（Diffusion Transformer），对连续动作序列做去噪生成；
+      默认推理步数为 4 步（denoising_steps=4），在精度与延迟之间取得平衡</li>
+  <li><strong>动作表示</strong>：N1.6 多数 embodiment 上预测<strong>相对动作块（state-relative action chunk）</strong>，
+      而非绝对关节角，更利于跨场景泛化</li>
+  <li><strong>动作 horizon</strong>：典型 16 步动作块，由客户端配置（<code>--policy_action_horizon</code> / <code>action_horizon</code>）</li>
+</ul>
+
+<h2 id="whatsnew">3. N1.6 相对 N1.5 的改进</h2>
+<ul>
+  <li>架构与数据双重升级，整体性能在主要 benchmark 上显著提升</li>
+  <li>多数 embodiment 改用<strong>状态相对动作块</strong>，替代 N1.5 的绝对关节角 / 末端位姿</li>
+  <li>预训练数据在 N1.5 的基础上新增数千小时遥操作数据，涵盖人形双臂与半人形平台</li>
+  <li>跨形态泛化能力增强，新增 Unitree G1、Galaxea R1 Pro 等 embodiment 直接支持</li>
+</ul>
+
+<h2 id="embodiments">4. 支持的机器人形态（Embodiment）</h2>
+<p>Base 模型 <code>nvidia/GR00T-N1.6-3B</code> 内置以下 embodiment head：</p>
+<table>
+<thead><tr><th>EmbodimentTag</th><th>对应机器人</th><th>形态</th></tr></thead>
+<tbody>
+<tr><td><code>GR1</code></td><td>Fourier GR1 + Fourier 手</td><td>双足人形（tabletop 任务中固定下肢，控制双臂 + 腰 + 双手）</td></tr>
+<tr><td><code>UNITREE_G1</code></td><td>Unitree G1</td><td>双足人形（全身可控，loco-manipulation）</td></tr>
+<tr><td><code>BEHAVIOR_R1_PRO</code></td><td>Galaxea R1 Pro</td><td>移动 LocoManipulation</td></tr>
+<tr><td><code>ROBOCASA_PANDA_OMRON</code></td><td>Franka Panda on Omron AGV</td><td>移动机械臂</td></tr>
+<tr><td><code>LIBERO_PANDA</code></td><td>Franka Panda</td><td>桌面单臂</td></tr>
+<tr><td><code>OXE_GOOGLE</code></td><td>Google Robot</td><td>桌面单臂</td></tr>
+<tr><td><code>OXE_WIDOWX</code></td><td>TrossenRobotics WidowX</td><td>桌面单臂</td></tr>
+<tr><td><code>OXE_DROID</code></td><td>Franka（DROID 数据集）</td><td>桌面单臂（真机数据）</td></tr>
+<tr><td><code>NEW_EMBODIMENT</code></td><td>自定义</td><td>用户 finetune 用槽位</td></tr>
+</tbody>
+</table>
+
+<h2 id="benchmarks">5. 官方 Sim Benchmark</h2>
+<p>Isaac-GR00T 仓库的 <code>examples/</code> 与 <code>gr00t/eval/sim/</code> 下提供以下评测套件，
+每个套件都自带 setup 脚本、专用 venv、资源下载与 rollout 入口：</p>
+<table>
+<thead><tr><th>Benchmark</th><th>仿真器</th><th>Embodiment</th><th>规模</th></tr></thead>
+<tbody>
+<tr><td><strong>robocasa-gr1-tabletop-tasks</strong></td><td>MuJoCo / robosuite</td><td>GR1</td><td>24 个桌面 PnP 任务，每任务约 1000 demonstrations</td></tr>
+<tr><td>GR00T-WholeBodyControl</td><td>MuJoCo（gear_wbc 全身控制器）</td><td>UNITREE_G1</td><td>G1 全身 LocoManipulation（PnPAppleToPlate 等）</td></tr>
+<tr><td>robocasa</td><td>MuJoCo / robosuite</td><td>ROBOCASA_PANDA_OMRON</td><td>25 个厨房任务</td></tr>
+<tr><td>LIBERO</td><td>MuJoCo</td><td>LIBERO_PANDA</td><td>4 个 task suite（Spatial/Object/Goal/Long-10），共 40 任务</td></tr>
+<tr><td>SimplerEnv</td><td>MuJoCo / ManiSkill</td><td>OXE_GOOGLE / OXE_WIDOWX</td><td>Google Robot 与 WidowX 真机仿真</td></tr>
+<tr><td>BEHAVIOR</td><td><strong>OmniGibson（基于 Isaac Sim）</strong></td><td>BEHAVIOR_R1_PRO</td><td>Stanford BEHAVIOR-1K</td></tr>
+<tr><td>DROID</td><td>真机数据回放</td><td>OXE_DROID</td><td>Franka 真机评测</td></tr>
+<tr><td>PointNav</td><td>Habitat-Sim</td><td>NEW_EMBODIMENT</td><td>导航 finetune 示例</td></tr>
+<tr><td>SO100</td><td>真机 / 用户自带</td><td>NEW_EMBODIMENT</td><td>LeRobot SO-100 单臂 finetune 教学</td></tr>
+</tbody>
+</table>
+
+<div class="note">
+<strong>为什么大部分 benchmark 用 MuJoCo？</strong><br>
+GR00T 1.6 的 9 个官方 benchmark 中只有 <code>BEHAVIOR</code>（经 OmniGibson）真正运行在 Isaac Sim 上，其余 7 个都基于 MuJoCo（含 tabletop、loco-manipulation、LIBERO、SimplerEnv）。
+原因是<em>接触密集</em>的操作类任务在 MuJoCo / robosuite 上接触动力学更稳、单 env CPU 仿真快，且 GR00T 训练数据的生成管线 MimicGen / DexMimicGen 早已建在 MuJoCo 之上。
+Isaac Sim 的强项（GPU 千 env 并行 RL、RTX 高保真渲染、OpenUSD 大场景）则在本系列 manipulation 评测里收益不明显。
+</div>
+
+<h3>robocasa-gr1-tabletop-tasks 基线成功率（节选）</h3>
+<p>Base 模型 zero-shot 在 24 个 GR1 tabletop 任务上的官方报告，平均成功率约 47.6%：</p>
+<table>
+<thead><tr><th>任务</th><th>成功率</th></tr></thead>
+<tbody>
+<tr><td><code>PnPNovelFromPlateToPlateSplitA</code></td><td>78.7%</td></tr>
+<tr><td><code>PnPNovelFromTrayToPlateSplitA</code></td><td>71.0%</td></tr>
+<tr><td><code>PnPNovelFromCuttingboardToPanSplitA</code></td><td>68.5%</td></tr>
+<tr><td><code>PnPNovelFromCuttingboardToPotSplitA</code></td><td>65.0%</td></tr>
+<tr><td><code>PnPBottleToCabinetClose</code></td><td>51.5%</td></tr>
+<tr><td><code>PnPCupToDrawerClose</code></td><td>8.5%</td></tr>
+</tbody>
+</table>
+
+<h2 id="checkpoints">6. 公开 Checkpoint</h2>
+<table>
+<thead><tr><th>HuggingFace Repo</th><th>定位</th><th>对应评测</th></tr></thead>
+<tbody>
+<tr><td><a href="https://huggingface.co/nvidia/GR00T-N1.6-3B" target="_blank">nvidia/GR00T-N1.6-3B</a></td>
+    <td><strong>Base 跨形态模型</strong>（本项目使用）</td><td>多 benchmark</td></tr>
+<tr><td>nvidia/GR00T-N1.6-bridge</td><td>WidowX（Bridge 数据集）</td><td>SimplerEnv</td></tr>
+<tr><td>nvidia/GR00T-N1.6-fractal</td><td>Google Robot（Fractal 数据集）</td><td>SimplerEnv</td></tr>
+<tr><td>nvidia/GR00T-N1.6-BEHAVIOR1k</td><td>Galaxea R1 Pro</td><td>BEHAVIOR</td></tr>
+<tr><td>nvidia/GR00T-N1.6-G1-PnPAppleToPlate</td><td>Unitree G1 PnP</td><td>GR00T-WholeBodyControl</td></tr>
+<tr><td>nvidia/GR00T-N1.6-DROID</td><td>Franka DROID</td><td>DROID 真机</td></tr>
+</tbody>
+</table>
+
+<h2 id="workflow">7. 使用流程</h2>
+<p>典型 post-training 流程（官方推荐）：</p>
+<ol>
+  <li>用户在目标机器人上采集（视频 + 状态 + 动作）三元组演示数据</li>
+  <li>把数据转成 <a href="https://github.com/huggingface/lerobot" target="_blank">HuggingFace LeRobot Dataset V2</a> schema</li>
+  <li>选择最接近的 embodiment tag（或使用 <code>NEW_EMBODIMENT</code>）配置数据 modality</li>
+  <li>使用仓库 <code>scripts/</code> 下的 finetuning 入口在 base 模型上做少样本 post-training</li>
+  <li>将训练好的 checkpoint 通过 <code>gr00t/eval/run_gr00t_server.py</code> 部署为推理服务</li>
+  <li>客户端（仿真器或真机控制器）通过 ZMQ 协议把观测发到服务端，接收预测动作执行</li>
+</ol>
+
+<div class="ok">
+<strong>Zero-shot 直接评测</strong>：对已内置的 embodiment（如 GR1、G1），可跳过第 1-4 步，
+直接用 base checkpoint 在官方 benchmark 上 rollout（本项目即采用此方式验证 robocasa-gr1-tabletop）。
+</div>
+
+<h2 id="integration">8. 本项目中的集成</h2>
+<p>本项目（<code>isaaclab-experience</code>）采用<strong>服务端 / 客户端解耦</strong>架构，
+推理服务与仿真环境分别独立运行：</p>
+
+<h3>8.1 服务端管理（<code>server/</code>）</h3>
+<table>
+<thead><tr><th>脚本</th><th>作用</th></tr></thead>
+<tbody>
+<tr><td><code>server/init_server.sh</code></td><td>初始化机器：apt 依赖、uv、Isaac-GR00T 仓库、uv sync 预热</td></tr>
+<tr><td><code>server/start_server.sh</code></td><td>启动 GR00T 推理服务（绑定 <code>0.0.0.0:5555</code>），支持 <code>GR00T_SIM_WRAPPER=1</code> 开启 sim policy wrapper</td></tr>
+<tr><td><code>server/status_server.sh</code></td><td>查看运行状态</td></tr>
+<tr><td><code>server/stop_server.sh</code></td><td>停止服务</td></tr>
+<tr><td><code>server/verify_server.sh</code></td><td>TCP + ZMQ 双层探活</td></tr>
+</tbody>
+</table>
+
+<h3>8.2 演示脚本（<code>scripts/</code>）</h3>
+<table>
+<thead><tr><th>脚本</th><th>作用</th></tr></thead>
+<tbody>
+<tr><td><code>scripts/check_start_gr00t.sh</code></td><td>幂等启动服务（带 sim wrapper），等就绪 + ZMQ 握手 + 报告 GPU 显存</td></tr>
+<tr><td><code>scripts/preview_gr00t_inference.sh</code></td><td>在 robocasa GR1 tabletop 任务上跑一次 rollout，生成 mp4 并用 totem 全屏播放</td></tr>
+<tr><td><code>scripts/realtime_gr00t_viewer.sh</code></td><td>同样跑 rollout，但用 <code>mujoco.viewer.launch_passive</code> 弹出原生 viewer 实时显示</td></tr>
+<tr><td><code>scripts/realtime_gr00t_viewer.py</code></td><td>realtime 脚本的 Python 主体（在官方 env 之上叠加 <code>ViewerWrapper</code>，零修改 sim 逻辑）</td></tr>
+</tbody>
+</table>
+
+<div class="ok">
+<strong>Viewer 交互</strong>：<code>scripts/realtime_gr00t_viewer.sh</code> 弹出的 MuJoCo viewer 原生支持鼠标交互 ——
+左键拖动旋转视角，右键拖动平移，滚轮缩放，Tab 切换内置摄像机，双击物体选中，H 显示完整快捷键面板。
+跑完 rollout 后窗口会保持打开直到用户手动关闭。
+</div>
+
+<h3>8.3 推理调用示例</h3>
+<p>客户端通过 ZMQ 与服务通信，以下命令在 GR1 robocasa 桌面上跑 1 个 episode：</p>
+<pre><code># 步骤 1：启动服务（带 sim policy wrapper）
+bash scripts/check_start_gr00t.sh
+
+# 步骤 2：跑一次推理 + 实时 viewer
+bash scripts/realtime_gr00t_viewer.sh
+
+# 也可切换其它高成功率任务
+ENV_NAME=gr1_unified/PosttrainPnPNovelFromTrayToPlateSplitA_GR1ArmsAndWaistFourierHands_Env \
+  bash scripts/realtime_gr00t_viewer.sh</code></pre>
+
+<h3>8.4 服务接口约定</h3>
+<ul>
+  <li><strong>传输</strong>：ZMQ REQ / REP，<code>tcp://&lt;host&gt;:5555</code></li>
+  <li><strong>编码</strong>：msgpack（含 numpy 扩展）</li>
+  <li><strong>观测</strong>：扁平 key 格式（<code>video.&lt;camera&gt;</code>、<code>state.&lt;joint_group&gt;</code>、<code>task</code> 等），
+      由服务端 <code>Gr00tSimPolicyWrapper</code> 解析为模型期望的嵌套字典</li>
+  <li><strong>动作</strong>：返回长度为 <code>action_horizon</code> 的动作块，客户端逐步执行</li>
+</ul>
+
+<div class="note">
+<strong>Embodiment 一致性提醒</strong>：当前服务以 <code>--embodiment-tag GR1</code> 启动，
+适合 robocasa-gr1-tabletop benchmark。本仓库 <code>LeIsaac/</code> 的 SO-101 任务属于另一 embodiment，
+直接用 base 模型推理会因 obs/action 维度不匹配而失败；需先在 SO-101 demonstrations 上做 finetune。
+</div>
+
+<h2 id="refs">9. 参考资料</h2>
+<ul>
+  <li><a href="https://github.com/NVIDIA/Isaac-GR00T" target="_blank">官方仓库：NVIDIA/Isaac-GR00T</a></li>
+  <li><a href="https://huggingface.co/nvidia/GR00T-N1.6-3B" target="_blank">模型权重：HuggingFace nvidia/GR00T-N1.6-3B</a></li>
+  <li><a href="https://research.nvidia.com/labs/gear/gr00t-n1_6/" target="_blank">N1.6 Release Blog（NVIDIA GEAR Lab）</a></li>
+  <li><a href="https://github.com/robocasa/robocasa-gr1-tabletop-tasks" target="_blank">robocasa-gr1-tabletop-tasks 评测仓库</a></li>
+  <li><a href="https://arxiv.org/abs/2503.14734" target="_blank">arXiv 2503.14734：RoboCasa GR1 Tabletop Tasks</a></li>
+  <li><a href="https://github.com/huggingface/lerobot" target="_blank">HuggingFace LeRobot（数据格式 + 真机栈）</a></li>
+</ul>
+
+<footer>
+本文档随仓库脚本与 Isaac-GR00T 上游主分支同步整理。<br>
+若官方版本号或 benchmark 数据有更新，以 <a href="https://github.com/NVIDIA/Isaac-GR00T" target="_blank">Isaac-GR00T</a> 主仓为准。
+</footer>
+
+</div>
+</body>
+</html>

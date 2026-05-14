@@ -7,3 +7,6 @@
 [submodule "LeIsaac"]
 	path = LeIsaac
 	url = https://github.com/LightwheelAI/leisaac.git
+[submodule "lerobot"]
+	path = lerobot
+	url = https://github.com/huggingface/lerobot.git

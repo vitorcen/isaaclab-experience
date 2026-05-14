@@ -20,12 +20,22 @@ stop_by_pid_file() {
     fi
 }
 
-stop_by_pid_file "gr00t_server" "$LOG_DIR/gr00t_server.pid"
-stop_by_pid_file "lerobot_server" "$LOG_DIR/lerobot_server.pid"
+MODE="both"
+case "${1:-}" in
+    "" )               MODE="both" ;;
+    "--gr00t-only" )   MODE="gr00t" ;;
+    "--lerobot-only" ) MODE="lerobot" ;;
+    * ) echo "[ERROR] unknown option: ${1}"; echo "usage: $0 [--gr00t-only|--lerobot-only]"; exit 1 ;;
+esac
 
-# Best-effort cleanup for stale background processes without pid files.
-pkill -f 'gr00t/eval/run_gr00t_server.py' 2>/dev/null || true
-pkill -f 'lerobot.async_inference.policy_server' 2>/dev/null || true
+if [ "$MODE" = "both" ] || [ "$MODE" = "gr00t" ]; then
+    stop_by_pid_file "gr00t_server" "$LOG_DIR/gr00t_server.pid"
+    pkill -f 'gr00t/eval/run_gr00t_server.py' 2>/dev/null || true
+fi
+if [ "$MODE" = "both" ] || [ "$MODE" = "lerobot" ]; then
+    stop_by_pid_file "lerobot_server" "$LOG_DIR/lerobot_server.pid"
+    pkill -f 'lerobot.async_inference.policy_server' 2>/dev/null || true
+fi
 
 sleep 1
 echo "[INFO] remaining ports:"
