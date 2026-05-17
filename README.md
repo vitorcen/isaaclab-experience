@@ -5,6 +5,7 @@ NVIDIA Isaac Sim 和 Isaac Lab 学习与实践项目，包含完整的机器人�
 ---
 
 ## ✨ VLA 推理实测：LeIsaac SO-101 PickOrange
+
 _VLA Inference Benchmark on LeIsaac SO-101 PickOrange_
 
 https://github.com/user-attachments/assets/44205148-1fa0-4b33-8f60-7a079faf9840
@@ -18,21 +19,23 @@ _Compare open-source VLA policies on the same SO-101 PickOrange task via remote 
 - **入口 / Entry point**：📓 [LeIsaac.ipynb](./LeIsaac.ipynb)（每个子章节都是「下载 → 启 server → 跑推理」一键 cell）
 
 ### 已接入的 VLA 模型
+
 _Integrated VLA models_
 
-| 子章节 | 模型 ckpt                                                                                                    | 类型                                                | server                          | port | 状态 / Result        |
-| ------ | ------------------------------------------------------------------------------------------------------------ | --------------------------------------------------- | ------------------------------- | ---- | -------------------- |
-| §1    | [`hi-space/GR00T-N1.6-3B-Pick-Orange`](https://huggingface.co/hi-space/GR00T-N1.6-3B-Pick-Orange)             | GR00T N1.6（3B，flow-matching action head）         | `run_gr00t_server.py`         | 5555 | ✅ **3/3 实测成功 / pass** |
-| §2    | [`LightwheelAI/leisaac-pick-orange-v0`](https://huggingface.co/LightwheelAI/leisaac-pick-orange-v0)           | GR00T N1.5（3B，DiT diffusion action head）         | `inference_service.py`        | 5555 | ✅ **3/3 实测成功 / pass，~30s 完成** |
-| §3    | [`shadowHokage/act_policy`](https://huggingface.co/shadowHokage/act_policy)                                   | ACT（~80M，纯 vision + state → action chunk）      | LeRobot async `policy_server` | 8080 | ✅ **1/1 实测成功 / pass** |
-| §3    | [`edge-inference/smolvla-so101-pick-orange`](https://huggingface.co/edge-inference/smolvla-so101-pick-orange) | SmolVLA（~450M，SmolVLM2 backbone + Action Expert） | LeRobot async `policy_server` | 8080 | ⚠️ 2/5 单颗即翻车 / fails on 1st orange |
+| 子章节 | 模型 ckpt                                                                                                              | 类型                                                             | server                          | port | 状态 / Result                                                 |
+| ------ | ---------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- | ------------------------------- | ---- | ------------------------------------------------------------- |
+| §1    | [`hi-space/GR00T-N1.6-3B-Pick-Orange`](https://huggingface.co/hi-space/GR00T-N1.6-3B-Pick-Orange)                       | GR00T N1.6（3B，flow-matching action head）                      | `run_gr00t_server.py`         | 5555 | ✅**3/3 实测成功 / pass**                               |
+| §2    | [`LightwheelAI/leisaac-pick-orange-v0`](https://huggingface.co/LightwheelAI/leisaac-pick-orange-v0)                     | GR00T N1.5（3B，DiT diffusion action head）                      | `inference_service.py`        | 5555 | ✅**3/3 实测成功 / pass，~30s 完成**                    |
+| §3    | [`shadowHokage/act_policy`](https://huggingface.co/shadowHokage/act_policy)                                             | ACT（~80M，纯 vision + state → action chunk）                   | LeRobot async `policy_server` | 8080 | 1/1 实测成功 / pass                                 |
+| §3    | [`edge-inference/smolvla-so101-pick-orange`](https://huggingface.co/edge-inference/smolvla-so101-pick-orange)           | SmolVLA（~450M，SmolVLM2 backbone + Action Expert）              | LeRobot async `policy_server` | 8080 | 2/5 单颗即翻车 / fails on 1st orange                          |
 | §3    | [`wsagi/DiffusionPolicy-PickOrange`](https://huggingface.co/wsagi/DiffusionPolicy-PickOrange) **（自训 / ours）** | Diffusion Policy（~267M，ResNet18 vision + UNet 1D + DDIM swap） | LeRobot async `policy_server` | 8080 | ⚠️ 1-2/3，DDIM32 hot-swap 后可控；第三颗 OOD / fails on 3rd |
-| §4    | [`hi-space/GR00T-N1.7-3B-Pick-Orange`](https://huggingface.co/hi-space/GR00T-N1.7-3B-Pick-Orange)             | GR00T N1.7（3B）                                    | `run_gr00t_server.py` (N1.7)  | 5555 | ⛔ 推理 infra 未搭 / not wired   |
+| §4    | [`hi-space/GR00T-N1.7-3B-Pick-Orange`](https://huggingface.co/hi-space/GR00T-N1.7-3B-Pick-Orange)                       | GR00T N1.7（3B）                                                 | `run_gr00t_server.py` (N1.7)  | 5555 | ⛔ 推理 infra 未搭 / not wired                                |
 
 GR00T 系列三条共用 ZMQ :5555，任一时刻只能跑一个；§3 LeRobot async server 在独立的 :8080（ACT / SmolVLA / DP 复用同一 server，按 ckpt 切换），可与 GR00T 共存。
 _GR00T variants share ZMQ :5555 (one-at-a-time); LeRobot async server on :8080 hosts ACT / SmolVLA / DP via runtime ckpt switching and coexists with GR00T._
 
 ### 实测结论 — 共同 OOD bottleneck
+
 _Test results — shared OOD bottleneck_
 
 三个独立架构（**ACT 回归 / SmolVLA VLM / DP 扩散**）在 60-episode `leisaac-pick-orange` 数据集上都卡在 **第三颗橙子 / late second**：每集只有 1 次"放最后一颗"演示，三个模型共同 OOD。**不是单一模型问题**，是数据分布问题。
@@ -47,19 +50,21 @@ _Three independent architectures (ACT regression / SmolVLA VLM / DP diffusion) a
   - [`docs/training/act_eval_debug_postmortem.html`](https://github.com/vitorcen/LeIsaac/blob/main/docs/training/act_eval_debug_postmortem.html) — ACT eval 三个 sim-side 根因 (sim_warmup / step_hz / action_horizon)
 
 ### 自训配方与脚本
+
 _Our training recipes and scripts — see [vitorcen/LeIsaac](https://github.com/vitorcen/LeIsaac) fork_
 
-| 模型 / Model | 训练入口 / Launcher (in fork)                              | 关键配方 / Recipe                                            |
-| ------------ | ---------------------------------------------------------- | ------------------------------------------------------------ |
-| ACT          | `scripts/training/act/train.sh`                            | chunk_size=100, batch=8, lr=1e-5, 10k steps, no augmentation |
-| DP           | `scripts/training/diffusion_policy/train.sh`               | UNet 1D + ResNet18 vision，**train-from-scratch**，DDIM 32-step inference |
-| SmolVLA      | `scripts/finetune/smolvla/prepare_base.sh` → `scripts/finetune/lerobot_finetune.sh` | finetune SmolVLM2 backbone，60 ep 不够拟合 / underfit         |
-| π0.5         | `scripts/finetune/openpi/pytorch/train.sh`                 | LoRA on Gemma-2B 主干，cumulative 5000 + phased sampler 续训 |
+| 模型 / Model | 训练入口 / Launcher (in fork)                                                            | 关键配方 / Recipe                                                               |
+| ------------ | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| ACT          | `scripts/training/act/train.sh`                                                        | chunk_size=100, batch=8, lr=1e-5, 10k steps, no augmentation                    |
+| DP           | `scripts/training/diffusion_policy/train.sh`                                           | UNet 1D + ResNet18 vision，**train-from-scratch**，DDIM 32-step inference |
+| SmolVLA      | `scripts/finetune/smolvla/prepare_base.sh` → `scripts/finetune/lerobot_finetune.sh` | finetune SmolVLM2 backbone，60 ep 不够拟合 / underfit                           |
+| π0.5        | `scripts/finetune/openpi/pytorch/train.sh`                                             | LoRA on Gemma-2B 主干，cumulative 5000 + phased sampler 续训                    |
 
 > 训练目录按语义分：`scripts/finetune/` = 有 pretrained base（fine-tune），`scripts/training/` = 从头训练（train-from-scratch）。
 > _Convention: `scripts/finetune/` = fine-tune from a pretrained base; `scripts/training/` = train-from-scratch._
 
 ### 推理基础设施
+
 _Inference infrastructure_
 
 - **HF 默认 cache**：所有 ckpt 落 `~/.cache/huggingface/hub/`，`AutoModel.from_pretrained("repo_id")` 直接命中

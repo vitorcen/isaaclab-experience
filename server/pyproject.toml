@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pi05-leisaac"
+version = "0.1.0"
+description = "π0.5 LoRA inference server + training scripts for LeIsaac SO-101 PickOrange."
+readme = "README.md"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.10"
+authors = [
+  { name = "vitorcen" }
+]
+keywords = ["robotics", "vla", "pi0.5", "lerobot", "lora", "pytorch", "leisaac"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: POSIX :: Linux",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+dependencies = [
+  "numpy>=1.26",
+  "torch>=2.3",
+  "msgpack>=1.0",
+  "pyzmq>=25.0",
+]
+
+[project.optional-dependencies]
+dev = ["ruff"]
+
+[project.scripts]
+pi05-server = "pi05_leisaac.server:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["pi05_leisaac*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"

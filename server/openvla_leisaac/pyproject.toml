@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "openvla-leisaac"
+version = "0.1.0"
+description = "OpenVLA-7B 4-bit demo inference server for LeIsaac SO-101 PickOrange."
+readme = "README.md"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.10"
+authors = [
+  { name = "vitorcen" }
+]
+keywords = ["robotics", "vla", "openvla", "lerobot", "lora", "qlora", "bitsandbytes", "leisaac"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: POSIX :: Linux",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+# Pinned to OpenVLA-era versions; newer transformers (5.x) breaks
+# trust_remote_code modeling_prismatic.py imports.
+dependencies = [
+  "numpy>=1.26",
+  "torch>=2.3,<2.5",
+  "torchvision",
+  "transformers==4.40.1",
+  "tokenizers==0.19.1",
+  "timm==0.9.10",
+  "peft==0.11.1",
+  "accelerate==0.31.0",
+  "bitsandbytes>=0.43.1,<0.44",
+  "huggingface_hub>=0.23,<0.25",
+  "pillow",
+  "msgpack>=1.0",
+  "pyzmq>=25",
+]
+
+[project.scripts]
+openvla-server = "openvla_leisaac.server:main"
+openvla-smoke  = "openvla_leisaac.smoke:main"
+
+[tool.setuptools.packages.find]
+include = ["openvla_leisaac*"]
