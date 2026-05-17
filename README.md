@@ -5,29 +5,62 @@ NVIDIA Isaac Sim 和 Isaac Lab 学习与实践项目，包含完整的机器人�
 ---
 
 ## ✨ VLA 推理实测：LeIsaac SO-101 PickOrange
+_VLA Inference Benchmark on LeIsaac SO-101 PickOrange_
 
-![LeIsaac GR00T N1.5 Pick Orange](doc/images/leisaac-gr00t.jpg)
+https://github.com/user-attachments/assets/44205148-1fa0-4b33-8f60-7a079faf9840
 
-把多个开源 VLA（视觉-语言-动作）模型通过远程推理服务接入 LeIsaac SO-101 单臂 Isaac Sim 仿真，对比同一 PickOrange 任务下的表现。
+把多个开源 VLA（视觉-语言-动作）模型通过远程推理服务接入 LeIsaac SO-101 单臂 Isaac Sim 仿真，对比同一 PickOrange 任务下的表现，并自训了一套 ACT / Diffusion Policy / SmolVLA / π0.5 LoRA 用于横评。
+_Compare open-source VLA policies on the same SO-101 PickOrange task via remote inference servers; complemented by our own fine-tuned ACT / Diffusion Policy / SmolVLA / π0.5 LoRA checkpoints._
 
-- **任务**：`Pick up the orange and place it on the plate`
-- **机器人**：SO-101 follower（6 DOF：5 关节 + gripper）
-- **观测**：双相机（front + wrist，480×640 RGB）+ 关节状态
-- **入口**：📓 [LeIsaac.ipynb](./LeIsaac.ipynb)（每个子章节都是「下载 → 启 server → 跑推理」一键 cell）
+- **任务 / Task**：`Pick up the orange and place it on the plate`
+- **机器人 / Robot**：SO-101 follower（6 DOF：5 关节 + gripper）
+- **观测 / Observation**：双相机（front + wrist，480×640 RGB）+ 关节状态 / dual-cam RGB + joint state
+- **入口 / Entry point**：📓 [LeIsaac.ipynb](./LeIsaac.ipynb)（每个子章节都是「下载 → 启 server → 跑推理」一键 cell）
 
 ### 已接入的 VLA 模型
+_Integrated VLA models_
 
-| 子章节 | 模型 ckpt                                                                                                    | 类型                                                | server                          | port | 状态                 |
+| 子章节 | 模型 ckpt                                                                                                    | 类型                                                | server                          | port | 状态 / Result        |
 | ------ | ------------------------------------------------------------------------------------------------------------ | --------------------------------------------------- | ------------------------------- | ---- | -------------------- |
-| §1    | [`hi-space/GR00T-N1.6-3B-Pick-Orange`](https://huggingface.co/hi-space/GR00T-N1.6-3B-Pick-Orange)             | GR00T N1.6（3B，flow-matching action head）         | `run_gr00t_server.py`         | 5555 | ✅**实测成功** |
-| §2    | [`LightwheelAI/leisaac-pick-orange-v0`](https://huggingface.co/LightwheelAI/leisaac-pick-orange-v0)           | GR00T N1.5（3B，DiT diffusion action head）         | `inference_service.py`        | 5555 | ✅**实测成功** |
-| §3    | [`shadowHokage/act_policy`](https://huggingface.co/shadowHokage/act_policy)                                   | ACT（~80M，纯 vision + state → action chunk）      | LeRobot async `policy_server` | 8080 | ✅**实测成功** |
-| §3    | [`edge-inference/smolvla-so101-pick-orange`](https://huggingface.co/edge-inference/smolvla-so101-pick-orange) | SmolVLA（~450M，SmolVLM2 backbone + Action Expert） | LeRobot async `policy_server` | 8080 | ✅ 通推理链路        |
-| §4    | [`hi-space/GR00T-N1.7-3B-Pick-Orange`](https://huggingface.co/hi-space/GR00T-N1.7-3B-Pick-Orange)             | GR00T N1.7（3B）                                    | `run_gr00t_server.py` (N1.7)  | 5555 | ⛔ 推理 infra 未搭   |
+| §1    | [`hi-space/GR00T-N1.6-3B-Pick-Orange`](https://huggingface.co/hi-space/GR00T-N1.6-3B-Pick-Orange)             | GR00T N1.6（3B，flow-matching action head）         | `run_gr00t_server.py`         | 5555 | ✅ **3/3 实测成功 / pass** |
+| §2    | [`LightwheelAI/leisaac-pick-orange-v0`](https://huggingface.co/LightwheelAI/leisaac-pick-orange-v0)           | GR00T N1.5（3B，DiT diffusion action head）         | `inference_service.py`        | 5555 | ✅ **3/3 实测成功 / pass，~30s 完成** |
+| §3    | [`shadowHokage/act_policy`](https://huggingface.co/shadowHokage/act_policy)                                   | ACT（~80M，纯 vision + state → action chunk）      | LeRobot async `policy_server` | 8080 | ✅ **1/1 实测成功 / pass** |
+| §3    | [`edge-inference/smolvla-so101-pick-orange`](https://huggingface.co/edge-inference/smolvla-so101-pick-orange) | SmolVLA（~450M，SmolVLM2 backbone + Action Expert） | LeRobot async `policy_server` | 8080 | ⚠️ 2/5 单颗即翻车 / fails on 1st orange |
+| §3    | [`wsagi/DiffusionPolicy-PickOrange`](https://huggingface.co/wsagi/DiffusionPolicy-PickOrange) **（自训 / ours）** | Diffusion Policy（~267M，ResNet18 vision + UNet 1D + DDIM swap） | LeRobot async `policy_server` | 8080 | ⚠️ 1-2/3，DDIM32 hot-swap 后可控；第三颗 OOD / fails on 3rd |
+| §4    | [`hi-space/GR00T-N1.7-3B-Pick-Orange`](https://huggingface.co/hi-space/GR00T-N1.7-3B-Pick-Orange)             | GR00T N1.7（3B）                                    | `run_gr00t_server.py` (N1.7)  | 5555 | ⛔ 推理 infra 未搭 / not wired   |
 
-GR00T 系列三条共用 ZMQ :5555，任一时刻只能跑一个；§3 LeRobot async server 在独立的 :8080，可与 GR00T 共存。
+GR00T 系列三条共用 ZMQ :5555，任一时刻只能跑一个；§3 LeRobot async server 在独立的 :8080（ACT / SmolVLA / DP 复用同一 server，按 ckpt 切换），可与 GR00T 共存。
+_GR00T variants share ZMQ :5555 (one-at-a-time); LeRobot async server on :8080 hosts ACT / SmolVLA / DP via runtime ckpt switching and coexists with GR00T._
+
+### 实测结论 — 共同 OOD bottleneck
+_Test results — shared OOD bottleneck_
+
+三个独立架构（**ACT 回归 / SmolVLA VLM / DP 扩散**）在 60-episode `leisaac-pick-orange` 数据集上都卡在 **第三颗橙子 / late second**：每集只有 1 次"放最后一颗"演示，三个模型共同 OOD。**不是单一模型问题**，是数据分布问题。
+_Three independent architectures (ACT regression / SmolVLA VLM / DP diffusion) all stall on the **3rd orange / late 2nd** when fine-tuned on the 60-episode `leisaac-pick-orange` dataset — a shared OOD bottleneck driven by only one "place last orange" demo per episode, not a per-model failure._
+
+- **DP 推理速度根因 / DP latency root cause**：DDPM 100-step 串行采样（不是模型大）。无重训直接 `noise_scheduler_type: DDPM → DDIM` + `num_inference_steps: 32` hot-swap，inference 393ms → 147ms，slowdown 2.96x → 1.1x，4090 上跑得动。
+  _DP slowness ≠ model size, but DDPM 100-step serial sampling. Hot-swap ckpt config `DDPM → DDIM` (32 steps) without retraining: 393→147 ms/chunk, 2.96x→1.1x slowdown, real-time on RTX 4090._
+- **Eval timeout 哲学 / Timeout philosophy**：`user_patience_cap = startup + n_rounds × 90s`（GR00T baseline 30s × 3 容差），不按推理速度放水。慢模型 = 不适合实时部署，让它失败就好。
+  _Use a user-patience cap (`startup + n_rounds × 90s`), not an inference-stretched budget. Slow models should fail-fast as a deployability signal, not be accommodated._
+- **设计文档 / Design docs**（in our LeIsaac fork [vitorcen/LeIsaac](https://github.com/vitorcen/LeIsaac)）：
+  - [`docs/training/dp_inference_speedup_and_dynamic_timeout.html`](https://github.com/vitorcen/LeIsaac/blob/main/docs/training/dp_inference_speedup_and_dynamic_timeout.html) — DDIM swap + 动态 timeout 完整 postmortem（含 SVG 拟合曲线）
+  - [`docs/training/act_eval_debug_postmortem.html`](https://github.com/vitorcen/LeIsaac/blob/main/docs/training/act_eval_debug_postmortem.html) — ACT eval 三个 sim-side 根因 (sim_warmup / step_hz / action_horizon)
+
+### 自训配方与脚本
+_Our training recipes and scripts — see [vitorcen/LeIsaac](https://github.com/vitorcen/LeIsaac) fork_
+
+| 模型 / Model | 训练入口 / Launcher (in fork)                              | 关键配方 / Recipe                                            |
+| ------------ | ---------------------------------------------------------- | ------------------------------------------------------------ |
+| ACT          | `scripts/training/act/train.sh`                            | chunk_size=100, batch=8, lr=1e-5, 10k steps, no augmentation |
+| DP           | `scripts/training/diffusion_policy/train.sh`               | UNet 1D + ResNet18 vision，**train-from-scratch**，DDIM 32-step inference |
+| SmolVLA      | `scripts/finetune/smolvla/prepare_base.sh` → `scripts/finetune/lerobot_finetune.sh` | finetune SmolVLM2 backbone，60 ep 不够拟合 / underfit         |
+| π0.5         | `scripts/finetune/openpi/pytorch/train.sh`                 | LoRA on Gemma-2B 主干，cumulative 5000 + phased sampler 续训 |
+
+> 训练目录按语义分：`scripts/finetune/` = 有 pretrained base（fine-tune），`scripts/training/` = 从头训练（train-from-scratch）。
+> _Convention: `scripts/finetune/` = fine-tune from a pretrained base; `scripts/training/` = train-from-scratch._
 
 ### 推理基础设施
+_Inference infrastructure_
 
 - **HF 默认 cache**：所有 ckpt 落 `~/.cache/huggingface/hub/`，`AutoModel.from_pretrained("repo_id")` 直接命中
 - **统一 server 管理**：`scripts/policy_server.sh start|stop {gr00t-n15|gr00t-n16|lerobot} [MODEL_PATH]`

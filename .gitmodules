@@ -4,9 +4,9 @@
 [submodule "IsaacSim"]
 	path = IsaacSim
 	url = https://github.com/isaac-sim/IsaacSim.git
-[submodule "LeIsaac"]
-	path = LeIsaac
-	url = https://github.com/LightwheelAI/leisaac.git
 [submodule "lerobot"]
 	path = lerobot
 	url = https://github.com/huggingface/lerobot.git
+[submodule "LeIsaac"]
+	path = LeIsaac
+	url = git@github.com:vitorcen/LeIsaac.git
