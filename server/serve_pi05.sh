@@ -25,8 +25,8 @@ CONDA_ENV="${CONDA_ENV:-lerobot}"
 PORT="${PORT:-5556}"
 BIND_HOST="${BIND_HOST:-127.0.0.1}"
 DTYPE="${DTYPE:-bfloat16}"
-LORA_NPZ="${LORA_NPZ:-${HOME}/work/LeIsaac/outputs/pi05-leisaac-pt-v3/final_lora.npz}"
-DATASET_ROOT="${DATASET_ROOT:-${HOME}/work/LeIsaac/datasets/raw/leisaac-pick-orange}"
+LORA_NPZ="${LORA_NPZ:-${HOME}/work/isaaclab-experience/LeIsaac/outputs/pi05-leisaac-pt-v3/final_lora.npz}"
+DATASET_ROOT="${DATASET_ROOT:-${HOME}/work/isaaclab-experience/LeIsaac/datasets/raw/leisaac-pick-orange}"
 LEROBOT_SRC="${LEROBOT_SRC:-${HOME}/work/lerobot-experience/lerobot/src}"
 DETACH=0
 

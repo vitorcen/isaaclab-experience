@@ -1,0 +1,19 @@
+# 7-baseline benchmark inventory.
+# Tab-separated. Columns:
+#   slug                policy_type       horizon   ckpt                                                                              server_kind  display_label
+#
+# server_kind: lerobot | gr00t-n15 | gr00t-n16
+#
+# 防呆: ACT horizon 必须 per-ckpt 实测，不能照 chunk_size/3 套公式。
+#   - wsagi/ACT-PickOrange (ours, our recipe): horizon=32 work, horizon=16 卡死第 2 颗
+#   - shadowHokage/act_policy             : horizon=16 work (3/0/1 sweep), horizon=32 = 0/3 卡死
+# 同 chunk_size=100 但 training distribution 决定 receding window 最优值。
+#
+act-self	lerobot-act	32	wsagi/ACT-PickOrange	lerobot	ACT (self) — wsagi/ACT-PickOrange
+act-other	lerobot-act	16	shadowHokage/act_policy	lerobot	ACT (other) — shadowHokage/act_policy (h=16)
+dp-self	lerobot-diffusion	16	wsagi/DiffusionPolicy-PickOrange	lerobot	DP (self) — wsagi/DiffusionPolicy-PickOrange
+smolvla-self	lerobot-smolvla	50	/home/david/work/isaaclab-experience/LeIsaac/outputs/smolvla2-leisaac-pick-orange/checkpoints/last/pretrained_model	lerobot	SmolVLA (self) — wsagi/SmolVLA-PickOrange
+smolvla-other	lerobot-smolvla	50	edge-inference/smolvla-so101-pick-orange	lerobot	SmolVLA (other) — edge-inference
+gr00t-n15	gr00tn1.5	16	LightwheelAI/leisaac-pick-orange-v0	gr00t-n15	GR00T N1.5 — LightwheelAI/leisaac-pick-orange-v0
+gr00t-n16	gr00tn1.6	16	hi-space/GR00T-N1.6-3B-Pick-Orange	gr00t-n16	GR00T N1.6 — hi-space/GR00T-N1.6-3B-Pick-Orange
+pi05-self	pi05	35	/home/david/work/isaaclab-experience/LeIsaac/outputs/pi05-leisaac-pt-v3/final_lora.npz	pi05	π0.5 (self) — pt-v3 final_lora.npz (3.36B base + 5M LoRA)

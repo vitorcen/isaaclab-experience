@@ -18,21 +18,43 @@ _Compare open-source VLA policies on the same SO-101 PickOrange task via remote 
 - **观测 / Observation**：双相机（front + wrist，480×640 RGB）+ 关节状态 / dual-cam RGB + joint state
 - **入口 / Entry point**：📓 [LeIsaac.ipynb](./LeIsaac.ipynb)（每个子章节都是「下载 → 启 server → 跑推理」一键 cell）
 
-### 已接入的 VLA 模型
+### Benchmark — 7 baselines × 3 rounds × 3 oranges
 
-_Integrated VLA models_
+_3 rounds × 3 oranges = 9 oranges total. Detail table in [`LeIsaac/README.md`](./LeIsaac/README.md#2-pickorange-多策略横评)._
 
-| 子章节 | 模型 ckpt                                                                                                              | 类型                                                             | server                          | port | 状态 / Result                                                 |
-| ------ | ---------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- | ------------------------------- | ---- | ------------------------------------------------------------- |
-| §1    | [`hi-space/GR00T-N1.6-3B-Pick-Orange`](https://huggingface.co/hi-space/GR00T-N1.6-3B-Pick-Orange)                       | GR00T N1.6（3B，flow-matching action head）                      | `run_gr00t_server.py`         | 5555 | ✅**3/3 实测成功 / pass**                               |
-| §2    | [`LightwheelAI/leisaac-pick-orange-v0`](https://huggingface.co/LightwheelAI/leisaac-pick-orange-v0)                     | GR00T N1.5（3B，DiT diffusion action head）                      | `inference_service.py`        | 5555 | ✅**3/3 实测成功 / pass，~30s 完成**                    |
-| §3    | [`shadowHokage/act_policy`](https://huggingface.co/shadowHokage/act_policy)                                             | ACT（~80M，纯 vision + state → action chunk）                   | LeRobot async `policy_server` | 8080 | 1/1 实测成功 / pass                                 |
-| §3    | [`edge-inference/smolvla-so101-pick-orange`](https://huggingface.co/edge-inference/smolvla-so101-pick-orange)           | SmolVLA（~450M，SmolVLM2 backbone + Action Expert）              | LeRobot async `policy_server` | 8080 | 2/5 单颗即翻车 / fails on 1st orange                          |
-| §3    | [`wsagi/DiffusionPolicy-PickOrange`](https://huggingface.co/wsagi/DiffusionPolicy-PickOrange) **（自训 / ours）** | Diffusion Policy（~267M，ResNet18 vision + UNet 1D + DDIM swap） | LeRobot async `policy_server` | 8080 | ⚠️ 1-2/3，DDIM32 hot-swap 后可控；第三颗 OOD / fails on 3rd |
-| §4    | [`hi-space/GR00T-N1.7-3B-Pick-Orange`](https://huggingface.co/hi-space/GR00T-N1.7-3B-Pick-Orange)                       | GR00T N1.7（3B）                                                 | `run_gr00t_server.py` (N1.7)  | 5555 | ⛔ 推理 infra 未搭 / not wired                                |
+| Model | Params | Strict ✅ | 🍊 (n/9) | Avg round | Peak VRAM |
+| --- | --- | --- | --- | --- | --- |
+| **[`hi-space/GR00T-N1.6-3B-Pick-Orange`](https://huggingface.co/hi-space/GR00T-N1.6-3B-Pick-Orange)** 🥇 (step_hz=60) | ~3B | **2/3** | **6/9** | 96s | 17.3 GB |
+| [`wsagi/SmolVLA-PickOrange`](https://huggingface.co/wsagi/SmolVLA-PickOrange) **(自训 / ours)** 🥈 | ~450M | 1/3 | 5/9 | 355s | 10.0 GB |
+| [`LightwheelAI/leisaac-pick-orange-v0`](https://huggingface.co/LightwheelAI/leisaac-pick-orange-v0) 🥉 (step_hz=60) | ~3B | 0/3 | 4/9 | 105s | 16.2 GB |
+| [`wsagi/DiffusionPolicy-PickOrange`](https://huggingface.co/wsagi/DiffusionPolicy-PickOrange) **(自训 / ours)** | ~267M | 0/3 | 2/9 | 108s | 10.6 GB |
+| [`wsagi/ACT-PickOrange`](https://huggingface.co/wsagi/ACT-PickOrange) **(自训 / ours)** | ~80M | 0/3 | 2/9 | 130s | 10.4 GB |
+| [`shadowHokage/act_policy`](https://huggingface.co/shadowHokage/act_policy) (h=16) | ~80M | 0/3 | 1/9 | 127s | 8.6 GB |
+| [`edge-inference/smolvla-so101-pick-orange`](https://huggingface.co/edge-inference/smolvla-so101-pick-orange) | ~450M | 0/3 | 0/9 | 168s | 10.2 GB |
+| π0.5 (自训 / ours, pt-v3 final_lora.npz) | 3.36B + 5M LoRA | 0/3 | 0/9 | 180s | 18.7 GB |
 
-GR00T 系列三条共用 ZMQ :5555，任一时刻只能跑一个；§3 LeRobot async server 在独立的 :8080（ACT / SmolVLA / DP 复用同一 server，按 ckpt 切换），可与 GR00T 共存。
-_GR00T variants share ZMQ :5555 (one-at-a-time); LeRobot async server on :8080 hosts ACT / SmolVLA / DP via runtime ckpt switching and coexists with GR00T._
+_Sort: Rounds DESC → oranges DESC → time ASC._
+
+**Strict ✅** = all 3 oranges sticky-caught (放下瞬间 EE-near + gripper-open + xy-in-plate)；**🍊** = sticky 累计部分功劳。完整 round-by-round detail + GPU 时序曲线 + history snapshots 见 [`LeIsaac/README.md`](./LeIsaac/README.md#2-pickorange-多策略横评) 与 [`results/benchmark/snapshots/`](./results/benchmark/snapshots/)。
+
+复现：
+```bash
+bash scripts/benchmark/run_all_baselines.sh           # 跑完 7 个 baseline + 1Hz GPU 采样
+python3 scripts/benchmark/aggregate.py results/benchmark \
+    --baselines_tsv scripts/benchmark/baselines.tsv \
+    --out results/benchmark/SUMMARY.md
+```
+
+### Servers / inference infra
+
+| Server | Backend | Port | Hosts |
+| --- | --- | --- | --- |
+| `run_gr00t_server.py` | GR00T N1.6 (flow-matching) | 5555 | hi-space/GR00T-N1.6-3B-Pick-Orange |
+| `inference_service.py` | GR00T N1.5 (DiT diffusion) | 5555 | LightwheelAI/leisaac-pick-orange-v0 |
+| `lerobot.async_inference.policy_server` | LeRobot generic | 8080 | ACT / SmolVLA / DP (runtime ckpt switch via client) |
+
+GR00T 系列共用 :5555 (one-at-a-time)；LeRobot async :8080 与 GR00T 互不干扰。
+_GR00T variants share ZMQ :5555 (one-at-a-time); LeRobot async server on :8080 coexists with GR00T._
 
 ### 实测结论 — 共同 OOD bottleneck
 

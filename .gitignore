@@ -7,6 +7,7 @@ Thumbs.db
 .vscode/
 .idea/
 *.egg-info/
+.claude/
 
 # Python
 __pycache__/
@@ -37,6 +38,7 @@ videos/
 *.tmp
 *.bak
 .cache/
+results/
 
 # Local helper files
 AGENTS.md
