@@ -99,6 +99,41 @@ _Inference infrastructure_
 
 ---
 
+## ✨ BEHAVIOR-1K 场景与机器人 Zoo
+
+_BEHAVIOR-1K scene & robot gallery — one-click demo notebook_
+
+![BEHAVIOR-1K 机器人在 Rs_int 客厅](doc/images/behavior-1k-robot-control.jpg)
+
+斯坦福 BEHAVIOR-1K + OmniGibson 在 Isaac Sim 5.1 上的「一键启动」演示集。截图：双臂机器人放在 **Rs_int Full load** 客厅里（沙发 / 茶几 / 早餐桌 / 椅子 / 书柜 / 盆栽 …），右侧 Stage 列出本场景里的所有 USD 对象（`bookcase_njwsoa_0`、`breakfast_table_skczft_0`、`coffee_table_fqluyq_0` … —— B-1K 标准物体命名）。
+
+**亮点**：
+
+- **1018 个 BDDL 任务定义**：从 `boil_water` 到 `putting_dishes_away_after_cleaning`，每个都有符号化的 pre/post-condition，env 自动算 reward/done
+- **完整可交互场景**：50+ 整套住宅 / 商业空间（Rs_int、Beechwood、grocery_store_cafe …），所有家具/物体可抓可移
+- **14 款内置机器人**：Franka / UR5e / Kinova / vx300s / A1(PiPER) 机械臂、R1/R1Pro 双臂人形、Tiago/Stretch/Fetch 移动操作、Husky/TurtleBot/LoCoBot/Freight 移动底盘
+- **语义状态系统**：物体不只有几何/物理，还有 `sliced` / `cooked` / `wet` / `on-fire` / `folded` …，靠 transition rules 在仿真中切换
+- **GPU 粒子**：水流 / 喷雾 / 灰尘 / 火焰 真实流体
+
+**一键 demo gallery**：📓 [BEHAVIOR-1K.ipynb](./BEHAVIOR-1K.ipynb)
+
+按分类组织（每个 cell 一行 `!python scripts/b1k_demo.py launch <name>`）：
+- `0. Setup` — 数据集下载/初始化（30 GB，幂等）
+- `1. 场景浏览` — Rs_int / Beechwood_0_int / house_single_floor / grocery_store_cafe
+- `2. 机器人操作 demo` — Fetch grasping + 控制器演示
+- `3. Robot Zoo` — 14 款机器人按 机械臂 / 人形 / 移动操作 / 移动底盘 分组
+- `4. 语义对象状态` — slicing / fire / heating / water particles / cloth fold / attachment
+- `5. 物体可视化` / `6. 环境导航` / `7. 训练数据 (Challenge demos)`
+
+**前置**：
+- `behavior` conda env（含 `isaacsim[all,extscache]==5.1.0` + 改装到 `torch 2.6.0+cu124`）
+- NVIDIA driver **≥ 580**（驱动 550 + 内核 6.17 会因模块缺失起不来；595 与 Isaac Sim 5.1 的 RTX 渲染器有 segfault；**580 是当前最稳的版本**）
+- 30 GB 磁盘给 `BEHAVIOR-1K/datasets/behavior-1k-assets/`
+
+底层脚本：[`scripts/b1k_demo.py`](./scripts/b1k_demo.py)（注册表 + CLI）、[`scripts/launch_b1k_scene.py`](./scripts/launch_b1k_scene.py)（场景）、[`scripts/launch_robot.py`](./scripts/launch_robot.py)（机器人 zoo）、[`scripts/launch_demo.py`](./scripts/launch_demo.py)（通用 OG example wrapper，patch `input()` 跳过交互菜单）。
+
+---
+
 ## 快速体验（无需训练）
 
 无需训练，直接运行预训练策略观察机器人行为。

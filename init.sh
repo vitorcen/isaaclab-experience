@@ -120,6 +120,8 @@ check_nvidia_driver() {
 init_submodule() {
     log_info "初始化 Git Submodule..."
 
+    git submodule sync --recursive
+
     # 只初始化顶层 submodule，避免递归拉取 LeIsaac/dependencies/IsaacLab 造成重复克隆
     git submodule update --init
     log_info "Submodule 初始化完成"
