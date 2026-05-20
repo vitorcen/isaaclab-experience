@@ -18,6 +18,9 @@ POLICY_TIMEOUT_MS="${POLICY_TIMEOUT_MS:-10000}"
 ACTION_HORIZON="${ACTION_HORIZON:-50}"
 EVAL_ROUNDS="${EVAL_ROUNDS:-3}"
 EPISODE_LENGTH="${EPISODE_LENGTH:-60}"
+# Hard wall-clock cap per round (seconds). Starts after Isaac Sim load + warmup.
+# 0 = disabled (sim-time only via episode_length_s).
+MAX_ROUND_WALL_S="${MAX_ROUND_WALL_S:-0}"
 PROMPT="${PROMPT:-Pick up the orange and place it on the plate}"
 CONDA_ENV="${CONDA_ENV:-isaaclab}"
 LEISAAC_DIR="${LEISAAC_DIR:-${REPO_ROOT}/LeIsaac}"
@@ -43,4 +46,5 @@ conda run -n "${CONDA_ENV}" --no-capture-output \
         --policy_timeout_ms="${POLICY_TIMEOUT_MS}" \
         --policy_action_horizon="${ACTION_HORIZON}" \
         --policy_language_instruction="${PROMPT}" \
+        --max_round_wall_s="${MAX_ROUND_WALL_S}" \
         --device=cuda --enable_cameras 2>&1 | tee "${LOG_FILE}"

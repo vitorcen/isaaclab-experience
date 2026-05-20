@@ -1,20 +1,27 @@
 #!/usr/bin/env bash
-# Start the OpenVLA-7B 4-bit demo ZMQ inference server.
+# Start the OpenVLA-7B 4-bit ZMQ inference server.
 #
-# Wire-compatible with LeIsaac Pi05ServicePolicyClient (ZMQ REQ/REP + msgpack
-# __ndarray__). See server/openvla_leisaac/README.md for the action-space hack.
+# Two modes:
+#   - Demo (no ADAPTER):    base openvla/openvla-7b with bridge_orig stats + Δ→joint hack.
+#   - Finetuned (ADAPTER):  loads our LoRA on top, uses leisaac stats + canonical prompt
+#                           from <ADAPTER>/dataset_statistics.json (falls back to
+#                           <ADAPTER>/../dataset_statistics.json for ckpt-N layouts).
+#
+# Wire-compatible with LeIsaac Pi05ServicePolicyClient (ZMQ REQ/REP + msgpack __ndarray__).
 #
 # Usage:
 #   bash server/serve_openvla.sh [--detach] [extra args forwarded to server]
+#   ADAPTER=/path/to/checkpoint-N bash server/serve_openvla.sh --detach
 #
 # Knobs (env vars):
 #   CONDA_ENV          conda env w/ openvla deps      (default: openvla)
 #   PORT               listen port                    (default: 5557)
 #   BIND_HOST          listen host                    (default: 127.0.0.1)
-#   MODEL_NAME         HF repo id                     (default: openvla/openvla-7b)
-#   UNNORM_KEY         action unnormalization stats   (default: bridge_orig)
-#   PROMPT             fallback prompt                (default: "Pick up the orange...")
-#   ARM_DELTA_SCALE    EEF→joint Δ safety factor      (default: 0.05)
+#   MODEL_NAME         HF base repo id                (default: openvla/openvla-7b)
+#   ADAPTER            LoRA adapter dir               (default: empty → demo mode)
+#   UNNORM_KEY         override unnorm_key            (default: leisaac if ADAPTER else bridge_orig)
+#   PROMPT             override fallback prompt       (default: canonical from stats file / demo string)
+#   ARM_DELTA_SCALE    demo-only EEF→joint Δ scale    (default: 0.05)
 
 set -euo pipefail
 
@@ -23,9 +30,11 @@ CONDA_ENV="${CONDA_ENV:-openvla}"
 PORT="${PORT:-5557}"
 BIND_HOST="${BIND_HOST:-127.0.0.1}"
 MODEL_NAME="${MODEL_NAME:-openvla/openvla-7b}"
-UNNORM_KEY="${UNNORM_KEY:-bridge_orig}"
-PROMPT="${PROMPT:-Pick up the orange and place it on the plate}"
+ADAPTER="${ADAPTER:-}"
+UNNORM_KEY="${UNNORM_KEY:-}"     # empty → server picks leisaac/bridge_orig based on ADAPTER
+PROMPT="${PROMPT:-}"             # empty → server reads canonical_prompt from stats
 ARM_DELTA_SCALE="${ARM_DELTA_SCALE:-0.05}"
+QUANT="${QUANT:-8bit}"           # 4bit | 8bit | bf16 — must match training
 DETACH=0
 
 EXTRA=()
@@ -51,11 +60,13 @@ CMD=(
     python -u -m openvla_leisaac.server
     --host "${BIND_HOST}" --port "${PORT}"
     --model-name "${MODEL_NAME}"
-    --unnorm-key "${UNNORM_KEY}"
-    --prompt "${PROMPT}"
     --arm-delta-scale "${ARM_DELTA_SCALE}"
-    "${EXTRA[@]}"
+    --quant "${QUANT}"
 )
+[[ -n "${ADAPTER}"    ]] && CMD+=( --adapter   "${ADAPTER}"    )
+[[ -n "${UNNORM_KEY}" ]] && CMD+=( --unnorm-key "${UNNORM_KEY}" )
+[[ -n "${PROMPT}"     ]] && CMD+=( --prompt    "${PROMPT}"     )
+CMD+=( "${EXTRA[@]}" )
 
 echo "[openvla] launching server: ${CMD[*]}"
 echo "[openvla] log: ${LOG_FILE}"
