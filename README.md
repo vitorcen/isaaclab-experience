@@ -24,9 +24,10 @@ _3 rounds × 3 oranges = 9 oranges total. Detail table in [`LeIsaac/README.md`](
 
 | Model | Params | Strict ✅ | 🍊 (n/9) | Avg round | Peak VRAM |
 | --- | --- | --- | --- | --- | --- |
-| **[`hi-space/GR00T-N1.6-3B-Pick-Orange`](https://huggingface.co/hi-space/GR00T-N1.6-3B-Pick-Orange)** 🥇 (step_hz=60) | ~3B | **2/3** | **6/9** | 96s | 17.3 GB |
-| [`wsagi/SmolVLA-PickOrange`](https://huggingface.co/wsagi/SmolVLA-PickOrange) **(自训 / ours)** 🥈 | ~450M | 1/3 | 5/9 | 355s | 10.0 GB |
-| [`LightwheelAI/leisaac-pick-orange-v0`](https://huggingface.co/LightwheelAI/leisaac-pick-orange-v0) 🥉 (step_hz=60) | ~3B | 0/3 | 4/9 | 105s | 16.2 GB |
+| **[`wsagi/GR00T-N1.6-PickOrange`](https://huggingface.co/wsagi/GR00T-N1.6-PickOrange) (自训 / ours, ckpt-6500, step_hz=60)** 🥇🆕 | ~3B | **2/3** | **8/9** | 115s | ~22 GB (train) / 17.3 GB (infer) |
+| **[`hi-space/GR00T-N1.6-3B-Pick-Orange`](https://huggingface.co/hi-space/GR00T-N1.6-3B-Pick-Orange)** 🥈 (step_hz=60) | ~3B | **2/3** | **6/9** | 96s | 17.3 GB |
+| [`wsagi/SmolVLA-PickOrange`](https://huggingface.co/wsagi/SmolVLA-PickOrange) **(自训 / ours)** 🥉 | ~450M | 1/3 | 5/9 | 355s | 10.0 GB |
+| [`LightwheelAI/leisaac-pick-orange-v0`](https://huggingface.co/LightwheelAI/leisaac-pick-orange-v0) (step_hz=60) | ~3B | 0/3 | 4/9 | 105s | 16.2 GB |
 | [`wsagi/X-VLA-PickOrange`](https://huggingface.co/wsagi/X-VLA-PickOrange) **(自训 / ours)** | 0.9B | 0/3 | 4/9 | 180s | ~5 GB |
 | [`wsagi/DiffusionPolicy-PickOrange`](https://huggingface.co/wsagi/DiffusionPolicy-PickOrange) **(自训 / ours)** | ~267M | 0/3 | 2/9 | 108s | 10.6 GB |
 | [`wsagi/ACT-PickOrange`](https://huggingface.co/wsagi/ACT-PickOrange) **(自训 / ours)** | ~80M | 0/3 | 2/9 | 130s | 10.4 GB |
