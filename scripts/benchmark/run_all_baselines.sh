@@ -42,7 +42,7 @@ echo "[bench-all] inventory: $TSV"
 echo "[bench-all] results:   $RESULTS_DIR"
 echo "[bench-all] rounds=${EVAL_ROUNDS:-3} ep_len=${EPISODE_LENGTH_S:-120}s step_hz=${STEP_HZ:-30}"
 
-while IFS=$'\t' read -r slug ptype horizon ckpt server_kind label; do
+while IFS=$'\t' read -r slug ptype horizon ckpt server_kind label extra_env; do
     # skip blank / comment lines
     [[ -z "$slug" ]] && continue
     [[ "$slug" == \#* ]] && continue
@@ -53,8 +53,10 @@ while IFS=$'\t' read -r slug ptype horizon ckpt server_kind label; do
     fi
     echo
     echo "[bench-all] >>> $slug ($label)"
+    [[ -n "${extra_env:-}" ]] && echo "[bench-all]     extra_env: ${extra_env}"
     set +e
-    bash "$ROOT_DIR/scripts/benchmark/run_one.sh" \
+    # Per-row extra_env (col 7) → exported KEY=VAL for run_one.sh
+    env ${extra_env:-} bash "$ROOT_DIR/scripts/benchmark/run_one.sh" \
         "$slug" "$ptype" "$horizon" "$ckpt" "$server_kind" "$label"
     rc=$?
     set -e

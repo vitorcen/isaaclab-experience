@@ -42,8 +42,19 @@ EPISODE_LENGTH_S="${EPISODE_LENGTH_S:-120}"
 STEP_HZ="${STEP_HZ:-30}"
 MAX_ROUND_WALL_S="${MAX_ROUND_WALL_S:-180}"
 SIM_WARMUP_STEPS="${SIM_WARMUP_STEPS:-30}"
-STUCK_WINDOW_S="${STUCK_WINDOW_S:-30}"
-STUCK_EPS_RAD="${STUCK_EPS_RAD:-0.05}"
+# ACT/DP can pause/re-plan within a chunk; stuck detector tends to false-trip
+# and skip otherwise-recoverable episodes (saw 60k eval ep2 cut at 44.9s).
+# Episode_length_s is the natural cap. Override per-call if needed.
+case "${POLICY_TYPE}" in
+    lerobot-act|lerobot-diffusion)
+        STUCK_WINDOW_S="${STUCK_WINDOW_S:-99999}"
+        STUCK_EPS_RAD="${STUCK_EPS_RAD:-0}"
+        ;;
+    *)
+        STUCK_WINDOW_S="${STUCK_WINDOW_S:-30}"
+        STUCK_EPS_RAD="${STUCK_EPS_RAD:-0.05}"
+        ;;
+esac
 CONDA_ENV="${CONDA_ENV:-isaaclab}"
 LEROBOT_HOST="${LEROBOT_HOST:-127.0.0.1}"
 LEROBOT_PORT="${LEROBOT_PORT:-8080}"

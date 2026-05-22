@@ -18,28 +18,50 @@ _Compare open-source VLA policies on the same SO-101 PickOrange task via remote 
 - **观测 / Observation**：双相机（front + wrist，480×640 RGB）+ 关节状态 / dual-cam RGB + joint state
 - **入口 / Entry point**：📓 [LeIsaac.ipynb](./LeIsaac.ipynb)（每个子章节都是「下载 → 启 server → 跑推理」一键 cell）
 
-### Benchmark — 7 baselines × 3 rounds × 3 oranges
+### Benchmark — 10 baselines × 5 rounds × 3 oranges
 
-_3 rounds × 3 oranges = 9 oranges total. Detail table in [`LeIsaac/README.md`](./LeIsaac/README.md#2-pickorange-多策略横评)._
+_5 rounds × 3 oranges = **15 oranges total**. Detail in [`LeIsaac/README.md`](./LeIsaac/README.md#2-pickorange-多策略横评). Methodology in [`scripts/benchmark/README.html`](./scripts/benchmark/README.html)._
 
-| Model | Params | Strict ✅ | 🍊 (n/9) | Avg round | Peak VRAM |
-| --- | --- | --- | --- | --- | --- |
-| **[`wsagi/GR00T-N1.6-PickOrange`](https://huggingface.co/wsagi/GR00T-N1.6-PickOrange) (自训 / ours, ckpt-6500, step_hz=60)** 🥇🆕 | ~3B | **2/3** | **8/9** | 115s | ~22 GB (train) / 17.3 GB (infer) |
-| **[`hi-space/GR00T-N1.6-3B-Pick-Orange`](https://huggingface.co/hi-space/GR00T-N1.6-3B-Pick-Orange)** 🥈 (step_hz=60) | ~3B | **2/3** | **6/9** | 96s | 17.3 GB |
-| [`wsagi/SmolVLA-PickOrange`](https://huggingface.co/wsagi/SmolVLA-PickOrange) **(自训 / ours)** 🥉 | ~450M | 1/3 | 5/9 | 355s | 10.0 GB |
-| [`LightwheelAI/leisaac-pick-orange-v0`](https://huggingface.co/LightwheelAI/leisaac-pick-orange-v0) (step_hz=60) | ~3B | 0/3 | 4/9 | 105s | 16.2 GB |
-| [`wsagi/X-VLA-PickOrange`](https://huggingface.co/wsagi/X-VLA-PickOrange) **(自训 / ours)** | 0.9B | 0/3 | 4/9 | 180s | ~5 GB |
-| [`wsagi/DiffusionPolicy-PickOrange`](https://huggingface.co/wsagi/DiffusionPolicy-PickOrange) **(自训 / ours)** | ~267M | 0/3 | 2/9 | 108s | 10.6 GB |
-| [`wsagi/ACT-PickOrange`](https://huggingface.co/wsagi/ACT-PickOrange) **(自训 / ours)** | ~80M | 0/3 | 2/9 | 130s | 10.4 GB |
-| [`shadowHokage/act_policy`](https://huggingface.co/shadowHokage/act_policy) (h=16) | ~80M | 0/3 | 1/9 | 127s | 8.6 GB |
-| [`edge-inference/smolvla-so101-pick-orange`](https://huggingface.co/edge-inference/smolvla-so101-pick-orange) | ~450M | 0/3 | 0/9 | 168s | 10.2 GB |
-| π0.5 (自训 / ours, pt-v3 final_lora.npz) | 3.36B + 5M LoRA | 0/3 | 0/9 | 180s | 18.7 GB |
+| Model                                                                                                                              | Params          | Strict ✅     | 🍊 (n/15)       | Avg round     | Peak VRAM                        |
+| ---------------------------------------------------------------------------------------------------------------------------------- | --------------- | ------------- | --------------- | ------------- | -------------------------------- |
+| **[`hi-space/GR00T-N1.7-3B-Pick-Orange`](https://huggingface.co/hi-space/GR00T-N1.7-3B-Pick-Orange)** 🥇🆕 (h=40, step_hz=60) | ~3B             | **4/5** | **14/15** | **69s** | 17.3 GB                          |
+| [`wsagi/GR00T-N1.6-PickOrange`](https://huggingface.co/wsagi/GR00T-N1.6-PickOrange) (自训 / ours, ckpt-6500, h=40) 🥈               | ~3B             | **4/5** | **13/15** | 92s           | ~22 GB (train) / 17.3 GB (infer) |
+| [`hi-space/GR00T-N1.6-3B-Pick-Orange`](https://huggingface.co/hi-space/GR00T-N1.6-3B-Pick-Orange) (h=40, step_hz=60) 🥉             | ~3B             | 2/5           | 9/15            | 122s          | 17.3 GB                          |
+| [`wsagi/SmolVLA-PickOrange`](https://huggingface.co/wsagi/SmolVLA-PickOrange) **(自训 / ours, main=15k, sweep best)**         | ~450M           | 2/5           | 8/15            | 133s          | 10.0 GB                          |
+| [`edge-inference/smolvla-so101-pick-orange`](https://huggingface.co/edge-inference/smolvla-so101-pick-orange)                       | ~450M           | 1/5           | 6/15            | 135s          | 10.2 GB                          |
+| **[`wsagi/ACT-PickOrange`](https://huggingface.co/wsagi/ACT-PickOrange) (自训 / ours, lerobot v0.4.0 ckpt-18k, h=70)**        | ~52M            | **1/5** | **5/15**  | 154s          | 8.6 GB                           |
+| [`LightwheelAI/leisaac-pick-orange-v0`](https://huggingface.co/LightwheelAI/leisaac-pick-orange-v0) (N1.5, h=16, step_hz=60)        | ~3B             | 0/5           | 8/15            | 140s          | 16.2 GB                          |
+| [`shadowHokage/act_policy`](https://huggingface.co/shadowHokage/act_policy) (others, h=70)                                          | ~52M            | 0/5           | 4/15            | 169s          | 8.6 GB                           |
+| [`wsagi/X-VLA-PickOrange`](https://huggingface.co/wsagi/X-VLA-PickOrange) **(自训 / ours, weakaug 17k, h=32, no-stuck)**      | 0.9B            | 0/5           | 3/15            | 180s          | ~5 GB                            |
+| [`wsagi/DiffusionPolicy-PickOrange`](https://huggingface.co/wsagi/DiffusionPolicy-PickOrange) **(自训 / ours, v0.5)**         | ~267M           | 0/5           | 0/15            | 33s\*         | 10.6 GB                          |
+| **DP v0.4 fullres patched (self, ckpt-70k, h={8,12,16})**                                                                   | ~267M           | 0/5           | 0/15            | 183s          | ~13 GB                           |
+| OpenVLA-7B (自训 / ours, ckpt-6300 + 8bit-1000, h=16, no-stuck)                                                                    | 7B + 32 LoRA    | 0/5           | 0/15            | 180s          | ~8 GB                            |
+| π0.5 (自训 / ours, pt-v3 final_lora.npz, h=35)                                                                                    | 3.36B + 5M LoRA | 0/5           | 0/15            | 180s          | ~16 GB                           |
+
+\* DP wsagi v0.5 stuck @ 33s — **真根因不是 policy dead**，是 lerobot async server bug（`predict_action_chunk` 不 populate_queues）→ n_obs_steps=2 stack 空 → server stream crash。fix 后 DP **能产合理 action 但学不到 task**（v0.4 fullres patched ckpt-70k h={8,12,16} 全 0/15），见 framework bug section 下方。
 
 _Sort: Rounds DESC → oranges DESC → time ASC._
 
-**Strict ✅** = all 3 oranges sticky-caught (放下瞬间 EE-near + gripper-open + xy-in-plate)；**🍊** = sticky 累计部分功劳。完整 round-by-round detail + GPU 时序曲线 + history snapshots 见 [`LeIsaac/README.md`](./LeIsaac/README.md#2-pickorange-多策略横评) 与 [`results/benchmark/snapshots/`](./results/benchmark/snapshots/)。
+**Strict ✅** = all 3 oranges in plate at episode end snapshot (post-bug-fix: pre-step obs avoids auto-reset假阴 + dz_max=0.20 stacking-aware + plate_r=0.10 cylindrical + velocity-settled gate)。**🍊** = per-orange snapshot count over rounds×3 attempts。
+
+> **⚠️ Single-run variance caveat**: ACT-class chunk policies 实测 single 5-round variance ±40%。自训 ACT 5 runs @ h=70 strict [3,0,2,1,2] oranges [13,2,8,5,5] — **剔除 lucky 13/15 outlier 后 4-run mean = 1/5 strict, 5/15 oranges**（含 outlier 是 2/5, 7/15）。shadowHokage h=70 single 5-round = 4/15。旧 9/15 anchor 是 sticky-env-success 旧协议下数的，post-bug-fix 严格协议复测 0/5 strict。其余 single 5-round 行 ±5 oranges 噪音。
+>
+> _Self ACT typical = trimmed mean (excluding lucky 13/15 outlier) = 1/5 strict, 5/15 oranges; with outlier included it would be 2/5, 7/15. shadowHokage h=70 = 4/15; legacy 9/15 anchor used a sticky-env-success protocol incompatible with current strict counting._
+
+> **Methodology change (2026-05-21)**: 5-round (15 ep) replaces 3-round (9 ep) for new entries — same model跑 4 次 3-round variance 1/3-3/3 env / 67-89% oranges。Old `pre-fix 3-round` rows kept verbatim until re-eval; expect their oranges to be off by ±30%.
+>
+> **🔍 ACT framework drift 发现 (2026-05-22)**：原 `wsagi/ACT-PickOrange` v0.5.2 ckpt 仅 3/15。锁版本 lerobot **v0.4.0** 重训 20k step + ckpt-18k h=70，5 runs per-run oranges [13,2,8,5,5]，**剔除 lucky 13/15 outlier 后 trimmed mean = 5/15**（含 outlier 是 7/15），pool 含 outlier 33/75 = 44.0% per-orange。shadowHokage h=70 single 5-round = **4/15** (post-bug-fix 严格协议)，旧 9/15 anchor 是 sticky-env-success 旧协议不可复现。Welch t-test (含 outlier) p=0.034 显著优于 shadowHokage 2.20×。旧 v0.5.2 ckpt 保留在分支 `lerobot-v052-ckpt-10k`。
+>
+> _Framework drift fix: relocking lerobot to v0.4.0 + ckpt-18k h=70 — 5 runs oranges [13,2,8,5,5], trimmed mean (excluding lucky 13/15 outlier) = 5/15; with outlier mean = 7/15 and pool 33/75 = 44.0% per-orange. Welch t p=0.034 with outlier (2.20× over shadowHokage h=70 = 4/15). Old v0.5.2 ckpt preserved on branch `lerobot-v052-ckpt-10k`._
+>
+> **🐛 DP "policy dead" 真根因找到 (2026-05-23)**：原 `wsagi/DP` 0/15 stuck @ 33s **不是 policy dead**，是 `lerobot/policies/diffusion/modeling_diffusion.py::predict_action_chunk` **不调 `populate_queues`** → n_obs_steps=2 deque 空 → `torch.stack([], dim=1)` → server stream crash → client 8-retry 拿不到 action → Isaac 机械臂静默不动。**v0.4 和 v0.5 都有这 bug**。一行 patch：`predict_action_chunk` 顶部加 `populate_queues(self._queues, batch)` 即可（select_action 路径正常，仅 async server 用的 predict 路径漏了）。Patched 后 ckpt-70k 5-round h={8,12,16} 全 0/15 但能产合理 action（joint ±0.6 rad）→ **framework bug fix 是 necessary not sufficient**：50 demo 上 DP 本身就学不到稳定 task。完整 patch 在 `/home/david/work/lerobot-v040` editable install；建议向 upstream PR。
+>
+> _DP "policy dead" root cause (2026-05-23): the original 0/15 stuck @ 33s was **not** model failure. lerobot's `predict_action_chunk` (the async-server entry point) does not call `populate_queues`, while `select_action` does — so any policy with `n_obs_steps>1` (DP defaults to 2) triggers `stack expects a non-empty TensorList` on the first inference, crashes the stream, and the arm stops receiving actions. Both v0.4 and v0.5 have this. One-line fix at top of `predict_action_chunk`. After patching, ckpt-70k 5-round h={8,12,16} all 0/15 with valid (joint ±0.6 rad) actions — **the framework bug fix is necessary but not sufficient**; DP itself does not learn a robust task on 50 demos. Patch is live on local `lerobot-v040` editable; should be upstreamed._
+>
+> **❌ Earlier hypothesis (DP framework drift / crop_shape) rejected (2026-05-22)**：曾以为 v0.4 vs v0.5 / `crop_shape=(84,84)` 是 DP 失败原因。v0.4.0 retrain + crop=null fullres 100k step 同样 0/15 — 两个改动都修了但 DP 仍 0/15。真根因是上面 server populate_queues bug + DP 在小 demo 集上学不动，**不是 framework 版本也不是 crop**。两个 fix 加起来是把 DP 从"不动"救到"动但不会"。
 
 复现：
+
 ```bash
 bash scripts/benchmark/run_all_baselines.sh           # 跑完 7 个 baseline + 1Hz GPU 采样
 python3 scripts/benchmark/aggregate.py results/benchmark \
@@ -49,11 +71,11 @@ python3 scripts/benchmark/aggregate.py results/benchmark \
 
 ### Servers / inference infra
 
-| Server | Backend | Port | Hosts |
-| --- | --- | --- | --- |
-| `run_gr00t_server.py` | GR00T N1.6 (flow-matching) | 5555 | hi-space/GR00T-N1.6-3B-Pick-Orange |
-| `inference_service.py` | GR00T N1.5 (DiT diffusion) | 5555 | LightwheelAI/leisaac-pick-orange-v0 |
-| `lerobot.async_inference.policy_server` | LeRobot generic | 8080 | ACT / SmolVLA / DP (runtime ckpt switch via client) |
+| Server                                    | Backend                           | Port | Hosts                                                          |
+| ----------------------------------------- | --------------------------------- | ---- | -------------------------------------------------------------- |
+| `run_gr00t_server.py`                   | GR00T N1.6 / N1.7 (flow-matching) | 5555 | hi-space/GR00T-N1.6 · hi-space/GR00T-N1.7 · wsagi/GR00T-N1.6 |
+| `inference_service.py`                  | GR00T N1.5 (DiT diffusion)        | 5555 | LightwheelAI/leisaac-pick-orange-v0                            |
+| `lerobot.async_inference.policy_server` | LeRobot generic                   | 8080 | ACT / SmolVLA / DP (runtime ckpt switch via client)            |
 
 GR00T 系列共用 :5555 (one-at-a-time)；LeRobot async :8080 与 GR00T 互不干扰。
 _GR00T variants share ZMQ :5555 (one-at-a-time); LeRobot async server on :8080 coexists with GR00T._
@@ -120,6 +142,7 @@ _BEHAVIOR-1K scene & robot gallery — one-click demo notebook_
 **一键 demo gallery**：📓 [BEHAVIOR-1K.ipynb](./BEHAVIOR-1K.ipynb)
 
 按分类组织（每个 cell 一行 `!python scripts/b1k_demo.py launch <name>`）：
+
 - `0. Setup` — 数据集下载/初始化（30 GB，幂等）
 - `1. 场景浏览` — Rs_int / Beechwood_0_int / house_single_floor / grocery_store_cafe
 - `2. 机器人操作 demo` — Fetch grasping + 控制器演示
@@ -128,6 +151,7 @@ _BEHAVIOR-1K scene & robot gallery — one-click demo notebook_
 - `5. 物体可视化` / `6. 环境导航` / `7. 训练数据 (Challenge demos)`
 
 **前置**：
+
 - `behavior` conda env（含 `isaacsim[all,extscache]==5.1.0` + 改装到 `torch 2.6.0+cu124`）
 - NVIDIA driver **≥ 580**（驱动 550 + 内核 6.17 会因模块缺失起不来；595 与 Isaac Sim 5.1 的 RTX 渲染器有 segfault；**580 是当前最稳的版本**）
 - 30 GB 磁盘给 `BEHAVIOR-1K/datasets/behavior-1k-assets/`

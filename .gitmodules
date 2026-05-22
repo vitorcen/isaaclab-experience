@@ -13,3 +13,6 @@
 [submodule "BEHAVIOR-1K"]
 	path = BEHAVIOR-1K
 	url = https://github.com/StanfordVL/BEHAVIOR-1K.git
+[submodule "dependencies/Isaac-GR00T"]
+	path = dependencies/Isaac-GR00T
+	url = https://github.com/NVIDIA/Isaac-GR00T.git

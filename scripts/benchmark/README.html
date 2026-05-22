@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>LeIsaac PickOrange Benchmark Infrastructure</title>
+<style>
+  :root {
+    --fg: #1c1c1f;
+    --muted: #6b6b73;
+    --accent: #c9462c;
+    --ok: #1f7a3b;
+    --bad: #c9462c;
+    --warn: #b1791a;
+    --code-bg: #f6f6f4;
+    --border: #d8d4cc;
+  }
+  body {
+    font: 15px/1.55 -apple-system, "Segoe UI", "Noto Sans", sans-serif;
+    color: var(--fg);
+    max-width: 920px;
+    margin: 32px auto;
+    padding: 0 18px;
+    background: #fbfaf7;
+  }
+  h1, h2, h3 { line-height: 1.25; }
+  h1 { border-bottom: 2px solid var(--accent); padding-bottom: 6px; }
+  h2 { margin-top: 32px; border-bottom: 1px solid var(--border); padding-bottom: 4px; }
+  h3 { margin-top: 22px; color: var(--accent); }
+  .lead-en { color: var(--muted); font-style: italic; }
+  code, pre { font-family: "SF Mono", Menlo, Consolas, monospace; }
+  code { background: var(--code-bg); padding: 1px 5px; border-radius: 3px; font-size: 0.92em; }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 12px 14px;
+    overflow-x: auto;
+    font-size: 0.88em;
+  }
+  table {
+    border-collapse: collapse;
+    margin: 12px 0;
+    width: 100%;
+    font-size: 0.94em;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: 6px 10px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #efeae0; font-weight: 600; }
+  td.ok { color: var(--ok); font-weight: 600; }
+  td.bad { color: var(--bad); font-weight: 600; }
+  td.warn { color: var(--warn); font-weight: 600; }
+  .callout {
+    background: #fff7e6;
+    border-left: 4px solid var(--warn);
+    padding: 10px 14px;
+    margin: 14px 0;
+    border-radius: 4px;
+  }
+  .callout.bad { background: #fff0eb; border-left-color: var(--bad); }
+  .callout.ok  { background: #effdef; border-left-color: var(--ok); }
+  .small { font-size: 0.86em; color: var(--muted); }
+  svg { max-width: 100%; display: block; margin: 8px 0; }
+</style>
+</head>
+<body>
+
+<h1>LeIsaac PickOrange — Benchmark Infrastructure</h1>
+<p class="lead-en">scripts/benchmark/ — Reusable closed-loop evaluation pipeline for VLA policies on LeIsaac SO-101 PickOrange.</p>
+
+<h2>1. 这个目录是干嘛的 / Purpose</h2>
+
+<p>给 LeIsaac PickOrange 任务做 <strong>统一的、可复现的闭环评测</strong>。一行命令跑一个 baseline，自动开/关 server + 采集 GPU + 写 metrics JSON + 聚合成 README leaderboard。</p>
+
+<p class="lead-en"><strong>TL;DR</strong>: One pipeline to run any policy through ≥5 rounds of closed-loop sim eval, collect GPU stats, and rebuild the leaderboard.</p>
+
+<h2>2. 文件总览 / Files</h2>
+
+<table>
+<thead><tr><th>文件</th><th>作用</th><th>What</th></tr></thead>
+<tbody>
+<tr><td><code>baselines.tsv</code></td><td><strong>唯一权威表</strong> — slug · policy_type · <strong>horizon</strong> · ckpt · server_kind · label</td><td>Single authoritative manifest</td></tr>
+<tr><td><code>get_action_horizon.py</code></td><td>helper: 给定 HF id 返回 horizon（baselines.tsv col 4=ckpt 查找，HF config.json 兜底）</td><td>Resolves action_horizon for a model id</td></tr>
+<tr><td><code>run_one.sh</code></td><td>跑单个 baseline 全流程（server 起 + eval + GPU 采样 + server 关）</td><td>End-to-end single-baseline runner</td></tr>
+<tr><td><code>run_all_baselines.sh</code></td><td>orchestrator：顺序跑全表</td><td>Orchestrator over <code>baselines.tsv</code></td></tr>
+<tr><td><code>gpu_sampler.sh</code></td><td>1Hz <code>nvidia-smi</code> 采样到 CSV</td><td>1Hz GPU utilization logger</td></tr>
+<tr><td><code>aggregate.py</code></td><td>把所有 metrics.json 合成 README leaderboard 表格</td><td>Aggregates metrics → markdown table</td></tr>
+</tbody>
+</table>
+
+<h2>3. 评测 pipeline 概览 / Eval pipeline at a glance</h2>
+
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 360" font-family="-apple-system, Segoe UI, sans-serif">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#555"/>
+    </marker>
+  </defs>
+  <!-- Box: baselines.tsv -->
+  <rect x="20" y="20" width="160" height="56" rx="6" fill="#fff" stroke="#c9462c" stroke-width="1.5"/>
+  <text x="100" y="45" text-anchor="middle" font-weight="600" font-size="13">baselines.tsv</text>
+  <text x="100" y="62" text-anchor="middle" font-size="11" fill="#6b6b73">slug, hf_id, type, h…</text>
+  <!-- Box: get_action_horizon.py -->
+  <rect x="20" y="120" width="160" height="56" rx="6" fill="#fff" stroke="#c9462c" stroke-width="1.5"/>
+  <text x="100" y="145" text-anchor="middle" font-weight="600" font-size="13">get_action_horizon.py</text>
+  <text x="100" y="162" text-anchor="middle" font-size="11" fill="#6b6b73">TSV lookup + HF fallback</text>
+  <!-- Box: run_one.sh -->
+  <rect x="240" y="60" width="200" height="80" rx="6" fill="#efeae0" stroke="#1c1c1f" stroke-width="1.5"/>
+  <text x="340" y="86" text-anchor="middle" font-weight="600" font-size="14">run_one.sh</text>
+  <text x="340" y="105" text-anchor="middle" font-size="11">1. start server</text>
+  <text x="340" y="120" text-anchor="middle" font-size="11">2. spawn gpu_sampler</text>
+  <text x="340" y="135" text-anchor="middle" font-size="11">3. policy_inference.py</text>
+  <!-- arrows feeding run_one -->
+  <line x1="180" y1="48" x2="240" y2="80" stroke="#555" marker-end="url(#arr)"/>
+  <line x1="180" y1="148" x2="240" y2="115" stroke="#555" marker-end="url(#arr)"/>
+  <!-- Box: server -->
+  <rect x="500" y="20" width="160" height="44" rx="6" fill="#fff" stroke="#1c1c1f"/>
+  <text x="580" y="38" text-anchor="middle" font-size="12">Server</text>
+  <text x="580" y="55" text-anchor="middle" font-size="10" fill="#6b6b73">5555 / 5556 / 5558 / 8080</text>
+  <!-- Box: Isaac Sim eval -->
+  <rect x="500" y="90" width="160" height="44" rx="6" fill="#fff" stroke="#1c1c1f"/>
+  <text x="580" y="108" text-anchor="middle" font-size="12">Isaac Sim eval client</text>
+  <text x="580" y="125" text-anchor="middle" font-size="10" fill="#6b6b73">policy_inference.py</text>
+  <!-- Box: GPU sampler -->
+  <rect x="500" y="160" width="160" height="44" rx="6" fill="#fff" stroke="#1c1c1f"/>
+  <text x="580" y="178" text-anchor="middle" font-size="12">gpu_sampler.sh</text>
+  <text x="580" y="195" text-anchor="middle" font-size="10" fill="#6b6b73">1 Hz nvidia-smi</text>
+  <!-- arrows out of run_one -->
+  <line x1="440" y1="80" x2="500" y2="40" stroke="#555" marker-end="url(#arr)"/>
+  <line x1="440" y1="110" x2="500" y2="110" stroke="#555" marker-end="url(#arr)"/>
+  <line x1="440" y1="135" x2="500" y2="180" stroke="#555" marker-end="url(#arr)"/>
+  <!-- Output: per-baseline JSON + CSV -->
+  <rect x="700" y="60" width="160" height="80" rx="6" fill="#fff" stroke="#1f7a3b" stroke-width="1.5"/>
+  <text x="780" y="85" text-anchor="middle" font-weight="600" font-size="13">results/benchmark/</text>
+  <text x="780" y="103" text-anchor="middle" font-size="11">&lt;slug&gt;.metrics.json</text>
+  <text x="780" y="118" text-anchor="middle" font-size="11">&lt;slug&gt;.gpu.csv</text>
+  <text x="780" y="133" text-anchor="middle" font-size="11">&lt;slug&gt;.summary.txt</text>
+  <line x1="660" y1="100" x2="700" y2="100" stroke="#555" marker-end="url(#arr)"/>
+  <!-- aggregate -->
+  <rect x="500" y="240" width="200" height="56" rx="6" fill="#efeae0" stroke="#1c1c1f" stroke-width="1.5"/>
+  <text x="600" y="265" text-anchor="middle" font-weight="600" font-size="13">aggregate.py</text>
+  <text x="600" y="282" text-anchor="middle" font-size="11">json+csv → leaderboard.md</text>
+  <line x1="780" y1="140" x2="600" y2="240" stroke="#555" marker-end="url(#arr)"/>
+  <!-- README -->
+  <rect x="720" y="240" width="140" height="56" rx="6" fill="#fff" stroke="#1f7a3b" stroke-width="1.5"/>
+  <text x="790" y="265" text-anchor="middle" font-weight="600" font-size="13">README.md</text>
+  <text x="790" y="282" text-anchor="middle" font-size="11" fill="#6b6b73">leaderboard table</text>
+  <line x1="700" y1="268" x2="720" y2="268" stroke="#555" marker-end="url(#arr)"/>
+  <!-- Footer note -->
+  <text x="20" y="335" font-size="11" fill="#6b6b73">Single command: <tspan font-family="monospace">bash scripts/benchmark/run_all_baselines.sh</tspan> → 10 baselines × 5 rounds × ~10 min each ≈ 90 min</text>
+</svg>
+
+<h2>4. 单 baseline 跑法 / Run one baseline</h2>
+
+<pre>EVAL_ROUNDS=5 \
+STUCK_WINDOW_S=30 STUCK_EPS_RAD=0.05 \
+bash scripts/benchmark/run_one.sh \
+    n17-hispace \
+    gr00tn1.6 \
+    "$(python3 scripts/benchmark/get_action_horizon.py hi-space/GR00T-N1.7-3B-Pick-Orange)" \
+    hi-space/GR00T-N1.7-3B-Pick-Orange \
+    gr00t-n16 \
+    "GR00T-N1.7 (hi-space, h=40)"</pre>
+
+<p class="small">参数顺序：slug · policy_type · horizon · ckpt · server_kind · label</p>
+
+<h2>5. 通用配方 / Default knobs</h2>
+
+<table>
+<thead><tr><th>项</th><th>默认</th><th>说明</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td><code>EVAL_ROUNDS</code></td><td>5</td><td><strong>必须 ≥ 5</strong>（≥15 ep），单 3-round variance ±20-40%</td><td>≥5 mandatory; 3-round too noisy</td></tr>
+<tr><td><code>EPISODE_LENGTH_S</code></td><td>120</td><td>sim time（policy 30Hz × 120s = 3600 inference）</td><td>Sim seconds per episode</td></tr>
+<tr><td><code>MAX_ROUND_WALL_S</code></td><td>180</td><td>wall-clock cap, 防慢推理 hang 整个 bench</td><td>Wall-clock safety cap</td></tr>
+<tr><td><code>STEP_HZ</code></td><td>30</td><td>action 下发频率（数据集是 30Hz）</td><td>Action issue rate</td></tr>
+<tr><td><code>STUCK_WINDOW_S</code></td><td>30</td><td>grace period — round 跑超过这个时长后才检查 stuck</td><td>Grace period before stuck check</td></tr>
+<tr><td><code>STUCK_EPS_RAD</code></td><td>0.05</td><td>arm 各关节 5s 内动态范围阈值（2.86°）</td><td>Arm joint range threshold over 5s</td></tr>
+<tr><td>home-return tol</td><td>0.15 rad</td><td>arm 离 reset pose &lt; 8.6° = 已 retract</td><td>Hardcoded — arm-to-home tolerance</td></tr>
+</tbody>
+</table>
+
+<h2>6. 各模型的 best action_horizon / Per-model best h</h2>
+
+<p>VLA 的 chunk-policy 必须用接近训练时的 chunk 长度推理。<strong>硬编码 h=16 跑所有模型是历史最大坑</strong>（N1.6 训练 h=50 被截到 16，效果减半）。</p>
+
+<table>
+<thead><tr><th>Model</th><th>h_train</th><th>h_use</th><th>验证方式</th></tr></thead>
+<tbody>
+<tr><td>GR00T N1.7 (hi-space)</td><td>40</td><td><strong>40</strong></td><td>config + 实测 14/15</td></tr>
+<tr><td>GR00T N1.6 (hi-space / 自训)</td><td>50</td><td><strong>40</strong></td><td>实测 h=40 &gt; h=50 (overcommit)</td></tr>
+<tr><td>ACT</td><td>100</td><td><strong>70</strong> (≈70%)</td><td>h=30/50/70/100 全 wall_cap，ACT 本就弱</td></tr>
+<tr><td>SmolVLA</td><td>50</td><td>40–50</td><td>sweep ing</td></tr>
+<tr><td>X-VLA (weakaug)</td><td>32</td><td><strong>32</strong></td><td>之前 sweep best</td></tr>
+<tr><td>DP (DDIM)</td><td>16</td><td>16</td><td>chunk 等于 step</td></tr>
+<tr><td>π0.5</td><td>50</td><td>40</td><td>未 sweep</td></tr>
+</tbody>
+</table>
+
+<p class="lead-en">Default lookup: <code>baselines.tsv</code> column 3 (matched on column 4 ckpt), then fall back to <code>config.json#action_horizon</code> via HF Hub.</p>
+
+<h2>7. 早期终止信号 / Early-exit signals</h2>
+
+<p>三个并列 trigger 让 episode 在 wall_cap 之前正常结束，节省时间且让 <code>avg_round_s</code> 真实反映 policy operation time：</p>
+
+<table>
+<thead><tr><th>Signal</th><th>触发条件</th><th>Reason</th></tr></thead>
+<tbody>
+<tr><td><strong>env_success</strong></td><td>3 颗都在盘 + arm 归位</td><td>Task done — env-side</td></tr>
+<tr><td><strong>stuck</strong></td><td>round &gt; 30s 后 arm 5 个关节 5s 范围 &lt; 0.05 rad</td><td>"Arm gave up" — quasi-static</td></tr>
+<tr><td><strong>home_return</strong></td><td>arm 曾离 home 0.5 rad+，再回到 home 0.15 rad 内</td><td>"Arm retracted" — close to start pose</td></tr>
+<tr><td>wall_cap</td><td>round_age ≥ 180s</td><td>Safety net</td></tr>
+</tbody>
+</table>
+
+<p class="small">所有 trigger 都用 <strong>arm joints 0-4</strong>，忽略 gripper（gripper 自循环开合会污染信号）。</p>
+
+<h2>8. 严格 placement 计数 / Strict orange-in-plate check</h2>
+
+<p>env 内部 success 判定较宽（10cm 方框），我们额外的 <strong>strict cylindrical check</strong> 在每帧验证：</p>
+
+<table>
+<thead><tr><th>维度</th><th>阈值</th><th>语义</th></tr></thead>
+<tbody>
+<tr><td>xy_dist (盘心 → 橙心)</td><td><strong>&lt; 0.10 m</strong></td><td>对齐 env 10cm 容差</td></tr>
+<tr><td>dz (盘心 → 橙心)</td><td><strong>0.005 – 0.20 m</strong></td><td>上限 20cm 允许 3 层叠</td></tr>
+<tr><td>velocity</td><td><strong>&lt; 0.05 m/s</strong></td><td>橙子已 settle，非夹放中</td></tr>
+<tr><td>plate up_z</td><td><strong>&gt; 0.7</strong></td><td>盘子没翻</td></tr>
+<tr><td>snapshot timing</td><td><strong>env.step() 之前</strong></td><td>避开 auto-reset 假阴</td></tr>
+</tbody>
+</table>
+
+<div class="callout bad">
+  <strong>历史坑 / Past bugs</strong>
+  <ul>
+    <li><strong>reset 假阴</strong>: 旧代码在 <code>env.step()</code> 之后读 placed_flags，单 env 模式下触发 termination 时 obs 已 auto-reset 成新随机橙位 → 严格 0/9 假阴</li>
+    <li><strong>dz_max=0.05 漏叠</strong>: 5cm 上限漏判堆叠橙；放宽到 0.20</li>
+    <li><strong>plate_r=0.08 紧</strong>: 比 env 10cm 还紧；放宽到 0.10</li>
+    <li><strong>sticky-OR 假阳</strong>: 旧版本累计 OR 把"放完又飞"也算 placed；改成 pre-step snapshot</li>
+  </ul>
+</div>
+
+<h2>9. 失败模式速查 / Quick troubleshooting</h2>
+
+<table>
+<thead><tr><th>症状</th><th>原因</th><th>修</th></tr></thead>
+<tbody>
+<tr><td>env_success 但 strict 0/9</td><td>读 placed_flags 在 env.step 后（auto-reset 抹脏）</td><td>已修：挪到 step 之前</td></tr>
+<tr><td>3 round variance 1/3-3/3</td><td>3 round 采样不足</td><td>用 5 round (15 ep)</td></tr>
+<tr><td>stuck 不触发</td><td>gripper 自循环开合 / 阈值太紧 / round 未过 grace</td><td>arm-only check; tune <code>STUCK_*</code></td></tr>
+<tr><td>叠橙漏判</td><td><code>dz_max</code> 太小</td><td>0.20m</td></tr>
+<tr><td>盘缘橙漏判</td><td><code>plate_r</code> 太紧</td><td>0.10m</td></tr>
+<tr><td>N1.6 ckpt KeyError</td><td>transformers 4.57.3 在 N1.7 升级时升了，N1.6 Eagle 配置不兼容</td><td>独立 venv：<code>.venv-n16</code> 用 transformers 4.51.3</td></tr>
+<tr><td>Cosmos-Reason2-2B 403</td><td>gated repo</td><td>HF 网页 Request access</td></tr>
+<tr><td>LeIsaac client 发 dict，N1.7 server 期 ndarray</td><td>wire 协议 N1.6 → N1.7 改 mnp 格式</td><td><code>LeIsaac/source/leisaac/leisaac/policy/gr00t/serialization.py</code> 用 <code>msgpack_numpy</code></td></tr>
+</tbody>
+</table>
+
+<h2>10. 后续 TODO / Future work</h2>
+
+<ul>
+  <li>横评结果聚合脚本支持每 baseline 多 run 的 mean ± stddev（≥ 3 个独立 5-round 求均值）</li>
+  <li>per-model auto-sweep：调用 <code>scripts/benchmark/sweep_horizon.sh</code> 找 best h 后落回 TSV</li>
+  <li>extract LeIsaac eval 配置成 YAML schema，让 <code>run_one.sh</code> 读 YAML 自动选 server/horizon/prompt</li>
+</ul>
+
+<hr/>
+<p class="small">Last updated 2026-05-21 · sibling docs: <code>../../LeIsaac/docs/training/</code></p>
+</body>
+</html>

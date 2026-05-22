@@ -17,11 +17,23 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 POLICY_HOST="${POLICY_HOST:-127.0.0.1}"
 POLICY_PORT="${POLICY_PORT:-5555}"
 POLICY_TIMEOUT_MS="${POLICY_TIMEOUT_MS:-10000}"
-ACTION_HORIZON="${ACTION_HORIZON:-16}"
+# Auto-detect action_horizon from scripts/benchmark/baselines_action_horizon.tsv
+# (falls back to HF config.json). Pass ACTION_HORIZON=<N> to override.
+# Provide POLICY_MODEL_ID=<hf id> for the lookup; defaults to hi-space N1.6.
+POLICY_MODEL_ID="${POLICY_MODEL_ID:-hi-space/GR00T-N1.6-3B-Pick-Orange}"
+if [[ -z "${ACTION_HORIZON:-}" ]]; then
+    ACTION_HORIZON="$(python3 "${REPO_ROOT}/scripts/benchmark/get_action_horizon.py" "${POLICY_MODEL_ID}" --default 16 2>/dev/null || echo 16)"
+fi
 EVAL_ROUNDS="${EVAL_ROUNDS:-6}"
 EPISODE_LENGTH="${EPISODE_LENGTH:-60}"
 MAX_ROUND_WALL_S="${MAX_ROUND_WALL_S:-90}"
 PROMPT="${PROMPT:-Pick up the orange and put it in the plate}"
+# Stuck early-exit: terminate episode if arm joints don't move >= stuck_eps_rad over
+# stuck_window_s. Re-tuned to 30s/0.05rad (2.86°) so that "arm retracted to rest pose,
+# gripper may oscillate, episode visually done" cases end fast instead of running to
+# wall_cap. arm-only detection (ignores gripper joint) is in policy_inference.py.
+STUCK_WINDOW_S="${STUCK_WINDOW_S:-30}"
+STUCK_EPS_RAD="${STUCK_EPS_RAD:-0.05}"
 CONDA_ENV="${CONDA_ENV:-isaaclab}"
 LEISAAC_DIR="${LEISAAC_DIR:-${REPO_ROOT}/LeIsaac}"
 LOG_DIR="${LOG_DIR:-${REPO_ROOT}/logs}"
@@ -29,7 +41,8 @@ LOG_DIR="${LOG_DIR:-${REPO_ROOT}/logs}"
 mkdir -p "${LOG_DIR}"
 LOG_FILE="${LOG_DIR}/gr00t_eval-$(date +%Y%m%d-%H%M%S).log"
 
-echo "[eval] server:  tcp://${POLICY_HOST}:${POLICY_PORT}  (gr00tn1.6)"
+echo "[eval] server:  tcp://${POLICY_HOST}:${POLICY_PORT}  (gr00tn1.6/N1.7)"
+echo "[eval] model:   ${POLICY_MODEL_ID}  (action_horizon=${ACTION_HORIZON})"
 echo "[eval] task:    LeIsaac-SO101-PickOrange-v0 (${EVAL_ROUNDS}×${EPISODE_LENGTH}s, wall_cap=${MAX_ROUND_WALL_S}s)"
 echo "[eval] prompt:  ${PROMPT}"
 echo "[eval] log:     ${LOG_FILE}"
@@ -47,4 +60,6 @@ conda run -n "${CONDA_ENV}" --no-capture-output \
         --policy_action_horizon="${ACTION_HORIZON}" \
         --policy_language_instruction="${PROMPT}" \
         --max_round_wall_s="${MAX_ROUND_WALL_S}" \
+        --stuck_window_s="${STUCK_WINDOW_S}" \
+        --stuck_eps_rad="${STUCK_EPS_RAD}" \
         --device=cuda --enable_cameras 2>&1 | tee "${LOG_FILE}"

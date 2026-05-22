@@ -1,19 +1,29 @@
-# 7-baseline benchmark inventory.
+# LeIsaac PickOrange benchmark inventory.
 # Tab-separated. Columns:
-#   slug                policy_type       horizon   ckpt                                                                              server_kind  display_label
+#   slug                policy_type       horizon   ckpt                                                                              server_kind  display_label                                                       extra_env (optional, col 7)
 #
-# server_kind: lerobot | gr00t-n15 | gr00t-n16
+# server_kind: lerobot | gr00t-n15 | gr00t-n16 | pi05 | xvla
 #
-# 防呆: ACT horizon 必须 per-ckpt 实测，不能照 chunk_size/3 套公式。
-#   - wsagi/ACT-PickOrange (ours, our recipe): horizon=32 work, horizon=16 卡死第 2 颗
-#   - shadowHokage/act_policy             : horizon=16 work (3/0/1 sweep), horizon=32 = 0/3 卡死
-# 同 chunk_size=100 但 training distribution 决定 receding window 最优值。
+# extra_env: space-separated KEY=VAL pairs that run_all_baselines.sh exports to run_one.sh.
+#   STUCK_WINDOW_S=99999 STUCK_EPS_RAD=0   disable stuck detector (already auto for lerobot-act/diffusion in run_one.sh, listed here as explicit single-source-of-truth)
+#   STEP_HZ=60                              GR00T family — 30Hz dataset but chunked output expects 60Hz playback
+#   PROMPT='Grab orange and place into plate'    custom language instruction
+#   Empty / omitted = inherit run_one.sh defaults.
 #
-act-self	lerobot-act	32	wsagi/ACT-PickOrange	lerobot	ACT (self) — wsagi/ACT-PickOrange
-act-other	lerobot-act	16	shadowHokage/act_policy	lerobot	ACT (other) — shadowHokage/act_policy (h=16)
-dp-self	lerobot-diffusion	16	wsagi/DiffusionPolicy-PickOrange	lerobot	DP (self) — wsagi/DiffusionPolicy-PickOrange
-smolvla-self	lerobot-smolvla	50	/home/david/work/isaaclab-experience/LeIsaac/outputs/smolvla2-leisaac-pick-orange/checkpoints/last/pretrained_model	lerobot	SmolVLA (self) — wsagi/SmolVLA-PickOrange
+# 防呆 / Notes:
+#   - horizon 必须 per-ckpt sweep 实测，不能套统一公式 — train chunk_size 是上限不是 best
+#   - 各模型 best horizon 来自 2026-05-21 5-round sweep（详见 README.html §6）
+#   - SmolVLA self: main branch 现为 step-15000 (sweep best, 8/15 oranges)；30k 在 ckpt-30k 分支
+#   - 老 ACT row 之前 h=32 work / h=16 卡死的实测在 2026-05-21 sweep 后改写为 h=70
+#
+gr00t-n17	gr00tn1.6	40	hi-space/GR00T-N1.7-3B-Pick-Orange	gr00t-n16	GR00T N1.7 (hi-space, h=40)	STEP_HZ=60
+gr00t-n16-self	gr00tn1.6	40	wsagi/GR00T-N1.6-PickOrange	gr00t-n16	GR00T N1.6 自训 ckpt-6500 (h=40)	STEP_HZ=60
+gr00t-n16-hispace	gr00tn1.6	40	hi-space/GR00T-N1.6-3B-Pick-Orange	gr00t-n16	GR00T N1.6 (hi-space, h=40)	STEP_HZ=60
+smolvla-self	lerobot-smolvla	50	wsagi/SmolVLA-PickOrange	lerobot	SmolVLA 自训 main=15k (sweep best)
 smolvla-other	lerobot-smolvla	50	edge-inference/smolvla-so101-pick-orange	lerobot	SmolVLA (other) — edge-inference
-gr00t-n15	gr00tn1.5	16	LightwheelAI/leisaac-pick-orange-v0	gr00t-n15	GR00T N1.5 — LightwheelAI/leisaac-pick-orange-v0
-gr00t-n16	gr00tn1.6	16	hi-space/GR00T-N1.6-3B-Pick-Orange	gr00t-n16	GR00T N1.6 — hi-space/GR00T-N1.6-3B-Pick-Orange
-pi05-self	pi05	35	/home/david/work/isaaclab-experience/LeIsaac/outputs/pi05-leisaac-pt-v3/final_lora.npz	pi05	π0.5 (self) — pt-v3 final_lora.npz (3.36B base + 5M LoRA)
+gr00t-n15	gr00tn1.5	16	LightwheelAI/leisaac-pick-orange-v0	gr00t-n15	GR00T N1.5 — LightwheelAI	STEP_HZ=60
+xvla-self	xvla	32	wsagi/X-VLA-PickOrange	xvla	X-VLA 自训 weakaug 17k (h=32)
+dp-self	lerobot-diffusion	16	wsagi/DiffusionPolicy-PickOrange	lerobot	DP (self) — wsagi/DiffusionPolicy-PickOrange	STUCK_WINDOW_S=99999 STUCK_EPS_RAD=0
+act-self	lerobot-act	70	wsagi/ACT-PickOrange	lerobot	ACT (self) h=70 (h=16/30/50/100 全 wall_cap)	STUCK_WINDOW_S=99999 STUCK_EPS_RAD=0
+act-other	lerobot-act	16	shadowHokage/act_policy	lerobot	ACT (other) — shadowHokage/act_policy	STUCK_WINDOW_S=99999 STUCK_EPS_RAD=0
+pi05-self	pi05	35	/home/david/work/isaaclab-experience/LeIsaac/outputs/pi05-leisaac-pt-v3/final_lora.npz	pi05	π0.5 (self) — pt-v3 final_lora.npz (3.36B + 5M LoRA)
