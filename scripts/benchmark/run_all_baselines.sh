@@ -8,7 +8,7 @@
 #   logs/bench-<slug>.log                   (full Isaac Sim eval log)
 #
 # Final aggregate:
-#   results/benchmark/SUMMARY.md
+#   scripts/benchmark/SUMMARY.md
 #
 # Env overrides:
 #   EVAL_ROUNDS=3 EPISODE_LENGTH_S=120 STEP_HZ=30
@@ -18,7 +18,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-TSV="$ROOT_DIR/scripts/benchmark/baselines.tsv"
+SCRIPT_DIR="$ROOT_DIR/scripts/benchmark"
+TSV="$SCRIPT_DIR/baselines.tsv"
 RESULTS_DIR="${RESULTS_DIR:-$ROOT_DIR/results/benchmark}"
 mkdir -p "$RESULTS_DIR"
 
@@ -75,11 +76,11 @@ echo "[bench-all] ============ STATUS ============"
 for s in "${STATUS[@]}"; do echo "  $s"; done
 
 echo
-echo "[bench-all] aggregating → $RESULTS_DIR/SUMMARY.md"
+echo "[bench-all] aggregating → $SCRIPT_DIR/SUMMARY.md"
 python3 "$ROOT_DIR/scripts/benchmark/aggregate.py" \
     "$RESULTS_DIR" \
     --baselines_tsv "$TSV" \
-    --out "$RESULTS_DIR/SUMMARY.md"
+    --out "$SCRIPT_DIR/SUMMARY.md"
 
 echo
-cat "$RESULTS_DIR/SUMMARY.md"
+cat "$SCRIPT_DIR/SUMMARY.md"

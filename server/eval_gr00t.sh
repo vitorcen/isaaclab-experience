@@ -24,9 +24,12 @@ POLICY_MODEL_ID="${POLICY_MODEL_ID:-hi-space/GR00T-N1.6-3B-Pick-Orange}"
 if [[ -z "${ACTION_HORIZON:-}" ]]; then
     ACTION_HORIZON="$(python3 "${REPO_ROOT}/scripts/benchmark/get_action_horizon.py" "${POLICY_MODEL_ID}" --default 16 2>/dev/null || echo 16)"
 fi
-EVAL_ROUNDS="${EVAL_ROUNDS:-6}"
-EPISODE_LENGTH="${EPISODE_LENGTH:-60}"
-MAX_ROUND_WALL_S="${MAX_ROUND_WALL_S:-90}"
+# Defaults aligned with scripts/benchmark/run_one.sh (unified 5-round leaderboard standard).
+# See memory feedback-5round-benchmark-standard.md — any mismatch invalidates direct
+# comparison with README leaderboard (e.g. hi-space N1.7 14/15).
+EVAL_ROUNDS="${EVAL_ROUNDS:-5}"
+EPISODE_LENGTH="${EPISODE_LENGTH:-120}"
+MAX_ROUND_WALL_S="${MAX_ROUND_WALL_S:-180}"
 PROMPT="${PROMPT:-Pick up the orange and put it in the plate}"
 # Stuck early-exit: terminate episode if arm joints don't move >= stuck_eps_rad over
 # stuck_window_s. Re-tuned to 30s/0.05rad (2.86°) so that "arm retracted to rest pose,
@@ -54,7 +57,7 @@ conda run -n "${CONDA_ENV}" --no-capture-output \
         --task=LeIsaac-SO101-PickOrange-v0 \
         --eval_rounds="${EVAL_ROUNDS}" \
         --episode_length_s="${EPISODE_LENGTH}" \
-        --policy_type=gr00tn1.6 \
+        --policy_type="${POLICY_TYPE:-gr00tn1.5}" \
         --policy_host="${POLICY_HOST}" --policy_port="${POLICY_PORT}" \
         --policy_timeout_ms="${POLICY_TIMEOUT_MS}" \
         --policy_action_horizon="${ACTION_HORIZON}" \

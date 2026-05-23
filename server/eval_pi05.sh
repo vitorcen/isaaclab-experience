@@ -16,11 +16,12 @@ POLICY_HOST="${POLICY_HOST:-127.0.0.1}"
 POLICY_PORT="${POLICY_PORT:-5556}"
 POLICY_TIMEOUT_MS="${POLICY_TIMEOUT_MS:-10000}"
 ACTION_HORIZON="${ACTION_HORIZON:-50}"
-EVAL_ROUNDS="${EVAL_ROUNDS:-3}"
-EPISODE_LENGTH="${EPISODE_LENGTH:-60}"
+# Defaults aligned with scripts/benchmark/run_one.sh (unified 5-round leaderboard standard).
+# See memory feedback-5round-benchmark-standard.md.
+EVAL_ROUNDS="${EVAL_ROUNDS:-5}"
+EPISODE_LENGTH="${EPISODE_LENGTH:-120}"
 # Hard wall-clock cap per round (seconds). Starts after Isaac Sim load + warmup.
-# 0 = disabled (sim-time only via episode_length_s).
-MAX_ROUND_WALL_S="${MAX_ROUND_WALL_S:-0}"
+MAX_ROUND_WALL_S="${MAX_ROUND_WALL_S:-180}"
 PROMPT="${PROMPT:-Pick up the orange and place it on the plate}"
 CONDA_ENV="${CONDA_ENV:-isaaclab}"
 LEISAAC_DIR="${LEISAAC_DIR:-${REPO_ROOT}/LeIsaac}"

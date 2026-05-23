@@ -110,15 +110,20 @@ start_gr00t_server() {
     local model_path="${GR00T_MODEL_PATH:-nvidia/GR00T-N1.6-3B}"
     local embodiment_tag="${GR00T_EMBODIMENT_TAG:-GR1}"
     echo "[INFO] GR00T model: $model_path (embodiment=$embodiment_tag)"
-    nohup "${DETACH[@]}" bash -lc "cd '$GR00T_DIR' && uv run --extra=gpu python gr00t/eval/run_gr00t_server.py --embodiment-tag $embodiment_tag --model-path '$model_path' --host '$GR00T_HOST' --port '$GR00T_PORT' $wrapper_arg" > "$LOG_DIR/gr00t_server.log" 2>&1 < /dev/null &
+    nohup "${DETACH[@]}" bash -lc "cd '$GR00T_DIR' && uv run --no-sync python gr00t/eval/run_gr00t_server.py --embodiment-tag $embodiment_tag --model-path '$model_path' --host '$GR00T_HOST' --port '$GR00T_PORT' $wrapper_arg" > "$LOG_DIR/gr00t_server.log" 2>&1 < /dev/null &
     echo $! > "$LOG_DIR/gr00t_server.pid"
     echo "[INFO] GR00T server launched, pid=$(cat "$LOG_DIR/gr00t_server.pid"), bind=$GR00T_HOST:$GR00T_PORT"
     # GR00T loads ~7GB ckpt; give it generous startup window
-    if wait_for_port "$GR00T_PORT" 120 1; then
+    # GR00T N1.7 + cu128 cold load can take 3-5 min (Cosmos-2B + DiT + flash-attn init)
+    # Override with GR00T_SERVER_WAIT_S env (default 300s = 5 min)
+    local wait_s="${GR00T_SERVER_WAIT_S:-300}"
+    if wait_for_port "$GR00T_PORT" "$wait_s" 1; then
         echo "[INFO] GR00T server is listening on :$GR00T_PORT"
     else
-        echo "[WARN] GR00T server not ready yet (it may still be building dependencies)."
-        echo "[WARN] Check log: $LOG_DIR/gr00t_server.log"
+        echo "[ERROR] GR00T server not ready after ${wait_s}s — abort caller (export GR00T_SERVER_WAIT_S to increase)"
+        echo "[ERROR] Last 30 log lines:"
+        tail -n 30 "$LOG_DIR/gr00t_server.log" >&2 || true
+        exit 1
     fi
 }
 

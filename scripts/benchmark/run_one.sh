@@ -74,6 +74,14 @@ echo "[bench] server_kind=${SERVER_KIND} rounds=${EVAL_ROUNDS} ep_len=${EPISODE_
 echo "[bench] eval log: ${EVAL_LOG}"
 echo "[bench] metrics:  ${METRICS_JSON}"
 
+# --- 0. pre-launch sanitize: kill stale Isaac Sim Kit + policy_inference -----
+# Prevent "multiple GUI" pileup if a previous run_one.sh failed to clean up.
+# Kit binary lives in a separate process tree from policy_inference.py.
+pkill -9 -f "scripts/evaluation/policy_inference.py" 2>/dev/null || true
+pkill -9 -f "isaacsim/kit/kit" 2>/dev/null || true
+pkill -9 -f "isaac.python.kit" 2>/dev/null || true
+sleep 2
+
 # --- 1. server start ---------------------------------------------------------
 SERVER_HOST="$LEROBOT_HOST"
 SERVER_PORT="$LEROBOT_PORT"
@@ -91,7 +99,11 @@ case "$SERVER_KIND" in
     gr00t-n16)
         bash "$ROOT_DIR/scripts/policy_server.sh" stop gr00t-n15 || true
         bash "$ROOT_DIR/scripts/policy_server.sh" stop gr00t-n16 || true
-        GR00T_MODEL_PATH="$CKPT" bash "$ROOT_DIR/scripts/policy_server.sh" start gr00t-n16
+        # N1.6 + N1.7 use Gr00tSimPolicyWrapper → client must wrap obs in {observation: ...}
+        # (N1.5 raw inference_service.py does NOT need this wrap; see service_policy_clients.py)
+        # Pass CKPT as positional arg — policy_server.sh:start_gr00t_n16 uses $1 not env var
+        GR00T_SIM_WRAPPER=1 bash "$ROOT_DIR/scripts/policy_server.sh" start gr00t-n16 "$CKPT"
+        export GR00T_WRAP_OBSERVATION=1
         SERVER_HOST="$GR00T_HOST"; SERVER_PORT="$GR00T_PORT"
         ;;
     pi05)
