@@ -22,7 +22,7 @@ have()      { command -v "$1" >/dev/null 2>&1; }
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORK_DIR="$(cd "$ROOT_DIR/.." && pwd)"
-GR00T_DIR="${GR00T_DIR:-$WORK_DIR/Isaac-GR00T}"
+GR00T_DIR="${GR00T_DIR:-$ROOT_DIR/dependencies/Isaac-GR00T}"
 GR00T_REPO="${GR00T_REPO:-https://github.com/NVIDIA/Isaac-GR00T.git}"
 
 DO_CLONE=1
@@ -112,7 +112,7 @@ ensure_pip_tools() {
     "$py" -m pip install --user --upgrade "${pkgs[@]}"
 }
 
-# 5. Isaac-GR00T sibling repo (start_server.sh expects $WORK_DIR/Isaac-GR00T)
+# 5. Isaac-GR00T submodule at $ROOT_DIR/dependencies/Isaac-GR00T
 ensure_gr00t_repo() {
     if [ "$DO_CLONE" -eq 0 ]; then
         log_info "skipping Isaac-GR00T clone (--no-clone)"

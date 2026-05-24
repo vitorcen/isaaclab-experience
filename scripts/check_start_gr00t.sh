@@ -12,7 +12,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 HOST="${GR00T_HOST:-127.0.0.1}"
 PORT="${GR00T_PORT:-5555}"
-GR00T_VENV_PY="${GR00T_DIR:-$ROOT_DIR/../Isaac-GR00T}/.venv/bin/python"
+GR00T_VENV_PY="${GR00T_DIR:-$ROOT_DIR/dependencies/Isaac-GR00T}/.venv/bin/python"
 
 port_up() { (exec 3<>"/dev/tcp/$HOST/$PORT") >/dev/null 2>&1; }
 

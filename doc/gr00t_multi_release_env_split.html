@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>GR00T N1.5 / N1.6 / N1.7 多 release 环境分离 — 2026-05-24</title>
+<style>
+:root { color-scheme: light; }
+body { background:#fff; color:#222; font-family: -apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif; max-width: 1100px; margin: 2em auto; padding: 0 1em; line-height: 1.65; }
+h1 { border-bottom: 2px solid #444; padding-bottom: 0.3em; }
+h2 { color: #d34; margin-top: 1.5em; }
+h3 { color: #2a4; }
+code, pre { background:#f4f4f4; color:#222; font-family: "JetBrains Mono", Consolas, monospace; }
+pre { padding: 0.8em; border-left: 3px solid #888; overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; margin: 0.8em 0; background:#fff; color:#222; }
+th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; background:#fff; color:#222; }
+th { background: #f0f0f0; }
+tr.good td { background: #e6f5e6; }
+tr.bad  td { background: #fbe6e6; }
+tr.warn td { background: #fef5d8; }
+.callout { border-left: 4px solid #2a78c8; background: #eef5ff; color:#222; padding: 0.6em 1em; margin: 0.8em 0; }
+.callout.warn { border-left-color:#c80; background:#fff7e0; }
+.callout.bad { border-left-color:#c33; background:#fde7e7; }
+.en { color: #555; font-size: 0.93em; font-style: italic; }
+svg { background:#fff; }
+.kbd { background:#eee; border:1px solid #aaa; border-radius:3px; padding:1px 5px; font-family: monospace; }
+</style>
+</head>
+<body>
+
+<h1>GR00T N1.5 / N1.6 / N1.7 多 release 环境分离</h1>
+<p><em>2026-05-24 — env drift 引发 N1.6 cached HF code 与 transformers 4.57.3 不兼容；以 submodule + 独立 venv pattern 修复</em></p>
+<p class="en"><em>Multi-release env split for GR00T: when shared venv hits transformers ABI conflict, split into per-release submodule + venv. EN summary inline.</em></p>
+
+<h2>TL;DR</h2>
+<div class="callout">
+<strong>问题</strong>：N1.5/N1.6/N1.7 三个 release 的 HF cached <code>transformers_modules</code> 各自针对不同 transformers 版本写的。共用一个 venv → 升级 transformers 满足 N1.7 时破坏 N1.6 cached code (4 个 ImportError/AttributeError 接连出现)。<br>
+<strong>解法</strong>：每个 release 一个 git submodule + 一个独立 venv，<code>server_kind=gr00t-n{15,16,17}</code> 路由到对应 venv。<br>
+<strong>额外修复</strong>：n1.7-release-2 的 <code>Gr00tSimPolicyWrapper</code> 严格 validate obs key（flat <code>video.front</code> not nested），baselines.tsv 切到 <code>gr00t</code> policy_type（用 flat-wire client class）。<br>
+<strong>验证</strong>：N1.7 1-round = 3/3 oranges 51.9s 100% success ✅
+</div>
+<p class="en">EN: Three GR00T HF model cards each have their own cached <code>transformers_modules</code> tied to a specific transformers version. A single shared venv breaks as soon as any release demands a different transformers. Fix: per-release submodule + venv, routed by <code>server_kind</code>.</p>
+
+<h2>1. 演化对比 — Before / After</h2>
+<table>
+<tr><th></th><th>Before (broken, 2026-05-24 早上)</th><th>After (current)</th></tr>
+<tr><td>N1.5 源码</td><td><code>/home/david/work/Isaac-GR00T-N1.5/</code> (外部 clone, untracked)</td><td><code>dependencies/Isaac-GR00T-N1.5/</code> (submodule @ <code>n1.5-release</code>)</td></tr>
+<tr><td>N1.5 env</td><td>conda <code>gr00t-n15</code> editable → 外部 clone</td><td>conda <code>gr00t-n15</code> editable → submodule (re-anchored)</td></tr>
+<tr><td>N1.6 源码</td><td>借 N1.7 .venv (transformers 4.57.3)</td><td><code>dependencies/Isaac-GR00T-N1.6/</code> (submodule @ <code>n1.6.1-release</code>)</td></tr>
+<tr><td>N1.6 env</td><td>共用 N1.7 venv → 4 个 cached code bug 接连崩</td><td>独立 venv，transformers <strong>4.51.3</strong></td></tr>
+<tr><td>N1.7 源码</td><td><code>/home/david/work/Isaac-GR00T/</code> (外部 clone, untracked N1.7 source code)</td><td><code>dependencies/Isaac-GR00T/</code> (submodule @ <code>n1.7-release-2</code>)</td></tr>
+<tr><td>N1.7 env</td><td>外部 .venv (drifted to 4.57.3 单方面 pip install)</td><td>submodule .venv，transformers <strong>4.57.3</strong> (pyproject 锁定)</td></tr>
+</table>
+
+<h2>2. 架构图 — Architecture</h2>
+<svg viewBox="0 0 980 460" xmlns="http://www.w3.org/2000/svg" width="100%">
+  <!-- Title -->
+  <text x="490" y="25" font-size="16" text-anchor="middle" font-weight="bold">GR00T multi-release: submodule × venv routing</text>
+  <!-- Top row: baselines.tsv -->
+  <rect x="30" y="55" width="920" height="55" fill="#eef5ff" stroke="#2a78c8" stroke-width="1.5"/>
+  <text x="490" y="80" font-size="13" text-anchor="middle" font-weight="bold">scripts/benchmark/baselines.tsv (slug → policy_type=gr00t, server_kind=gr00t-n{15,16,17})</text>
+  <text x="490" y="98" font-size="11" text-anchor="middle">gr00t-n15  •  gr00t-n16-self  •  gr00t-n16-hispace  •  gr00t-n17</text>
+
+  <!-- Arrow to run_one -->
+  <line x1="490" y1="110" x2="490" y2="135" stroke="#444" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- run_one.sh dispatch -->
+  <rect x="280" y="135" width="420" height="50" fill="#fef5d8" stroke="#c80" stroke-width="1.5"/>
+  <text x="490" y="158" font-size="13" text-anchor="middle" font-weight="bold">scripts/benchmark/run_one.sh + policy_server.sh</text>
+  <text x="490" y="175" font-size="11" text-anchor="middle">case server_kind → export GR00T_DIR → exec server/start_server.sh</text>
+
+  <!-- Three columns -->
+  <line x1="490" y1="185" x2="170" y2="220" stroke="#444" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="490" y1="185" x2="490" y2="220" stroke="#444" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="490" y1="185" x2="810" y2="220" stroke="#444" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- N1.5 column -->
+  <rect x="50" y="225" width="240" height="180" fill="#fff" stroke="#2a4" stroke-width="2"/>
+  <text x="170" y="248" font-size="13" text-anchor="middle" font-weight="bold" fill="#2a4">N1.5 (server_kind=gr00t-n15)</text>
+  <text x="170" y="270" font-size="11" text-anchor="middle">dependencies/Isaac-GR00T-N1.5/</text>
+  <text x="170" y="285" font-size="10" text-anchor="middle" fill="#666">@ n1.5-release (4af2b62)</text>
+  <line x1="65" y1="298" x2="275" y2="298" stroke="#ccc"/>
+  <text x="170" y="316" font-size="11" text-anchor="middle">env: conda gr00t-n15</text>
+  <text x="170" y="332" font-size="10" text-anchor="middle" fill="#666">editable install → submodule</text>
+  <text x="170" y="350" font-size="10" text-anchor="middle">torch 2.5.1 • transformers 4.51.3</text>
+  <text x="170" y="372" font-size="11" text-anchor="middle">entry: scripts/inference_service.py</text>
+  <text x="170" y="390" font-size="10" text-anchor="middle" fill="#666">flat obs, no envelope</text>
+
+  <!-- N1.6 column -->
+  <rect x="370" y="225" width="240" height="180" fill="#fff" stroke="#d34" stroke-width="2"/>
+  <text x="490" y="248" font-size="13" text-anchor="middle" font-weight="bold" fill="#d34">N1.6 (server_kind=gr00t-n16)</text>
+  <text x="490" y="270" font-size="11" text-anchor="middle">dependencies/Isaac-GR00T-N1.6/</text>
+  <text x="490" y="285" font-size="10" text-anchor="middle" fill="#666">@ n1.6.1-release (5dc80c4)</text>
+  <line x1="385" y1="298" x2="595" y2="298" stroke="#ccc"/>
+  <text x="490" y="316" font-size="11" text-anchor="middle">env: submodule/.venv</text>
+  <text x="490" y="332" font-size="10" text-anchor="middle" fill="#666">uv sync (新装, ~10G)</text>
+  <text x="490" y="350" font-size="10" text-anchor="middle">torch 2.7 cu128 • transformers <strong>4.51.3</strong></text>
+  <text x="490" y="372" font-size="11" text-anchor="middle">entry: gr00t/eval/run_gr00t_server.py</text>
+  <text x="490" y="390" font-size="10" text-anchor="middle" fill="#666">flat obs + envelope wrap</text>
+
+  <!-- N1.7 column -->
+  <rect x="690" y="225" width="240" height="180" fill="#fff" stroke="#26c" stroke-width="2"/>
+  <text x="810" y="248" font-size="13" text-anchor="middle" font-weight="bold" fill="#26c">N1.7 (server_kind=gr00t-n17)</text>
+  <text x="810" y="270" font-size="11" text-anchor="middle">dependencies/Isaac-GR00T/</text>
+  <text x="810" y="285" font-size="10" text-anchor="middle" fill="#666">@ n1.7-release-2 (3df8b38)</text>
+  <line x1="705" y1="298" x2="915" y2="298" stroke="#ccc"/>
+  <text x="810" y="316" font-size="11" text-anchor="middle">env: submodule/.venv</text>
+  <text x="810" y="332" font-size="10" text-anchor="middle" fill="#666">uv sync (existing)</text>
+  <text x="810" y="350" font-size="10" text-anchor="middle">torch 2.7 cu128 • transformers <strong>4.57.3</strong></text>
+  <text x="810" y="372" font-size="11" text-anchor="middle">entry: gr00t/eval/run_gr00t_server.py</text>
+  <text x="810" y="390" font-size="10" text-anchor="middle" fill="#666">flat obs + envelope wrap</text>
+
+  <!-- bottom note -->
+  <text x="490" y="440" font-size="11" text-anchor="middle" fill="#666">All 3 routes share LeIsaac Gr00tServicePolicyClient (policy_type=gr00t) — GR00T_WRAP_OBSERVATION toggles N1.5 raw vs N1.6/N1.7 envelope.</text>
+
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#444"/>
+    </marker>
+  </defs>
+</svg>
+
+<h2>3. 触发原因 — Why we had to split</h2>
+
+<p>当时（2026-05-24 早上）整个 GR00T 系列共用 <code>/home/david/work/Isaac-GR00T/.venv</code>，<code>transformers</code> 在某次手工 <code>pip install</code> 中飘到 <strong>4.57.3</strong>。运行 N1.6 server 暴露 cached HF code 与新版 transformers ABI 不兼容，连续 4 个 ImportError/AttributeError：</p>
+
+<table>
+<tr><th>#</th><th>错误</th><th>位置</th><th>根因</th></tr>
+<tr class="bad"><td>1</td><td><code>AttributeError: 'Eagle3_VLConfig' has no attribute '_attn_implementation_autoset'</code></td><td><code>~/.cache/.../configuration_eagle3_vl.py:102</code></td><td>4.45+ 新加 PretrainedConfig 字段，4.51 之前没有但 cached code 直接访问</td></tr>
+<tr class="bad"><td>2</td><td><code>AssertionError: Qwen3 must use flash_attention_2 but got None</code></td><td><code>modeling_eagle3_vl.py:131</code></td><td><code>AutoModel.from_config</code> 不转发 <code>attn_implementation</code> 给 nested text_config</td></tr>
+<tr class="bad"><td>3</td><td><code>ImportError: cannot import name 'VideoInput' from 'transformers.image_utils'</code></td><td><code>processing_eagle3_vl.py:44</code></td><td>4.57 把 VideoInput 从 image_utils 挪到 video_utils</td></tr>
+<tr class="bad"><td>4</td><td><code>ImportError: cannot import name 'BASE_IMAGE_PROCESSOR_FAST_DOCSTRING'</code></td><td><code>image_processing_eagle3_vl_fast.py:15</code></td><td>4.57 删除/重命名该 symbol</td></tr>
+</table>
+
+<p class="en">EN: Cached HF code is frozen at model upload time. Bumping transformers for one release breaks the others — must isolate.</p>
+
+<h2>4. 第二个坑：n1.7-release-2 Gr00tSimPolicyWrapper 验证收紧</h2>
+
+<p>env split 后 N1.7 1-round 仍崩，server 返回 <code>{"error": "Video key 'video.front' must be in observation"}</code>。原因：</p>
+<ul>
+<li><code>Gr00tSimPolicyWrapper.check_observation</code> 期待 <strong>flat keys</strong>：<code>video.front</code>, <code>state.single_arm</code> at top level</li>
+<li>LeIsaac 当前 <code>Gr00t16ServicePolicyClient</code> 发的是 <strong>nested</strong>：<code>{"video": {"front": ...}, "state": {...}}</code></li>
+<li>之前外部 clone 的旧 commit wrapper 可能更宽松，所以 hi-space N1.7 之前 leaderboard rank 2 时能跑通</li>
+</ul>
+
+<p>修法：baselines.tsv 4 个 GR00T row 的 <code>policy_type</code> 由 <code>gr00tn1.6</code> 改为 <code>gr00t</code>，dispatch 到 <code>Gr00tServicePolicyClient</code>（flat-wire 实现，含已维护的 <code>GR00T_WRAP_OBSERVATION=1</code> envelope 切换 + 4 个 wire bug fix）。</p>
+
+<h2>5. 5 个 patch summary</h2>
+
+<table>
+<tr><th>#</th><th>文件</th><th>层</th><th>说明</th></tr>
+<tr class="good"><td>1</td><td><code>.gitmodules</code> + <code>dependencies/Isaac-GR00T-N1.5/</code></td><td>root repo</td><td>新 submodule @ n1.5-release</td></tr>
+<tr class="good"><td>2</td><td><code>.gitmodules</code> + <code>dependencies/Isaac-GR00T-N1.6/</code></td><td>root repo</td><td>新 submodule @ n1.6.1-release</td></tr>
+<tr class="good"><td>3</td><td><code>server/start_server.sh</code> + <code>init_server.sh</code> + <code>scripts/{policy_server,realtime_gr00t_viewer,check_start_gr00t,preview_gr00t_inference}.sh</code></td><td>root repo</td><td>default GR00T_DIR 改指向 submodule；policy_server.sh 加 start/stop_gr00t_n17；run_one.sh 加 gr00t-n17 case</td></tr>
+<tr class="good"><td>4</td><td><code>scripts/benchmark/baselines.tsv</code></td><td>root repo</td><td>4 个 GR00T row：policy_type=<code>gr00t</code>；gr00t-n17 row server_kind=<code>gr00t-n17</code></td></tr>
+<tr class="good"><td>5</td><td><code>LeIsaac/scripts/evaluation/policy_inference.py</code></td><td>LeIsaac submodule</td><td>policy_type 接受 <code>gr00t</code> 别名（同时保留 <code>gr00tn1.5</code> 兼容）→ archived as <code>patches/leisaac/0003-*.patch</code></td></tr>
+</table>
+
+<p class="en">EN: 5 changes — 2 new submodules, 1 group of bash routing edits, 1 baselines.tsv flip, 1 LeIsaac client alias.</p>
+
+<h2>6. 验证 — Verification</h2>
+
+<div class="callout">
+<strong>N1.7 1-round</strong>: hi-space/GR00T-N1.7-3B-Pick-Orange<br>
+<code>Episode 1 is successful! oranges=3/3 t=51.9s placed=[True, True, True]</code><br>
+Final success rate <strong>100%</strong>, avg 51.9s ✅
+</div>
+
+<p>N1.6 venv ready（transformers 4.51.3 from pyproject lock）；N1.5 conda env editable 重指向 submodule 后 <code>import gr00t</code> ✅。</p>
+
+<h2>7. Patches 维护流程 — Maintenance</h2>
+
+<p>LeIsaac submodule 改动归档在 <code>patches/leisaac/</code>：</p>
+<pre>patches/leisaac/
+├── 0001-isaaclab-experience-LeRobot-v0.4-SmolVLA-GR00T-N1.5-.patch
+├── 0002-isaaclab-experience-replace-dependencies-IsaacLab-su.patch
+└── 0003-gr00t-policy-type-alias-for-all-N1x-releases.patch   ← 本次新增</pre>
+
+<p>Submodule (Isaac-GR00T / N1.5 / N1.6) 的本地修改作为 <strong>detached HEAD 上的 local commit</strong>，父 repo 记录 submodule SHA — 同 lerobot submodule 模式。</p>
+
+<h2>8. 残留与待办 — Remaining</h2>
+<ul>
+<li>父 repo: <code>.gitmodules</code> + 5 个 script + baselines.tsv + 2 个新 submodule SHA → 待 commit</li>
+<li>LeIsaac submodule: <code>policy_inference.py</code> → 已 archive 到 patches/leisaac/0003，可选 commit 或留 patch-only</li>
+<li>Isaac-GR00T (N1.7) submodule: 4 个 maintained patch (lerobot_episode_loader / server_client / pyproject / uv.lock) → 已有，本次不变</li>
+<li>STRICT_LEADERBOARD 之前的 hi-space/wsagi N1.7 入榜成绩 (66.7% / 68.3%) 应该可以重现（同 ckpt 同 wrapper logic），无需重跑除非 wrapper 行为改变</li>
+</ul>
+
+</body>
+</html>

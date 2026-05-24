@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Run a single LeIsaac PickOrange baseline end-to-end:
-#   1. start the required policy server (lerobot async / gr00t-n15 / gr00t-n16)
+#   1. start the required policy server (lerobot async / gr00t-n15 / gr00t-n16 / gr00t-n17)
 #   2. start an nvidia-smi sampler in the background
 #   3. run policy_inference.py with --metrics_out
 #   4. stop the sampler + (for gr00t) stop the server so the next baseline can boot
@@ -10,7 +10,7 @@
 #   POLICY_TYPE    e.g. lerobot-act / lerobot-diffusion / lerobot-smolvla / gr00tn1.5 / gr00tn1.6
 #   HORIZON        --policy_action_horizon
 #   CKPT           HF repo_id or local path
-#   SERVER_KIND    lerobot | gr00t-n15 | gr00t-n16
+#   SERVER_KIND    lerobot | gr00t-n15 | gr00t-n16 | gr00t-n17
 #   LABEL          display label for the metrics JSON
 #
 # Env overrides:
@@ -97,12 +97,22 @@ case "$SERVER_KIND" in
         SERVER_HOST="$GR00T_HOST"; SERVER_PORT="$GR00T_PORT"
         ;;
     gr00t-n16)
+        # Free :5555 — N1.5 / N1.6 / N1.7 all share the port.
         bash "$ROOT_DIR/scripts/policy_server.sh" stop gr00t-n15 || true
+        bash "$ROOT_DIR/scripts/policy_server.sh" stop gr00t-n17 || true
         bash "$ROOT_DIR/scripts/policy_server.sh" stop gr00t-n16 || true
         # N1.6 + N1.7 use Gr00tSimPolicyWrapper → client must wrap obs in {observation: ...}
         # (N1.5 raw inference_service.py does NOT need this wrap; see service_policy_clients.py)
-        # Pass CKPT as positional arg — policy_server.sh:start_gr00t_n16 uses $1 not env var
         GR00T_SIM_WRAPPER=1 bash "$ROOT_DIR/scripts/policy_server.sh" start gr00t-n16 "$CKPT"
+        export GR00T_WRAP_OBSERVATION=1
+        SERVER_HOST="$GR00T_HOST"; SERVER_PORT="$GR00T_PORT"
+        ;;
+    gr00t-n17)
+        # N1.7 uses dependencies/Isaac-GR00T (transformers 4.57.3 venv).
+        bash "$ROOT_DIR/scripts/policy_server.sh" stop gr00t-n15 || true
+        bash "$ROOT_DIR/scripts/policy_server.sh" stop gr00t-n16 || true
+        bash "$ROOT_DIR/scripts/policy_server.sh" stop gr00t-n17 || true
+        GR00T_SIM_WRAPPER=1 bash "$ROOT_DIR/scripts/policy_server.sh" start gr00t-n17 "$CKPT"
         export GR00T_WRAP_OBSERVATION=1
         SERVER_HOST="$GR00T_HOST"; SERVER_PORT="$GR00T_PORT"
         ;;
@@ -112,6 +122,20 @@ case "$SERVER_KIND" in
         sleep 2
         LORA_NPZ="$CKPT" bash "$ROOT_DIR/server/serve_pi05.sh" --detach
         SERVER_HOST="127.0.0.1"; SERVER_PORT="5556"
+        ;;
+    openvla)
+        # OpenVLA-7B server on :5557 — wire-compatible with Pi05ServicePolicyClient.
+        pkill -9 -f "openvla_leisaac.server" 2>/dev/null || true
+        sleep 2
+        ADAPTER="$CKPT" bash "$ROOT_DIR/server/serve_openvla.sh" --detach
+        SERVER_HOST="127.0.0.1"; SERVER_PORT="5557"
+        ;;
+    xvla)
+        # X-VLA server on :5558 — wire-compatible with Pi05ServicePolicyClient.
+        pkill -9 -f "xvla_leisaac.server" 2>/dev/null || true
+        sleep 2
+        CKPT="$CKPT" bash "$ROOT_DIR/server/serve_xvla.sh" --detach
+        SERVER_HOST="127.0.0.1"; SERVER_PORT="5558"
         ;;
     *)
         echo "[bench] unknown server_kind: $SERVER_KIND" >&2
@@ -126,11 +150,17 @@ trap '
   set +e
   rm -f "$GPU_PIDFILE" 2>/dev/null
   wait "$GPU_BG_PID" 2>/dev/null
-  if [[ "$SERVER_KIND" == "gr00t-n15" || "$SERVER_KIND" == "gr00t-n16" ]]; then
+  if [[ "$SERVER_KIND" == "gr00t-n15" || "$SERVER_KIND" == "gr00t-n16" || "$SERVER_KIND" == "gr00t-n17" ]]; then
       bash "$ROOT_DIR/scripts/policy_server.sh" stop "$SERVER_KIND" || true
   fi
   if [[ "$SERVER_KIND" == "pi05" ]]; then
       pkill -9 -f "pi05_leisaac.server" 2>/dev/null || true
+  fi
+  if [[ "$SERVER_KIND" == "openvla" ]]; then
+      pkill -9 -f "openvla_leisaac.server" 2>/dev/null || true
+  fi
+  if [[ "$SERVER_KIND" == "xvla" ]]; then
+      pkill -9 -f "xvla_leisaac.server" 2>/dev/null || true
   fi
 ' EXIT
 

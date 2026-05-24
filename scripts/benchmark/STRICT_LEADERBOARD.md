@@ -17,6 +17,8 @@ Worst-case 指标惩罚高 variance — 高均值但 σ 大 = 实际单次 deplo
 | 3🥉 | GR00T N1.5 — LightwheelAI | 20 | **58.3%** (1.75/3) | 5.12 (34.2%) | **3.63** | 40% | 65% | 55.0% (11/20) |
 | 4 | SmolVLA (other) — edge-inference | 20 | **25.0%** (0.75/3) | 1.26 (8.4%) | **2.49** | 0% | 20% | 5.0% (1/20) |
 | 5 | SmolVLA 自训 main=15k (sweep best) | 20 | **25.0%** (0.75/3) | 1.26 (8.4%) | **2.49** | 0% | 15% | 5.0% (1/20) |
+| 6 | ACT (other) — shadowHokage/act_policy | 20 | **28.3%** (0.85/3) | 2.22 (14.8%) | **2.03** | 10% | 20% | 10.0% (2/20) |
+| 7 | π0.5 PyTorch expert-FT ckpt-2000 (4B base + 693M expert, freeze VLM) | 20 | **1.7%** (0.05/3) | 0.50 (3.3%) | **-0.25** | 0% | 0% | 0.0% (0/20) |
 
 ## 分布表 — P(placed=k) per model
 
@@ -27,6 +29,8 @@ Worst-case 指标惩罚高 variance — 高均值但 σ 大 = 实际单次 deplo
 | GR00T N1.5 — LightwheelAI | 20 | 30% | 5% | 25% | **40%** |
 | SmolVLA (other) — edge-inference | 20 | 45% | 35% | 20% | **0%** |
 | SmolVLA 自训 main=15k (sweep best) | 20 | 40% | 45% | 15% | **0%** |
+| ACT (other) — shadowHokage/act_policy | 20 | 45% | 35% | 10% | **10%** |
+| π0.5 PyTorch expert-FT ckpt-2000 (4B base + 693M expert, freeze VLM) | 20 | 95% | 5% | 0% | **0%** |
 
 ## Per-episode raw oranges
 - `wsagi-n17-ckpt6000-20round` (20 eps): `[2, 0, 3, 3, 3, 2, 2, 3, 3, 1, 0, 3, 3, 0, 3, 1, 3, 3, 2, 1]`
@@ -34,6 +38,8 @@ Worst-case 指标惩罚高 variance — 高均值但 σ 大 = 实际单次 deplo
 - `gr00t-n15` (20 eps): `[0, 2, 0, 0, 0, 2, 3, 2, 3, 1, 3, 3, 3, 2, 3, 3, 2, 3, 0, 0]`
 - `smolvla-other` (20 eps): `[2, 0, 2, 0, 1, 1, 1, 2, 0, 0, 1, 1, 0, 0, 2, 1, 0, 1, 0, 0]`
 - `smolvla-self` (20 eps): `[0, 1, 0, 2, 1, 1, 0, 0, 0, 1, 1, 0, 1, 2, 0, 1, 1, 0, 2, 1]`
+- `act-other` (20 eps): `[0, 1, 0, 3, 1, 2, 2, 3, 0, 0, 1, 1, 1, 0, 0, 1, 0, 1, 0, 0]`
+- `pi05-expert-2k` (20 eps): `[0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]`
 
 ---
 **指标说明**:

@@ -16,14 +16,16 @@
 #   - SmolVLA self: main branch 现为 step-15000 (sweep best, 8/15 oranges)；30k 在 ckpt-30k 分支
 #   - 老 ACT row 之前 h=32 work / h=16 卡死的实测在 2026-05-21 sweep 后改写为 h=70
 #
-gr00t-n17	gr00tn1.6	40	hi-space/GR00T-N1.7-3B-Pick-Orange	gr00t-n16	GR00T N1.7 (hi-space, h=40)	STEP_HZ=60
-gr00t-n16-self	gr00tn1.6	40	wsagi/GR00T-N1.6-PickOrange	gr00t-n16	GR00T N1.6 自训 ckpt-6500 (h=40)	STEP_HZ=60
-gr00t-n16-hispace	gr00tn1.6	40	hi-space/GR00T-N1.6-3B-Pick-Orange	gr00t-n16	GR00T N1.6 (hi-space, h=40)	STEP_HZ=60
+gr00t-n17	gr00t	40	hi-space/GR00T-N1.7-3B-Pick-Orange	gr00t-n17	GR00T N1.7 (hi-space, h=40)	STEP_HZ=60
+gr00t-n16-self	gr00t	40	wsagi/GR00T-N1.6-PickOrange	gr00t-n16	GR00T N1.6 自训 ckpt-6500 (h=40)	STEP_HZ=60
+gr00t-n16-hispace	gr00t	40	hi-space/GR00T-N1.6-3B-Pick-Orange	gr00t-n16	GR00T N1.6 (hi-space, h=40)	STEP_HZ=60
 smolvla-self	lerobot-smolvla	50	wsagi/SmolVLA-PickOrange	lerobot	SmolVLA 自训 main=15k (sweep best)
 smolvla-other	lerobot-smolvla	50	edge-inference/smolvla-so101-pick-orange	lerobot	SmolVLA (other) — edge-inference
-gr00t-n15	gr00tn1.5	16	LightwheelAI/leisaac-pick-orange-v0	gr00t-n15	GR00T N1.5 — LightwheelAI	STEP_HZ=60
-xvla-self	xvla	32	wsagi/X-VLA-PickOrange	xvla	X-VLA 自训 weakaug 17k (h=32)
+gr00t-n15	gr00t	16	LightwheelAI/leisaac-pick-orange-v0	gr00t-n15	GR00T N1.5 — LightwheelAI	STEP_HZ=60
+xvla-self	pi05	32	/home/david/work/isaaclab-experience/LeIsaac/outputs/xvla-leisaac-pick-orange.weakaug/checkpoints/017000/pretrained_model	xvla	X-VLA 自训 weakaug 17k (h=32)
+openvla-self	pi05	1	/home/david/work/isaaclab-experience/LeIsaac/outputs/openvla-leisaac-pick-orange/checkpoint-5700	openvla	OpenVLA-7B 自训 ckpt-5700 (vanilla, 8bit r64)
 dp-self	lerobot-diffusion	16	wsagi/DiffusionPolicy-PickOrange	lerobot	DP (self) — wsagi/DiffusionPolicy-PickOrange	STUCK_WINDOW_S=99999 STUCK_EPS_RAD=0
 act-self	lerobot-act	70	wsagi/ACT-PickOrange	lerobot	ACT (self) h=70 (h=16/30/50/100 全 wall_cap)	STUCK_WINDOW_S=99999 STUCK_EPS_RAD=0
 act-other	lerobot-act	16	shadowHokage/act_policy	lerobot	ACT (other) — shadowHokage/act_policy	STUCK_WINDOW_S=99999 STUCK_EPS_RAD=0
 pi05-self	pi05	35	/home/david/work/isaaclab-experience/LeIsaac/outputs/pi05-leisaac-pt-v3/final_lora.npz	pi05	π0.5 (self) — pt-v3 final_lora.npz (3.36B + 5M LoRA)
+pi05-expert-2k	lerobot-pi05	35	/home/david/work/isaaclab-experience/LeIsaac/outputs/pi05-expert-leisaac-pick-orange/checkpoints/002000/pretrained_model	lerobot	π0.5 PyTorch expert-FT ckpt-2000 (4B base + 693M expert, freeze VLM)

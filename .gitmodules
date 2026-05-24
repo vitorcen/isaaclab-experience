@@ -16,3 +16,9 @@
 [submodule "dependencies/Isaac-GR00T"]
 	path = dependencies/Isaac-GR00T
 	url = https://github.com/NVIDIA/Isaac-GR00T.git
+[submodule "dependencies/Isaac-GR00T-N1.5"]
+	path = dependencies/Isaac-GR00T-N1.5
+	url = https://github.com/NVIDIA/Isaac-GR00T.git
+[submodule "dependencies/Isaac-GR00T-N1.6"]
+	path = dependencies/Isaac-GR00T-N1.6
+	url = https://github.com/NVIDIA/Isaac-GR00T.git

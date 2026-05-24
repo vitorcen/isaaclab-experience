@@ -13,7 +13,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-GR00T_DIR="${GR00T_DIR:-$ROOT_DIR/../Isaac-GR00T}"
+GR00T_DIR="${GR00T_DIR:-$ROOT_DIR/dependencies/Isaac-GR00T}"
 ROBOCASA_PY="$GR00T_DIR/gr00t/eval/sim/robocasa-gr1-tabletop-tasks/robocasa_uv/.venv/bin/python"
 ENV_NAME="${ENV_NAME:-gr1_unified/PosttrainPnPNovelFromPlateToPlateSplitA_GR1ArmsAndWaistFourierHands_Env}"
 HOST="${GR00T_HOST:-127.0.0.1}"

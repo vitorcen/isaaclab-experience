@@ -42,10 +42,10 @@ mkdir -p "$LOG_DIR"
 ACTION="${1:-}"
 BACKEND="${2:-}"
 case "$ACTION:$BACKEND" in
-    start:gr00t-n15|start:gr00t-n16|start:lerobot) ;;
-    stop:gr00t-n15|stop:gr00t-n16|stop:lerobot) ;;
+    start:gr00t-n15|start:gr00t-n16|start:gr00t-n17|start:lerobot) ;;
+    stop:gr00t-n15|stop:gr00t-n16|stop:gr00t-n17|stop:lerobot) ;;
     *)
-        echo "usage: $0 {start|stop} {gr00t-n15|gr00t-n16|lerobot} [MODEL_PATH]" >&2
+        echo "usage: $0 {start|stop} {gr00t-n15|gr00t-n16|gr00t-n17|lerobot} [MODEL_PATH]" >&2
         exit 2
         ;;
 esac
@@ -60,7 +60,7 @@ port_listening() {
 }
 
 # -------- GR00T N1.5 ZMQ :5555 --------
-n15_dir="${GR00T_N15_DIR:-$WORK_DIR/Isaac-GR00T-N1.5}"
+n15_dir="${GR00T_N15_DIR:-$ROOT_DIR/dependencies/Isaac-GR00T-N1.5}"
 n15_python="${GR00T_N15_PYTHON:-$HOME/miniconda3/envs/gr00t-n15/bin/python}"
 n15_host="${GR00T_N15_HOST:-0.0.0.0}"
 n15_port="${GR00T_N15_PORT:-5555}"
@@ -117,14 +117,29 @@ stop_gr00t_n15() {
     pkill -9 -f "inference_service.py.*--port[= ]*$n15_port" 2>/dev/null || true
 }
 
-# -------- GR00T N1.6 ZMQ :5555 (delegated to server/start_server.sh) --------
+# -------- GR00T N1.6 ZMQ :5555 (uses dependencies/Isaac-GR00T-N1.6 submodule) --------
+# N1.6 cached HF code expects transformers 4.51.3 — isolated venv per release tag.
 start_gr00t_n16() {
     local model_path="${1:-hi-space/GR00T-N1.6-3B-Pick-Orange}"
     export GR00T_MODEL_PATH="$model_path"
     export GR00T_EMBODIMENT_TAG="NEW_EMBODIMENT"
+    export GR00T_DIR="$ROOT_DIR/dependencies/Isaac-GR00T-N1.6"
     exec bash "$ROOT_DIR/server/start_server.sh" --gr00t-only
 }
 stop_gr00t_n16() {
+    exec bash "$ROOT_DIR/server/stop_server.sh" --gr00t-only
+}
+
+# -------- GR00T N1.7 ZMQ :5555 (uses dependencies/Isaac-GR00T submodule @ n1.7-release-2) --------
+# N1.7 (Cosmos-Reason2 backbone) requires transformers 4.57.3.
+start_gr00t_n17() {
+    local model_path="${1:-hi-space/GR00T-N1.7-3B-Pick-Orange}"
+    export GR00T_MODEL_PATH="$model_path"
+    export GR00T_EMBODIMENT_TAG="NEW_EMBODIMENT"
+    export GR00T_DIR="$ROOT_DIR/dependencies/Isaac-GR00T"
+    exec bash "$ROOT_DIR/server/start_server.sh" --gr00t-only
+}
+stop_gr00t_n17() {
     exec bash "$ROOT_DIR/server/stop_server.sh" --gr00t-only
 }
 
@@ -141,6 +156,8 @@ case "$ACTION:$BACKEND" in
     stop:gr00t-n15)  stop_gr00t_n15 ;;
     start:gr00t-n16) start_gr00t_n16 "${3:-}" ;;
     stop:gr00t-n16)  stop_gr00t_n16 ;;
+    start:gr00t-n17) start_gr00t_n17 "${3:-}" ;;
+    stop:gr00t-n17)  stop_gr00t_n17 ;;
     start:lerobot)   start_lerobot ;;
     stop:lerobot)    stop_lerobot ;;
 esac

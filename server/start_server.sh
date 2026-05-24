@@ -12,7 +12,7 @@ mkdir -p "$LOG_DIR"
 # LeRobot is vendored as a git submodule at $ROOT_DIR/lerobot, pinned to a
 # version the LeIsaac SO-101 client was written against (currently v0.3.3),
 # so the whole LeRobot path is self-contained.
-GR00T_DIR="${GR00T_DIR:-$WORK_DIR/Isaac-GR00T}"
+GR00T_DIR="${GR00T_DIR:-$ROOT_DIR/dependencies/Isaac-GR00T}"
 LEROBOT_DIR="${LEROBOT_DIR:-$ROOT_DIR/lerobot}"
 
 # bind hosts: default 0.0.0.0 so other machines on the LAN can connect.
