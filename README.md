@@ -6,68 +6,64 @@ NVIDIA Isaac Sim 和 Isaac Lab 学习与实践项目，包含完整的机器人�
 
 ## ✨ VLA 推理实测：LeIsaac SO-101 PickOrange
 
-_VLA Inference Benchmark on LeIsaac SO-101 PickOrange_
+_VLA Inference Benchmark — strict 20-round on SO-101 PickOrange_
 
 https://github.com/user-attachments/assets/44205148-1fa0-4b33-8f60-7a079faf9840
 
-把多个开源 VLA（视觉-语言-动作）模型通过远程推理服务接入 LeIsaac SO-101 单臂 Isaac Sim 仿真，对比同一 PickOrange 任务下的表现，并自训了一套 ACT / Diffusion Policy / SmolVLA / π0.5 LoRA 用于横评。
-_Compare open-source VLA policies on the same SO-101 PickOrange task via remote inference servers; complemented by our own fine-tuned ACT / Diffusion Policy / SmolVLA / π0.5 LoRA checkpoints._
+多个开源 VLA 通过 ZMQ 远程推理服务接入 LeIsaac SO-101 Isaac Sim，对比同一 PickOrange 任务表现 + 自训 ACT / DP / SmolVLA / X-VLA / OpenVLA / π0.5 / GR00T-N1.6 横评。
+_Compare open-source VLA policies + our fine-tunes on the same task via remote inference servers._
 
-- **任务 / Task**：`Pick up the orange and place it on the plate`
-- **机器人 / Robot**：SO-101 follower（6 DOF：5 关节 + gripper）
-- **观测 / Observation**：双相机（front + wrist，480×640 RGB）+ 关节状态 / dual-cam RGB + joint state
-- **入口 / Entry point**：📓 [LeIsaac.ipynb](./LeIsaac.ipynb)（每个子章节都是「下载 → 启 server → 跑推理」一键 cell）
+- **任务 / Task**：`Pick up the orange and place it on the plate` (3 oranges)
+- **机器人 / Robot**：SO-101 follower (5 关节 + gripper) · **观测**：front + wrist cam (480×640 RGB) + joint state
+- **入口 / Entry point**：📓 [LeIsaac.ipynb](./LeIsaac.ipynb) — 每子章节一键 cell
 
-### Benchmark — 10 baselines × 5 rounds × 3 oranges
+### Strict 20-round Leaderboard
 
-_5 rounds × 3 oranges = **15 oranges total**. Detail in [`LeIsaac/README.md`](./LeIsaac/README.md#2-pickorange-多策略横评). Methodology in [`scripts/benchmark/README.html`](./scripts/benchmark/README.html)._
+_20 episodes × 3 oranges = **60 oranges total** per row. Sort: E(🍊)/ep DESC. Full distribution + per-episode raw data: [`scripts/benchmark/STRICT_LEADERBOARD.md`](./scripts/benchmark/STRICT_LEADERBOARD.md)._
 
-| Model                                                                                                                              | Params          | Strict ✅     | 🍊 (n/15)       | Avg round     | Peak VRAM                        |
-| ---------------------------------------------------------------------------------------------------------------------------------- | --------------- | ------------- | --------------- | ------------- | -------------------------------- |
-| **[`hi-space/GR00T-N1.7-3B-Pick-Orange`](https://huggingface.co/hi-space/GR00T-N1.7-3B-Pick-Orange)** 🥇🆕 (h=40, step_hz=60) | ~3B             | **4/5** | **14/15** | **69s** | 17.3 GB                          |
-| [`wsagi/GR00T-N1.6-PickOrange`](https://huggingface.co/wsagi/GR00T-N1.6-PickOrange) (自训 / ours, ckpt-6500, h=40) 🥈               | ~3B             | **4/5** | **13/15** | 92s           | ~22 GB (train) / 17.3 GB (infer) |
-| [`hi-space/GR00T-N1.6-3B-Pick-Orange`](https://huggingface.co/hi-space/GR00T-N1.6-3B-Pick-Orange) (h=40, step_hz=60) 🥉             | ~3B             | 2/5           | 9/15            | 122s          | 17.3 GB                          |
-| [`wsagi/SmolVLA-PickOrange`](https://huggingface.co/wsagi/SmolVLA-PickOrange) **(自训 / ours, main=15k, sweep best)**         | ~450M           | 2/5           | 8/15            | 133s          | 10.0 GB                          |
-| [`edge-inference/smolvla-so101-pick-orange`](https://huggingface.co/edge-inference/smolvla-so101-pick-orange)                       | ~450M           | 1/5           | 6/15            | 135s          | 10.2 GB                          |
-| **[`wsagi/ACT-PickOrange`](https://huggingface.co/wsagi/ACT-PickOrange) (自训 / ours, lerobot v0.4.0 ckpt-18k, h=70)**        | ~52M            | **1/5** | **5/15**  | 154s          | 8.6 GB                           |
-| [`LightwheelAI/leisaac-pick-orange-v0`](https://huggingface.co/LightwheelAI/leisaac-pick-orange-v0) (N1.5, h=16, step_hz=60)        | ~3B             | 0/5           | 8/15            | 140s          | 16.2 GB                          |
-| [`shadowHokage/act_policy`](https://huggingface.co/shadowHokage/act_policy) (others, h=70)                                          | ~52M            | 0/5           | 4/15            | 169s          | 8.6 GB                           |
-| [`wsagi/X-VLA-PickOrange`](https://huggingface.co/wsagi/X-VLA-PickOrange) **(自训 / ours, weakaug 17k, h=32, no-stuck)**      | 0.9B            | 0/5           | 3/15            | 180s          | ~5 GB                            |
-| [`wsagi/DiffusionPolicy-PickOrange`](https://huggingface.co/wsagi/DiffusionPolicy-PickOrange) **(自训 / ours, v0.5)**         | ~267M           | 0/5           | 0/15            | 33s\*         | 10.6 GB                          |
-| **DP v0.4 fullres patched (self, ckpt-70k, h={8,12,16})**                                                                   | ~267M           | 0/5           | 0/15            | 183s          | ~13 GB                           |
-| OpenVLA-7B (自训 / ours, ckpt-6300 + 8bit-1000, h=16, no-stuck)                                                                    | 7B + 32 LoRA    | 0/5           | 0/15            | 180s          | ~8 GB                            |
-| π0.5 (自训 / ours, pt-v3 final_lora.npz, h=35)                                                                                    | 3.36B + 5M LoRA | 0/5           | 0/15            | 180s          | ~16 GB                           |
+| Rank | Model                                                                                                                              | Params | **E(🍊)/ep** | P(3) | P(≥2) | Avg ep  | Peak VRAM |
+|---|---|---|---|---|---|---|---|
+| 🥇 | [`wsagi/GR00T-N1.7-PickOrange`](https://huggingface.co/wsagi/GR00T-N1.7-PickOrange) **自训 / ours** (h=40)                            | ~3B    | **68.3%** | 50% | 70% | 117s | 17.3 GB |
+| 🥈 | [`hi-space/GR00T-N1.7-3B-Pick-Orange`](https://huggingface.co/hi-space/GR00T-N1.7-3B-Pick-Orange) (h=40)                              | ~3B    | 66.7%     | 45% | 70% | 102s | 17.3 GB |
+| 🥉 | [`LightwheelAI/leisaac-pick-orange-v0`](https://huggingface.co/LightwheelAI/leisaac-pick-orange-v0) (N1.5, h=16)                      | ~3B    | 58.3%     | 40% | 65% | 47s  | 13.8 GB |
+| 4  | [`hi-space/GR00T-N1.6-3B-Pick-Orange`](https://huggingface.co/hi-space/GR00T-N1.6-3B-Pick-Orange) (h=40)                              | ~3B    | 48.3%     | 25% | 40% | 87s  | 14.9 GB |
+| 5  | [`wsagi/GR00T-N1.6-PickOrange`](https://huggingface.co/wsagi/GR00T-N1.6-PickOrange) **自训 / ours** (ckpt-6500, h=40)                  | ~3B    | 46.7%     | 20% | 45% | 66s  | 14.9 GB |
+| 6  | [`wsagi/ACT-PickOrange`](https://huggingface.co/wsagi/ACT-PickOrange) **自训 / ours** (lerobot v0.4.0 ckpt-18k, h=70)                  | ~52M   | 43.3%     | 30% | 40% | 151s | 9.5 GB  |
+| 7  | [`shadowHokage/act_policy`](https://huggingface.co/shadowHokage/act_policy) (h=70)                                                    | ~52M   | 28.3%     | 10% | 20% | 169s | 8.6 GB  |
+| 8  | [`edge-inference/smolvla-so101-pick-orange`](https://huggingface.co/edge-inference/smolvla-so101-pick-orange) (h=50)                  | ~450M  | 25.0%     | 0%  | 20% | 179s | ~23 GB  |
+| 9  | [`wsagi/SmolVLA-PickOrange`](https://huggingface.co/wsagi/SmolVLA-PickOrange) **自训 / ours** (main=15k, h=50)                         | ~450M  | 25.0%     | 0%  | 15% | 176s | ~24 GB  |
+| 10 | [`wsagi/X-VLA-PickOrange`](https://huggingface.co/wsagi/X-VLA-PickOrange) **自训 / ours** (weakaug 17k, h=32)                          | 0.9B   | 6.7%      | 0%  | 0%  | 118s | 11.8 GB |
 
-\* DP wsagi v0.5 stuck @ 33s — **真根因不是 policy dead**，是 lerobot async server bug（`predict_action_chunk` 不 populate_queues）→ n_obs_steps=2 stack 空 → server stream crash。fix 后 DP **能产合理 action 但学不到 task**（v0.4 fullres patched ckpt-70k h={8,12,16} 全 0/15），见 framework bug section 下方。
-
-_Sort: Rounds DESC → oranges DESC → time ASC._
-
-**Strict ✅** = all 3 oranges in plate at episode end snapshot (post-bug-fix: pre-step obs avoids auto-reset假阴 + dz_max=0.20 stacking-aware + plate_r=0.10 cylindrical + velocity-settled gate)。**🍊** = per-orange snapshot count over rounds×3 attempts。
-
-> **⚠️ Single-run variance caveat**: ACT-class chunk policies 实测 single 5-round variance ±40%。自训 ACT 5 runs @ h=70 strict [3,0,2,1,2] oranges [13,2,8,5,5] — **剔除 lucky 13/15 outlier 后 4-run mean = 1/5 strict, 5/15 oranges**（含 outlier 是 2/5, 7/15）。shadowHokage h=70 single 5-round = 4/15。旧 9/15 anchor 是 sticky-env-success 旧协议下数的，post-bug-fix 严格协议复测 0/5 strict。其余 single 5-round 行 ±5 oranges 噪音。
+> **Avg ep** = 平均每 episode wall-clock 时长（s），含 server inference + sim step；越短 = policy 越果断（早完成 or 早 stuck-out）。
+> **Peak VRAM** = `nvidia-smi` 总 GPU 内存峰值（含 Isaac Sim ~5-6 GB baseline + policy server）。
 >
-> _Self ACT typical = trimmed mean (excluding lucky 13/15 outlier) = 1/5 strict, 5/15 oranges; with outlier included it would be 2/5, 7/15. shadowHokage h=70 = 4/15; legacy 9/15 anchor used a sticky-env-success protocol incompatible with current strict counting._
+> **E(🍊)/ep** = 每 episode 期望放置橙子数（满分 3）= total_oranges / N_episodes。
+> **P(k)** = single-episode placed=k 的概率；**P(≥2)** = 单 ep 至少 2 颗。
+>
+> _3 个 0/60 entries (DP / OpenVLA / π0.5 自训) 见完整榜单 [`scripts/benchmark/STRICT_LEADERBOARD.md`](./scripts/benchmark/STRICT_LEADERBOARD.md)。_
 
-> **Methodology change (2026-05-21)**: 5-round (15 ep) replaces 3-round (9 ep) for new entries — same model跑 4 次 3-round variance 1/3-3/3 env / 67-89% oranges。Old `pre-fix 3-round` rows kept verbatim until re-eval; expect their oranges to be off by ±30%.
+> **Strict counting**: snapshot at episode end — pre-step obs（避 auto-reset 假阴）+ dz_max=0.20 stacking-aware + plate_r=0.10 cylindrical + velocity-settled gate。
 >
-> **🔍 ACT framework drift 发现 (2026-05-22)**：原 `wsagi/ACT-PickOrange` v0.5.2 ckpt 仅 3/15。锁版本 lerobot **v0.4.0** 重训 20k step + ckpt-18k h=70，5 runs per-run oranges [13,2,8,5,5]，**剔除 lucky 13/15 outlier 后 trimmed mean = 5/15**（含 outlier 是 7/15），pool 含 outlier 33/75 = 44.0% per-orange。shadowHokage h=70 single 5-round = **4/15** (post-bug-fix 严格协议)，旧 9/15 anchor 是 sticky-env-success 旧协议不可复现。Welch t-test (含 outlier) p=0.034 显著优于 shadowHokage 2.20×。旧 v0.5.2 ckpt 保留在分支 `lerobot-v052-ckpt-10k`。
->
-> _Framework drift fix: relocking lerobot to v0.4.0 + ckpt-18k h=70 — 5 runs oranges [13,2,8,5,5], trimmed mean (excluding lucky 13/15 outlier) = 5/15; with outlier mean = 7/15 and pool 33/75 = 44.0% per-orange. Welch t p=0.034 with outlier (2.20× over shadowHokage h=70 = 4/15). Old v0.5.2 ckpt preserved on branch `lerobot-v052-ckpt-10k`._
->
-> **🐛 DP "policy dead" 真根因找到 (2026-05-23)**：原 `wsagi/DP` 0/15 stuck @ 33s **不是 policy dead**，是 `lerobot/policies/diffusion/modeling_diffusion.py::predict_action_chunk` **不调 `populate_queues`** → n_obs_steps=2 deque 空 → `torch.stack([], dim=1)` → server stream crash → client 8-retry 拿不到 action → Isaac 机械臂静默不动。**v0.4 和 v0.5 都有这 bug**。一行 patch：`predict_action_chunk` 顶部加 `populate_queues(self._queues, batch)` 即可（select_action 路径正常，仅 async server 用的 predict 路径漏了）。Patched 后 ckpt-70k 5-round h={8,12,16} 全 0/15 但能产合理 action（joint ±0.6 rad）→ **framework bug fix 是 necessary not sufficient**：50 demo 上 DP 本身就学不到稳定 task。完整 patch 在 `/home/david/work/lerobot-v040` editable install；建议向 upstream PR。
->
-> _DP "policy dead" root cause (2026-05-23): the original 0/15 stuck @ 33s was **not** model failure. lerobot's `predict_action_chunk` (the async-server entry point) does not call `populate_queues`, while `select_action` does — so any policy with `n_obs_steps>1` (DP defaults to 2) triggers `stack expects a non-empty TensorList` on the first inference, crashes the stream, and the arm stops receiving actions. Both v0.4 and v0.5 have this. One-line fix at top of `predict_action_chunk`. After patching, ckpt-70k 5-round h={8,12,16} all 0/15 with valid (joint ±0.6 rad) actions — **the framework bug fix is necessary but not sufficient**; DP itself does not learn a robust task on 50 demos. Patch is live on local `lerobot-v040` editable; should be upstreamed._
->
-> **❌ Earlier hypothesis (DP framework drift / crop_shape) rejected (2026-05-22)**：曾以为 v0.4 vs v0.5 / `crop_shape=(84,84)` 是 DP 失败原因。v0.4.0 retrain + crop=null fullres 100k step 同样 0/15 — 两个改动都修了但 DP 仍 0/15。真根因是上面 server populate_queues bug + DP 在小 demo 集上学不动，**不是 framework 版本也不是 crop**。两个 fix 加起来是把 DP 从"不动"救到"动但不会"。
+> **Why 20 rounds**: 5-round σ ≈ ±6.4% (Bernoulli)，14/15 实测是 4σ outlier；20-round 单 ep 级 noise ≈ ±10%，可信对比。
 
 复现：
 
 ```bash
-bash scripts/benchmark/run_all_baselines.sh           # 跑完 7 个 baseline + 1Hz GPU 采样
-python3 scripts/benchmark/aggregate.py results/benchmark \
-    --baselines_tsv scripts/benchmark/baselines.tsv \
-    --out results/benchmark/SUMMARY.md
+ONLY=gr00t-n17,gr00t-n16-self,act-self STRICT_ROUNDS=20 \
+    bash scripts/benchmark/run_all_strict.sh
+python3 scripts/benchmark/aggregate_strict_leaderboard.py \
+    --results_dir results/benchmark \
+    --out scripts/benchmark/STRICT_LEADERBOARD.md
 ```
+
+### 关键 Findings
+
+- **GR00T 系列三连霸**：N1.7 (68.3%) ≈ hi-space N1.7 (66.7%)；N1.5 LightwheelAI 58.3% 仍能打；自训 N1.6 ckpt-6500 (46.7%) 接近 hi-space N1.6 (48.3%)。
+- **ACT 自训 (43.3%) > shadowHokage (28.3%) 53%**：锁版本 lerobot **v0.4.0** + ckpt-18k h=70 重训。原因 = v0.5 dataloader 行为漂移 (PR #3406 + #3442)；详见 [`LeIsaac/docs/training/act_framework_drift.html`](./LeIsaac/docs/training/act_framework_drift.html)。
+- **DP / OpenVLA / π0.5 自训 全 0/60**：50-60 demo 不够支撑这些 model class。DP 另有 lerobot async server bug — `predict_action_chunk` 不 `populate_queues`，已在 `lerobot-v040` editable 一行 patch 修复。
+- **X-VLA weakaug 17k 6.7%**：之前 single-run 9/18 是 small-N variance，strict 20-round 真实 P(≥1)=20%, P(≥2)=0%。
+- **GR00T 多 release env 隔离**：N1.5 / N1.6 / N1.7 各独立 submodule + venv (transformers 4.51.3 vs 4.57.3 ABI 冲突)；见 [`doc/gr00t_multi_release_env_split.html`](./doc/gr00t_multi_release_env_split.html)。
+
 
 ### Servers / inference infra
 

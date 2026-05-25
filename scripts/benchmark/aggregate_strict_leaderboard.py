@@ -75,25 +75,24 @@ def main():
         print(f"no metrics.json in {args.results_dir}")
         return
 
-    # Sort: worst-case (mean - σ) DESC — penalizes high-variance models
-    # Tie breakers: E(oranges) DESC, σ ASC, env_success DESC
-    rows.sort(key=lambda r: (-r["worst_5round"], -r["e_oranges"], r["sigma_5round"], -r["env_success"]))
+    # Sort: E(oranges)/ep DESC — straight mean, the metric users actually care about.
+    # Tie breakers: P(3) DESC (full success), env_success DESC, σ ASC.
+    rows.sort(key=lambda r: (-r["e_oranges"], -r["p_dist"][3], -r["env_success"], r["sigma_5round"]))
 
     md = []
     md.append("# Strict ≥20-round Leaderboard — PickOrange Probability Distribution\n")
-    md.append("自动生成。**排名规则**: worst-case (5-round mean − 1σ) DESC →")
-    md.append("E(oranges) DESC → σ ASC → env_success DESC.\n")
-    md.append("Worst-case 指标惩罚高 variance — 高均值但 σ 大 = 实际单次 deploy 不可靠。\n")
+    md.append("自动生成。**排名规则**: E(🍊)/ep DESC → P(3) DESC → env_success DESC → σ ASC.\n")
+    md.append("E(🍊)/ep = total_oranges / N_episodes，即每 episode 平均放置橙子数（满分 3）。\n")
     md.append("默认最低 20-round 入榜（strict 标准）；σ(5-round) 跨 5-round sub-sample 计算。See `feedback-20round-strict-benchmark` memory.\n")
     md.append("")
     md.append("## 主表 — Main leaderboard")
     md.append("")
-    md.append("| Rank | Model | N | E(🍊)/ep | σ(5-rd) | **🔑⬇️ Worst-case (mean−1σ)/15** | P(3) | P(≥2) | env_success |")
+    md.append("| Rank | Model | N | **🔑⬇️ E(🍊)/ep** | σ(5-rd) | Worst-case (mean−1σ)/15 | P(3) | P(≥2) | env_success |")
     md.append("|---|---|---|---|---|---|---|---|---|")
     for i, r in enumerate(rows, 1):
         medal = "🥇" if i == 1 else ("🥈" if i == 2 else ("🥉" if i == 3 else ""))
         sigma_str = f"{r['sigma_5round']:.2f} ({r['sigma_pct']:.1f}%)" if r["rounds"] >= 10 else "—"
-        worst_str = f"**{r['worst_5round']:.2f}**" if r["rounds"] >= 10 else "—"
+        worst_str = f"{r['worst_5round']:.2f}" if r["rounds"] >= 10 else "—"
         md.append(
             f"| {i}{medal} | {r['label']} | {r['rounds']} | "
             f"**{r['pct_oranges']:.1f}%** ({r['e_oranges']:.2f}/3) | "
@@ -120,9 +119,9 @@ def main():
     md.append("")
     md.append("---")
     md.append("**指标说明**:")
-    md.append("- **E(🍊)/ep**: 每 episode 期望放置橙子数（满分 3）")
+    md.append("- **🔑⬇️ E(🍊)/ep**: 每 episode 期望放置橙子数（满分 3）— **主排序键**")
     md.append("- **σ(5-rd)**: 跨 5-round sub-sample 的标准差（用于估单次 5-round noise）")
-    md.append("- **🔑⬇️ Worst-case**: 5-round mean − 1σ — 即 ~68% 概率任意一次 5-round 不低于此值；惩罚 unreliable 模型；**🔑 = sort key, ⬇️ = DESC**")
+    md.append("- **Worst-case (mean−1σ)/15**: 参考指标 — ~68% 概率任意一次 5-round 不低于此值；衡量 reliability")
     md.append("- **P(3)**: 单 episode 全 3 颗成功的概率")
     md.append("- **P(≥2)**: 单 episode 至少 2 颗成功的概率 (useful threshold)")
     md.append("- **env_success**: 环境 `task_done` fire 的 episode 比例（含 arm-rest 要求）— 通常 ≤ P(3) 因为 placement 后 arm 没收回会卡 wall_cap")
