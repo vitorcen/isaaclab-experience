@@ -11,7 +11,7 @@
 	path = LeIsaac
 	url = https://github.com/vitorcen/LeIsaac-Training
 [submodule "BEHAVIOR-1K"]
-	path = BEHAVIOR-1K
+	path = dependencies/BEHAVIOR-1K
 	url = https://github.com/StanfordVL/BEHAVIOR-1K.git
 [submodule "dependencies/Isaac-GR00T"]
 	path = dependencies/Isaac-GR00T

@@ -13,6 +13,7 @@ Only one demo runs at a time.
 
 import argparse
 import os
+import shutil
 import signal
 import subprocess
 import sys
@@ -20,8 +21,32 @@ import time
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-CONDA_PY = "/home/david/miniconda3/envs/behavior/bin/python"
-DISPLAY = ":1"
+
+
+def _resolve_conda_py(env_name: str = "behavior") -> str:
+    """Find `<env>/bin/python` without hardcoding $HOME.
+    Returns a string path; existence is checked lazily at launch time
+    so `list` / `status` / `kill` work even before env is installed.
+    Override: $BEHAVIOR_CONDA_PY.
+    """
+    override = os.environ.get("BEHAVIOR_CONDA_PY")
+    if override:
+        return override
+    conda_exe = os.environ.get("CONDA_EXE") or shutil.which("conda")
+    if conda_exe:
+        try:
+            base = subprocess.check_output(
+                [conda_exe, "info", "--base"], text=True
+            ).strip()
+            return str(Path(base) / "envs" / env_name / "bin" / "python")
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            pass
+    # last-resort guess so the module can still import for non-launch commands
+    return str(Path.home() / "miniconda3" / "envs" / env_name / "bin" / "python")
+
+
+CONDA_PY = _resolve_conda_py()
+DISPLAY = os.environ.get("DISPLAY", ":0")
 PID_FILE = Path("/tmp/b1k_demo.pid")
 LOG_FILE = Path("/tmp/b1k_demo.log")
 
@@ -176,6 +201,10 @@ def cmd_launch(args):
             cmd.append("--random")
 
     env = {**os.environ, "DISPLAY": DISPLAY}
+    env.setdefault("OMNIGIBSON_DATA_PATH", str(Path.home() / ".cache" / "omnigibson"))
+    # CPython 3.11 + torch.compile + hipify trie-regex → UnboundLocalError in re._parser.
+    # OmniGibson uses @torch_compile purely for speed; disabling is safe.
+    env.setdefault("TORCH_COMPILE_DISABLE", "1")
     log = open(LOG_FILE, "wb")
     print(f"launching {name}")
     print(f"  cmd: {' '.join(cmd)}")
@@ -203,7 +232,12 @@ def cmd_setup(_args):
     ]
     print("running dataset setup (downloads ~30 GB if missing)")
     print(f"  cmd: {' '.join(cmd[:3])} ...")
-    subprocess.run(cmd, cwd=str(REPO), check=False)
+    env = {**os.environ}
+    env.setdefault("OMNIGIBSON_DATA_PATH", str(Path.home() / ".cache" / "omnigibson"))
+    env.setdefault("TORCH_COMPILE_DISABLE", "1")
+    Path(env["OMNIGIBSON_DATA_PATH"]).mkdir(parents=True, exist_ok=True)
+    print(f"  OMNIGIBSON_DATA_PATH={env['OMNIGIBSON_DATA_PATH']}")
+    subprocess.run(cmd, cwd=str(REPO), env=env, check=False)
 
 
 def main():

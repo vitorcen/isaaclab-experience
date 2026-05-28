@@ -45,6 +45,10 @@ def main():
     print(f"Loaded scene: {args.scene} (mode: {'Full' if args.full else 'Quick'})")
     print("Press ESC in the viewer to quit.")
 
+    # OmniGibson loads the scene with simulator stopped; reset to enter playing state
+    # (simulator.step asserts self.is_playing()).
+    env.reset()
+
     while True:
         env.step([])
 
