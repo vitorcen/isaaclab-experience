@@ -6,6 +6,7 @@
 - [benchmark 表格排序规则](feedback-benchmark-table-sort.md) — README leaderboard 排序：strict Rounds DESC → oranges DESC → time ASC
 
 ## Training discipline
+- [🥊 MimicKit LAFAN_fight 训练 + GUI eval resume 计划](mimickit-lafan-fight-training-plan.md) — compact 后接力训 G1 5s/15s 切段；pipeline + 切段 + 命令模板已落盘；4090 24G 5s 30min 出形 2h ship
 - [🧹 训练完 benchmark 后 outputs 清理](feedback-training-output-cleanup.md) — leaderboard 落地后每家族留 1 dir + 3-6 ckpts；负面家族也留 1 个存档；规则写入 `LeIsaac/CLAUDE.md`
 - [🎯 GPU util 是训练效率优化的判断锚](feedback-gpu-util-as-efficiency-anchor.md) — 不看 step/s 看 mid-window GPU util %；1Hz GPU+CPU 双采样 + per-phase profile + micro-bench 隔离；瓶颈分层判断表
 - [训练 = 训练 + 自动每阶段 eval](auto-eval-watcher-standard.md) — `lerobot_finetune.sh AUTO_EVAL=1` spawn `eval_watcher.sh` poll ckpts/ → 3 连 0 → `.eval_abort` SIGTERM；CSV 持久 dedup 保 resume
@@ -21,6 +22,7 @@
 - [LeIsaac eval timeout + DP DDIM swap](leisaac-eval-timeout.md) — DDPM 100-step → DDIM 32-step 不重训直接 swap，inference 393→147ms；4090 sweet spot 公式：`(target_ms - 36) / 3.3 ≈ 29 step`
 
 ## Current baseline architecture
+- [🤖 LAFAN G1 motion-tracking ecosystem 地图](lafan-g1-ecosystem.md) — 数据 + 现成 ckpt + retargeter 全集；结论 LAFAN_fight G1 ckpt 生态里 0 个，要么 ProtoMotions 不兼容，要么自训 (MimicKit)
 - [🏗️ GR00T N1.5/N1.6/N1.7 多 release 环境分离](gr00t-multi-release-env-split.md) — 3 submodule + 3 venv；transformers 4.51.3 (N1.5/N1.6) vs 4.57.3 (N1.7) 隔离；policy_type 统一 `gr00t`
 - [🔧 GR00T-N1.7 × LeIsaac 4 层 wire 协议 debug](gr00t-n17-leisaac-wire-debug.md) — 剥洋葱 4 bug：missing observation envelope / 缺 T 轴 + float32 / msgpack-numpy bytes-key 漏解码 / mnp.decode 强制 bytes keys。fix 在 `service_policy_clients.py:Gr00tServicePolicyClient`
 - [🏆 ACT framework drift root cause 锁定 + 修复验证](act-framework-drift-root-cause.md) — lerobot v0.4→v0.5 间 PR #3406 (dataloader uint8/persistent_workers/prefetch) + PR #3442 (ACT padding loss fix) 是 root cause；锁版本 lerobot v0.4.0 + torch 2.7.1+cu126 → 3/15 → 8/15

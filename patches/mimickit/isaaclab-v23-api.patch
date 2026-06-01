@@ -1,0 +1,16 @@
+diff --git a/mimickit/engines/isaac_lab_engine.py b/mimickit/engines/isaac_lab_engine.py
+index 38f3881..3befecb 100644
+--- a/mimickit/engines/isaac_lab_engine.py
++++ b/mimickit/engines/isaac_lab_engine.py
+@@ -1015,7 +1015,10 @@ class IsaacLabEngine(engine.Engine):
+     def _disable_prim_collisions(self, prim_path):
+         import isaaclab.sim as sim_utils
+ 
+-        child_prims = sim_utils.get_all_matching_child_prims(prim_path, traverse_instance_prims=True)
++        # Isaac Lab v2.3+ dropped `traverse_instance_prims` kwarg (PR #3921). New behavior is unconditional
++        # GetChildren()-based traversal; the SetInstanceable(False) loop below + modify_collision_properties(prim_path,…)
++        # do not depend on instance-proxy descent.
++        child_prims = sim_utils.get_all_matching_child_prims(prim_path)
+         for col_prim in child_prims:
+             if (col_prim.IsInstanceable()):
+                 col_prim.SetInstanceable(False)

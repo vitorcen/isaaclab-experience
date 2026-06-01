@@ -22,3 +22,6 @@
 [submodule "dependencies/Isaac-GR00T-N1.6"]
 	path = dependencies/Isaac-GR00T-N1.6
 	url = https://github.com/NVIDIA/Isaac-GR00T.git
+[submodule "dependencies/MimicKit"]
+	path = dependencies/MimicKit
+	url = https://github.com/xbpeng/MimicKit.git
