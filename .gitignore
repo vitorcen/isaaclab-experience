@@ -40,5 +40,3 @@ videos/
 .cache/
 results/
 
-# Local helper files
-AGENTS.md
