@@ -16,7 +16,7 @@
 - [长训练拆 5 段 resume](feedback-training-resume-chunks.md) — 长跑 (>2h) 默认拆 N≈5 段 via save_every + resume，不一把梭哈
 
 ## MimicKit motion training (G1)
-- [🔴 AMP G1 full-131s dance 负面 + 下一步 30s PPO](mimickit-amp-g1-dance-negative.md) — AMP Disc_Agent_Acc 平台 0.98 跟不上节奏；dance 保真用 DeepMimic phase-tracking 不用 AMP；含 AMP 启动 (BASE_ENV/AGENT) + 指标解读 (Return=0正常/Agent_Acc应降0.5/~800iter收敛别跑4000)；下一步 DeepMimic 30s 切段热启动
+- [🔴 AMP dance 负面 vs ✅ PPO-30s 成功（同 clip dance1_s2）](mimickit-amp-g1-dance-negative.md) — AMP Disc_Agent_Acc 平台 0.98 跟不上节奏；DeepMimic PPO-30s Test_Return 244>15s基线227 收敛；dance 保真用 phase-tracking 不用 AMP；含 AMP/PPO 启动 (BASE_ENV/AGENT, init ckpt 要绝对路径) + 指标解读 (Return=0正常/Agent_Acc应降0.5/γ折扣返回值15s/30s同档/eval_chain硬编码1500对本地30s会SKIP)
 
 ## VLA distillation (planned)
 - [🧬 MimicKit→VLA 蒸馏路径计划](mimickit-to-vla-distill-plan.md) — DeepMimic PPO → prompt-conditioned 人形 VLA；基建优先于 expert，先补 recorder/modality.json/第三人称camera 跑 10ep×2motion sanity；doc/mimickit_to_vla_dataset.html

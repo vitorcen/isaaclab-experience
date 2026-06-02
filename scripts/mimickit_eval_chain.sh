@@ -32,7 +32,12 @@ conda activate "$CONDA_ENV"
 PRETRAINED_DIR=""   # lazily resolved from HF on the first local miss
 
 for motion in "${MOTIONS[@]}"; do
-  CKPT="output/train_${motion}/int_models/model_0000001500.pt"
+  # prefer the final model.pt (e.g. dance_30s ran to 2500), else the 1500-iter ckpt
+  if [[ -f "output/train_${motion}/model.pt" ]]; then
+    CKPT="output/train_${motion}/model.pt"
+  else
+    CKPT="output/train_${motion}/int_models/model_0000001500.pt"
+  fi
   ENV_YAML="output/preview_envs/train_${motion}_env.yaml"
 
   # Not trained locally → fall back to the HF bundle (downloads once, then cached).
@@ -48,7 +53,11 @@ PY
       echo "[eval_chain] HF snapshot: $PRETRAINED_DIR"
     fi
     sub="${motion#lafan_}"                       # lafan_fight_15s → fight_15s
-    CKPT="$PRETRAINED_DIR/$sub/model_0000001500.pt"
+    if [[ -f "$PRETRAINED_DIR/$sub/model.pt" ]]; then
+      CKPT="$PRETRAINED_DIR/$sub/model.pt"       # dance_30s ships model.pt (2500 iters)
+    else
+      CKPT="$PRETRAINED_DIR/$sub/model_0000001500.pt"
+    fi
     ENV_YAML="$PRETRAINED_DIR/$sub/env.yaml"
     # env.yaml references data/motions/g1/<motion>.pkl relative to CWD — stage the
     # tiny (144KB) pkl there; the big files stay in cache, referenced in place.
