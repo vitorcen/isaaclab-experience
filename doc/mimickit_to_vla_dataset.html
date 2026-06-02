@@ -166,6 +166,12 @@ single frame, and cannot reproduce the 60Hz dynamic balance that DeepMimic learn
 <br><br>
 <strong>第一个 student 不应该是 GR00T</strong> — 这本质是高频 control distillation，先用 <strong>ACT 或 Diffusion Policy</strong>
 + language embedding 验证 pipeline，GR00T/π0.5/SmolVLA 作 phase 2 对照（codex 强烈建议）。
+
+<br><br>
+<strong>第二轮评审修正（§7，Claude × GPT-5.4）：</strong>
+<strong>基建优先于 expert</strong> —— 先补 recorder / modality.json / 第三人称 camera 跑激进 sanity，
+再考虑加 dance expert（<strong>训多不训长</strong>，2-3 个验证 / 4-6 个才算 family coverage）。
+最便宜的多样性杠杆是 <strong>prompt 侧多样化</strong>，DR ≠ semantic diversity。
 </div>
 
 <h2>1. 问题陈述 <span class="en">Problem Statement</span></h2>
@@ -453,8 +459,10 @@ VLA 必须从 RGB+proprio 自己推断 phase — 这是 imitation 路径上的�
 <table>
 <thead><tr><th>Phase</th><th>内容</th><th>产出</th><th>预计</th></tr></thead>
 <tbody>
-<tr><td>P0 · 1d</td><td>挂 TiledCamera 到 MimicKit Isaac Lab env</td><td><code>g1_with_cam_env.yaml</code> + smoke test rollout</td><td>4h work</td></tr>
-<tr><td>P1 · 1d</td><td>写 <code>scripts/mimickit_rollout_to_lerobot.py</code></td><td>50 ep smoke dataset</td><td>1d</td></tr>
+<tr><td>P0 · 0.5d</td><td>第三人称 TiledCamera 挂 MimicKit env（参考 <code>isaac_lab_recorder.py</code> 现成 viewport pattern）</td><td><code>g1_with_cam_env.yaml</code></td><td>4h</td></tr>
+<tr><td>P1a · 0.5d</td><td>写自定义 G1 rollout recorder（codex 的 pseudocode + deepseek 标注的 ~200 行）</td><td><code>scripts/mimickit_rollout_to_episodes.py</code></td><td>0.5d</td></tr>
+<tr><td>P1b · 0.5d</td><td>定义 G1 29-DoF <code>modality.json</code> + 改造 <code>LeIsaac/scripts/convert/isaaclab2lerobot.py</code></td><td>v2 dataset writer 通过</td><td>0.5d</td></tr>
+<tr><td>P1c · 0.5d</td><td><strong>激进 sanity（deepseek 推荐）</strong>：10 ep × 2 motion，GR00T 1k step finetune，qualitative check</td><td>判定 go / pivot</td><td>1d 含 finetune</td></tr>
 <tr><td>P2a · 0.5d</td><td>50 ep/motion sanity rollout + RSI + DR + phase</td><td>200 ep smoke set</td><td>2-4h GPU</td></tr>
 <tr><td>P2b · 1d</td><td>ACT 或 Diffusion Policy 训练（codex 推荐先用 ACT 不是 GR00T）</td><td>baseline student ckpt</td><td>4-8h 4090</td></tr>
 <tr><td>P2c · 1d</td><td>若 P2b 通：扩 200 ep/motion + 推 HF dataset</td><td>800 ep LeRobot v2 + modality.json</td><td>1d</td></tr>
@@ -518,7 +526,51 @@ vision 只是 body-style 参考。但如果你期待 vision 单独区分 "fight 
 
 <div class="model-card" id="deepseek-result">
 <h4>🟣 DeepSeek V4 Pro</h4>
-<p><em>等待中... opencode run 结束后融合到此</em></p>
+<p><strong>核心立场：</strong>"<em>This is genuinely open territory. Either a contribution or a dead end for a reason nobody's publishing.</em>"
+GR00T N1.7 可行（200+ ep/motion），SmolVLA/ACT 不行（29-DoF 太高）。最大风险 = <strong>mode collapse / average motion</strong>。</p>
+
+<p><strong>独家贡献（codex 没说过）— 本仓库已有 80% 基建：</strong></p>
+<table>
+<thead><tr><th>组件</th><th>状态</th><th>位置</th></tr></thead>
+<tbody>
+<tr><td>IsaacLab → LeRobot v2 转换器</td><td>✅ 已存在</td><td><code>LeIsaac/scripts/convert/isaaclab2lerobot.py</code></td></tr>
+<tr><td>IsaacLab → LeRobot v3 转换器</td><td>✅ 已存在</td><td><code>LeIsaac/scripts/convert/isaaclab2lerobotv3.py</code></td></tr>
+<tr><td>MimicKit camera recorder</td><td>✅ 已存在</td><td><code>dependencies/MimicKit/mimickit/engines/isaac_lab_recorder.py</code></td></tr>
+<tr><td>LeRobot finetune driver</td><td>✅ 已存在</td><td><code>LeIsaac/scripts/training/lerobot_finetune.sh</code></td></tr>
+<tr><td>GR00T data prep 文档</td><td>✅ 已存在</td><td><code>dependencies/Isaac-GR00T/getting_started/data_preparation.md</code></td></tr>
+<tr><td>v3↔v2 互转</td><td>✅ 已存在</td><td><code>convert_v3_to_v2.py</code> + <code>convert_to_v30.sh</code></td></tr>
+<tr><td>自定义 G1 locomotion rollout recorder</td><td>❌ <strong>NEEDS BUILD</strong> ~200 lines</td><td>无 — 现有是 manipulation 的</td></tr>
+<tr><td>G1 29-DoF <code>modality.json</code></td><td>❌ <strong>NEEDS BUILD</strong></td><td>定义字段切分</td></tr>
+<tr><td>Third-person camera mount config</td><td>❌ <strong>NEEDS BUILD</strong></td><td>现有是 manipulation 的 front+wrist</td></tr>
+</tbody>
+</table>
+
+<p><strong>反驳 codex「先用 ACT」：</strong>"<em>ACT, Diffusion Policy, SmolVLA 假设 &lt;10 DoF actions. 29-DoF 对非 GR00T 模型是挑战。</em>"
+deepseek 主张直接上 GR00T N1.7，它是<em>设计</em>为支持 full humanoid action space 的。</p>
+
+<p><strong>关键新风险：</strong></p>
+<ul>
+  <li><strong>Mode collapse / "average motion"</strong> — VLA 学到既不 fight 也不 dance 的 wiggling 平均态，loss 低但视觉错。
+    Mitigate: per-motion eval during training。</li>
+  <li><strong>SigLIP pre-test 方法</strong>：抽 100 frame fight vs dance → t-SNE 可视化，cluster 重叠就要换大 encoder。</li>
+  <li><strong>60Hz 时序稳定性未测</strong> — 现成 VLA action chunking 在 manipulation 是 10-30Hz；29-DoF + 60Hz 没人验证过。建议 downsample 到 20-30Hz（与 codex 30Hz 一致）。</li>
+  <li><strong>多 PPO seed/ckpt 比多 rollout 价值高</strong> — deterministic policy + same seed = identical trajectory，浪费。变 seed/DR param 才有效。</li>
+</ul>
+
+<p><strong>新增 prior art：</strong></p>
+<ul>
+  <li><a href="https://arxiv.org/abs/2403.18820">PULSE</a>（Luo 2025）— humanoid locomotion latent skill space (VAE+RL，非 VLA)。</li>
+  <li><strong>本仓库 MimicKit 已有：</strong> ASE/AMP (adversarial skill embeddings)、TinyMDM (tiny motion diffusion) 可生成 motion variation，但 deepseek 建议第一版别用，<em>"record more episodes instead"</em>。</li>
+</ul>
+
+<p><strong>激进 sanity 计划（1 周）：</strong></p>
+<ol>
+  <li>录 10 episode × 2 motion (fight + run)，第三人称 cam + 29-DoF action</li>
+  <li>GR00T N1.7 finetune 20 episode × 1k step</li>
+  <li>closed-loop eval：prompt "fight" → Isaac Sim → qualitative check</li>
+  <li>看起来像 fight (哪怕烂) → scale 到 200 ep/motion × 4</li>
+  <li>只是 wiggling → 重新思考（更大 encoder / temporal arch / VAE latent action space）</li>
+</ol>
 </div>
 
 <div class="model-card" id="mimo-result">
@@ -526,7 +578,87 @@ vision 只是 body-style 参考。但如果你期待 vision 单独区分 "fight 
 <p><em>等待中... opencode run 结束后融合到此</em></p>
 </div>
 
-<h2>7. 关联资产 <span class="en">Related Assets</span></h2>
+<h2>7. 决策评审：dance 训长 vs 训多 <span class="en">Decision Review · Claude × GPT-5.4 (2026-06-02)</span></h2>
+
+<p>用户问"想把 dance 训练长一些，性价比高的怎么做"。第二轮双模型独立评审（Claude Opus 4.8 + GPT-5.4 codex），
+聚焦在 <strong>"为 VLA 蒸馏服务时，dance expert 该训长 (单个 30s) 还是训多 (多个 15s)"</strong>。
+<em class="en">Second-round dual-model review on whether to lengthen one dance expert or add more short ones — for the VLA goal.</em></p>
+
+<div class="ok">
+<strong>两方共识 / Consensus</strong> ·
+❌ 单个 30s dance expert 是错的优化目标 · ✅ 多 clip &gt; 单 clip 训长 ·
+✅ clip 选择"不同编舞(dance1 vs dance2)优先于一切，先扩内容再扩演法" ·
+✅ 真正贵的是 P2 录制 + P4 finetune，expert 训练 1h/个不贵。
+</div>
+
+<p><strong>GPT-5.4 对 Claude 初判的 3 处纠正（已采纳）：</strong></p>
+
+<table>
+<thead><tr><th>Claude 原话</th><th>GPT-5.4 纠正</th><th>判定</th></tr></thead>
+<tbody>
+<tr>
+  <td>"30s 轨迹价值 ≈ 同段 15s"</td>
+  <td><strong>太绝对</strong>。反例：若 student 不显式吃 <code>phase_sin/cos</code>，或目标是学<strong>长编舞内部的 phrase 顺序 / 跨 phrase 过渡 / 节拍结构</strong>，更长 clip 确实多给监督。</td>
+  <td>说过头</td>
+</tr>
+<tr>
+  <td>"推理闭环连续运行，训练 clip 长度不限制推理时长"</td>
+  <td>只在目标是<strong>"能一直跳下去"</strong>时成立；<strong>"按固定 choreography 顺序跳"</strong>需要长程时序约束。</td>
+  <td>条件依赖目标</td>
+</tr>
+<tr>
+  <td>"2-3 个 expert 够学 dance family"</td>
+  <td>2-3 个够<strong>验证</strong>"多clip有没有用"，<strong>不够宣称"学会 family"</strong>。dance 家族内方差比 run/jump 大，<strong>4-6 个</strong>才算 coverage；&lt;2 个 = single-clip overfit 变体；&gt;6 个当前阶段不划算。</td>
+  <td>混淆"验证"与"覆盖"</td>
+</tr>
+</tbody>
+</table>
+
+<h3>7.1 多样性来源 ROI 排序 <span class="en">Diversity-source ROI (GPT-5.4 补，Claude 初判漏)</span></h3>
+
+<table>
+<thead><tr><th>排序</th><th>来源</th><th>性质</th><th>能否被替代</th></tr></thead>
+<tbody>
+<tr><td>🥇 最高</td><td><strong>Prompt 侧多样化</strong>（同义词 / 风格模板随机）</td><td>几乎白送，直接打 language 泛化</td><td>无可替代且最便宜，立刻用</td></tr>
+<tr><td>🥈</td><td>Rollout 侧 <strong>DR / RSI / action-noise</strong></td><td>student robustness</td><td>替代不了语义多样性</td></tr>
+<tr><td>🥉</td><td><strong>Multi-clip experts</strong></td><td>semantic / style diversity 主来源</td><td>DR 替代不了</td></tr>
+<tr><td>🔻 最低</td><td>同一 clip 训更长</td><td>仅长编舞 reproduction 才需要</td><td>—</td></tr>
+</tbody>
+</table>
+
+<div class="bad">
+<strong>关键判定 / Key call</strong> ·
+<code>1 个 expert + 再猛的 DR</code> 学不会 dance1/dance2 的区别，只会更稳地模仿那一个 dance。
+<strong>DR ≠ semantic diversity。</strong>
+</div>
+
+<h3>7.2 最终裁决 + 统一执行顺序 <span class="en">Verdict &amp; Unified Order</span></h3>
+
+<div class="note">
+<strong>裁决 / Verdict</strong> ·
+当前第一优先级<strong>不是</strong>铺 dance expert，而是<strong>先补 3 块缺失基建（G1 rollout recorder / 29-DoF modality.json / 第三人称 camera），跑激进 sanity 验证蒸馏管线通不通</strong>。
+多 dance expert 是管线验证<strong>之后</strong>才做的事。<br>
+<em class="en">Biggest unknown is not "too few teachers" but whether the recorder/modality/camera/phase/student chain works at all. Feeding more experts into an unvalidated pipeline just over-feeds a broken chain.</em>
+</div>
+
+<ol>
+  <li><strong>补 3 块基建</strong>（P0 camera mount + P1b 29-DoF modality.json + P1a G1 rollout recorder）— ~1.5d</li>
+  <li><strong>激进 sanity</strong>：10 ep × 2 motion（GPT-5.4 建议 <code>fight + dance</code>，prompt 区分度最强）→ go/pivot 判定</li>
+  <li>通了 → 加第 2 个 dance expert（<strong>必须 dance2，不同编舞</strong>）</li>
+  <li>→ 加第 3 个（dance1/dance2 <strong>不同 phrase</strong>，不是平移几秒）</li>
+  <li>student 出现语义混淆 / average-motion → 再扩到 <strong>4-6 clips</strong></li>
+  <li>全程开 <strong>prompt 侧多样化</strong>（最便宜杠杆，立刻用）</li>
+</ol>
+
+<p><strong>clip 选择优先级（GPT-5.4）：</strong>① 不同编舞(dance1 vs dance2) ＞ ② 同编舞不同 phrase ＞ ③ 同 phrase 不同 subject。
+"先扩<strong>内容</strong>，再扩<strong>演法</strong>。"</p>
+
+<div class="info">
+<strong>对最初问题的终答 / Bottom line</strong> ·
+现在<strong>既不训长、也先别铺多 expert</strong> —— 先补基建跑 sanity。dance expert 组是 sanity 通过后的第 3 步。
+</div>
+
+<h2>8. 关联资产 <span class="en">Related Assets</span></h2>
 
 <ul>
   <li>训练 ckpts: <code>dependencies/MimicKit/output/train_lafan_{fight,run,dance,jumps}_15s/int_models/model_0000001500.pt</code></li>
@@ -536,7 +668,8 @@ vision 只是 body-style 参考。但如果你期待 vision 单独区分 "fight 
 </ul>
 
 <footer>
-2026-06-02 · Claude Opus 4.7 起草 · 与 GPT-5.5 / DeepSeek V4 Pro / MiMo v2.5 Pro 并行调研融合<br>
+2026-06-02 · Claude Opus 4.7 起草（§1-6 与 GPT-5.5 / DeepSeek V4 Pro / MiMo v2.5 Pro 并行调研融合）<br>
+2026-06-02 · §7 决策评审由 Claude Opus 4.8 × GPT-5.4 (codex) 第二轮独立评审<br>
 所有路径以 <code>/home/david/work/isaaclab-experience</code> 为根
 </footer>
 

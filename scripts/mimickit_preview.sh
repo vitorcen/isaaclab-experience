@@ -38,7 +38,9 @@ case "$PROFILE" in
   lafan_run)   ENV_BASE=view_motion_g1_env; AGENT=""; MODEL=""; MOTION_DIR=g1; MOTION=lafan_run1.pkl ;;
   lafan_fight_5s)  ENV_BASE=view_motion_g1_env; AGENT=""; MODEL=""; MOTION_DIR=g1; MOTION=lafan_fight_5s.pkl ;;
   lafan_fight_15s) ENV_BASE=view_motion_g1_env; AGENT=""; MODEL=""; MOTION_DIR=g1; MOTION=lafan_fight_15s.pkl ;;
-  *) echo "Usage: $0 {spinkick|jump|run|walk|cartwheel|go2_pace|lafan_fight|lafan_dance|lafan_jumps|lafan_run|lafan_fight_5s|lafan_fight_15s}" >&2; exit 2 ;;
+  # generic kinematic preview of any pkl in data/motions/g1/  →  preview.sh view <basename>
+  view) ENV_BASE=view_motion_g1_env; AGENT=""; MODEL=""; MOTION_DIR=g1; MOTION="${2:?usage: $0 view <pkl_basename>}.pkl" ;;
+  *) echo "Usage: $0 {spinkick|jump|run|walk|cartwheel|go2_pace|lafan_fight|lafan_dance|lafan_jumps|lafan_run|lafan_fight_5s|lafan_fight_15s|view <pkl_basename>}" >&2; exit 2 ;;
 esac
 
 cd "$MIMICKIT_DIR"
