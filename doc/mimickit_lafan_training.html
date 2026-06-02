@@ -1,0 +1,498 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MimicKit × LAFAN G1 — 4 motion 流水线 + USD 材质修复</title>
+<style>
+:root { color-scheme: light; }
+html, body {
+  background: #fff;
+  color: #1f1f1f;
+  font-family: -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  line-height: 1.55;
+  margin: 0;
+  padding: 0;
+}
+main { max-width: 980px; margin: 0 auto; padding: 32px 28px 80px; }
+h1, h2, h3 { color: #111; font-weight: 600; line-height: 1.25; margin-top: 1.8em; }
+h1 { font-size: 1.9rem; margin-top: 0.4em; border-bottom: 2px solid #d77757; padding-bottom: 6px; }
+h2 { font-size: 1.35rem; border-left: 4px solid #d77757; padding-left: 10px; }
+h3 { font-size: 1.1rem; color: #2a2a2a; }
+small.en { color: #777; font-weight: 400; font-style: italic; font-size: 0.85em; }
+p, li { color: #1f1f1f; }
+code, pre {
+  font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 0.88rem;
+}
+code { background: #f4eee9; color: #6a3013; padding: 1px 5px; border-radius: 3px; }
+pre {
+  background: #1f1f23;
+  color: #f5f5f5;
+  padding: 14px 16px;
+  border-radius: 6px;
+  overflow-x: auto;
+  border: 1px solid #2c2c30;
+}
+pre code { background: transparent; color: #f5f5f5; padding: 0; }
+table {
+  background: #fff;
+  color: #1f1f1f;
+  border-collapse: collapse;
+  width: 100%;
+  margin: 12px 0 20px;
+  font-size: 0.93rem;
+}
+th, td { background: #fff; color: #1f1f1f; border: 1px solid #ddd; padding: 7px 11px; text-align: left; }
+th { background: #f4eee9; color: #4a2810; }
+tr:nth-child(even) td { background: #fafafa; }
+.tldr {
+  background: #fef8f1;
+  color: #4a2810;
+  border-left: 4px solid #d77757;
+  padding: 14px 18px;
+  border-radius: 4px;
+  margin: 18px 0;
+}
+.tldr strong { color: #4a2810; }
+.warn {
+  background: #fff6e1;
+  color: #5a3a00;
+  border-left: 4px solid #e0a217;
+  padding: 12px 16px;
+  border-radius: 4px;
+  margin: 14px 0;
+}
+.good {
+  background: #ecfaef;
+  color: #114c1f;
+  border-left: 4px solid #2a9d4a;
+  padding: 12px 16px;
+  border-radius: 4px;
+  margin: 14px 0;
+}
+.diff-bad { background: #fce6e6; color: #7a0d0d; padding: 1px 5px; border-radius: 3px; }
+.diff-good { background: #e0f3e0; color: #14471d; padding: 1px 5px; border-radius: 3px; }
+.muted { color: #777; font-size: 0.88em; }
+svg {
+  background: #fff;
+  color: #1f1f1f;
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 8px auto 18px;
+  border: 1px solid #eee;
+  border-radius: 4px;
+}
+.toc { background: #f8f6f4; color: #1f1f1f; padding: 12px 18px; border-radius: 4px; border: 1px solid #ece4dc; }
+.toc ol { margin: 4px 0 0 18px; padding: 0; }
+hr.sep { border: 0; border-top: 1px dashed #d2c5b6; margin: 32px 0; }
+.metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin: 14px 0; }
+.metric-card { background: #fff; color: #1f1f1f; border: 1px solid #e6e0d8; border-radius: 6px; padding: 12px 14px; }
+.metric-card .label { font-size: 0.78rem; color: #777; text-transform: uppercase; letter-spacing: 0.04em; }
+.metric-card .value { font-size: 1.45rem; font-weight: 600; color: #d77757; margin-top: 3px; }
+.metric-card .sub { font-size: 0.82rem; color: #555; }
+</style>
+</head>
+<body>
+<main>
+
+<h1>MimicKit × LAFAN G1 — 4 motion 流水线 + USD 材质修复</h1>
+<p class="muted">2026-06-02 · 本机 RTX 4090 24G · Isaac Lab v2.3.0 · IsaacSim 5.1 · MimicKit @3ab064b9b2b (v0.91)</p>
+
+<div class="tldr">
+<strong>TL;DR</strong> <small class="en">— what shipped today</small><br>
+单机 4090 24G 上用 DeepMimic PPO 训完 4 个 LAFAN G1 motion（fight / run / dance / jumps，每个 15 s 切段，1500 iter，~50 min 每段，总 ~4 h）。3 motion Test_Episode_Length 触顶 (≥98 %)，run plateau 在 63 %。同时定位并修复 MimicKit g1.usd 的渲染问题 — 不是 PBR 调色，而是 MJCF 的 per-mesh rgba 在 USD 转换时被压成单一 DefaultMaterial。脚本从 g1.xml 反推 per-mesh 颜色，重绑 36 mesh，恢复 teaser 的黑灰两色 G1。
+</div>
+
+<div class="toc">
+<strong>目录 · Contents</strong>
+<ol>
+<li><a href="#arch">流水线架构 · Pipeline</a></li>
+<li><a href="#results">训练结果 · Training results</a></li>
+<li><a href="#material">USD 材质修复 · Material fix</a></li>
+<li><a href="#reproduce">复现 · Reproduce</a></li>
+<li><a href="#assets">产物清单 · Artifacts</a></li>
+</ol>
+</div>
+
+<hr class="sep">
+
+<h2 id="arch">1. 流水线架构 <small class="en">— Pipeline</small></h2>
+
+<p>4 motion 串行训练 + 4 motion 串行 eval，两条链路共享同一组脚本。每条链有 watchdog，命中目标 iter 或进程死亡就推进。</p>
+
+<svg viewBox="0 0 940 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="MimicKit pipeline diagram">
+  <defs>
+    <marker id="arr" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#888"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="940" height="360" fill="#fff"/>
+
+  <!-- Data prep -->
+  <rect x="20" y="20" width="200" height="60" rx="6" fill="#fef8f1" stroke="#d77757"/>
+  <text x="120" y="46" text-anchor="middle" fill="#4a2810" font-size="13" font-weight="600">LAFAN-G1 npz × 4</text>
+  <text x="120" y="64" text-anchor="middle" fill="#555" font-size="11">ember-lab-berkeley</text>
+
+  <text x="280" y="56" text-anchor="middle" fill="#888" font-size="13">→</text>
+  <line x1="220" y1="50" x2="320" y2="50" stroke="#888" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <rect x="320" y="20" width="240" height="60" rx="6" fill="#f4eee9" stroke="#d77757"/>
+  <text x="440" y="44" text-anchor="middle" fill="#4a2810" font-size="13" font-weight="600">lafan_g1_npz_to_mimickit.py</text>
+  <text x="440" y="64" text-anchor="middle" fill="#555" font-size="11">15 s 中段切段, frames=450</text>
+
+  <line x1="560" y1="50" x2="660" y2="50" stroke="#888" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <rect x="660" y="20" width="240" height="60" rx="6" fill="#ecfaef" stroke="#2a9d4a"/>
+  <text x="780" y="44" text-anchor="middle" fill="#114c1f" font-size="13" font-weight="600">4 × lafan_*_15s.pkl</text>
+  <text x="780" y="64" text-anchor="middle" fill="#114c1f" font-size="11">~140 KB / 15 s / 30 Hz</text>
+
+  <!-- training queue -->
+  <rect x="20" y="130" width="880" height="80" rx="6" fill="#f8f6f4" stroke="#bba99a"/>
+  <text x="40" y="155" fill="#4a2810" font-size="13" font-weight="600">scripts/mimickit_train_queue.sh</text>
+  <text x="40" y="172" fill="#555" font-size="11">DeepMimic PPO · 4096 envs · 1500 iter cap · auto-SIGTERM at cap</text>
+
+  <g font-size="12" fill="#1f1f1f">
+    <rect x="200" y="186" width="150" height="18" rx="3" fill="#fff" stroke="#d77757"/>
+    <text x="275" y="199" text-anchor="middle">① fight_15s · 84 min</text>
+    <rect x="370" y="186" width="150" height="18" rx="3" fill="#fff" stroke="#d77757"/>
+    <text x="445" y="199" text-anchor="middle">② run_15s · 56 min</text>
+    <rect x="540" y="186" width="150" height="18" rx="3" fill="#fff" stroke="#d77757"/>
+    <text x="615" y="199" text-anchor="middle">③ dance_15s · 50 min</text>
+    <rect x="710" y="186" width="150" height="18" rx="3" fill="#fff" stroke="#d77757"/>
+    <text x="785" y="199" text-anchor="middle">④ jumps_15s · 51 min</text>
+  </g>
+
+  <!-- eval chain -->
+  <rect x="20" y="240" width="880" height="80" rx="6" fill="#f8f6f4" stroke="#bba99a"/>
+  <text x="40" y="265" fill="#4a2810" font-size="13" font-weight="600">scripts/mimickit_eval_chain.sh</text>
+  <text x="40" y="282" fill="#555" font-size="11">--mode test --visualize true · 4 envs · 关窗自动推进 next motion</text>
+
+  <g font-size="12" fill="#1f1f1f">
+    <rect x="200" y="296" width="150" height="18" rx="3" fill="#fff" stroke="#2a9d4a"/>
+    <text x="275" y="309" text-anchor="middle">fight_15s GUI</text>
+    <rect x="370" y="296" width="150" height="18" rx="3" fill="#fff" stroke="#2a9d4a"/>
+    <text x="445" y="309" text-anchor="middle">run_15s GUI</text>
+    <rect x="540" y="296" width="150" height="18" rx="3" fill="#fff" stroke="#2a9d4a"/>
+    <text x="615" y="309" text-anchor="middle">dance_15s GUI</text>
+    <rect x="710" y="296" width="150" height="18" rx="3" fill="#fff" stroke="#2a9d4a"/>
+    <text x="785" y="309" text-anchor="middle">jumps_15s GUI</text>
+  </g>
+
+  <line x1="500" y1="220" x2="500" y2="240" stroke="#888" stroke-width="1.5" marker-end="url(#arr)"/>
+</svg>
+
+<h3>关键脚本 <small class="en">— Reusable scripts under scripts/</small></h3>
+<table>
+<thead><tr><th>脚本</th><th>作用</th></tr></thead>
+<tbody>
+<tr><td><code>lafan_g1_npz_to_mimickit.py</code></td><td>ember-lab npz → MimicKit native pkl，支持 <code>--start_frame/--end_frame</code> 切段。</td></tr>
+<tr><td><code>mimickit_train_one.sh</code></td><td>训单 motion + iter 上限自动 SIGTERM + 优雅 60 s 等待 → SIGKILL。</td></tr>
+<tr><td><code>mimickit_train_queue.sh</code></td><td>串行训 4 个 15 s 切段，难度排序 fight → run → dance → jumps。</td></tr>
+<tr><td><code>mimickit_eval_chain.sh</code></td><td>GUI eval chain，关窗自动到下一个 motion。</td></tr>
+<tr><td><code>g1_usd_recolor.py</code></td><td>从 g1.xml 反推 per-mesh rgba，重绑 USD → 恢复 teaser 黑灰两色。</td></tr>
+</tbody>
+</table>
+
+<hr class="sep">
+
+<h2 id="results">2. 训练结果 <small class="en">— Training results</small></h2>
+
+<div class="metric-grid">
+  <div class="metric-card"><div class="label">total wall-time</div><div class="value">~4 h</div><div class="sub">4 motions × 1500 iter</div></div>
+  <div class="metric-card"><div class="label">GPU</div><div class="value">RTX 4090 24 G</div><div class="sub">4096 envs / motion</div></div>
+  <div class="metric-card"><div class="label">algo</div><div class="value">DeepMimic PPO</div><div class="sub">SGD lr=1e-4 · cap 1500 iter</div></div>
+  <div class="metric-card"><div class="label">motion</div><div class="value">15 s</div><div class="sub">middle slice · 450 frames @ 30 Hz</div></div>
+</div>
+
+<h3>Episode Length / Return @ iter 1500</h3>
+<table>
+<thead>
+<tr><th>Motion</th><th>训时</th><th>Final Return</th><th>Final Len/300</th><th>Coverage</th><th>备注</th></tr>
+</thead>
+<tbody>
+<tr><td>fight_15s</td><td>84 min</td><td>224.1</td><td>297.6</td><td><strong>99 %</strong> ✅</td><td>连续 punch / kick 完整覆盖</td></tr>
+<tr><td>run_15s</td><td>56 min</td><td>155.0</td><td>189.5</td><td>63 % ⚠️</td><td>sprint / jump 阶段 PPO 探索停滞</td></tr>
+<tr><td>dance_15s</td><td>50 min</td><td>221.4</td><td>294.6</td><td><strong>98 %</strong> ✅</td><td>平滑舞步，inflection iter ~800</td></tr>
+<tr><td>jumps_15s</td><td>51 min</td><td>203.4</td><td>294.2</td><td><strong>98 %</strong> ✅</td><td>含 in-air，inflection 来得晚 (iter 1000)</td></tr>
+</tbody>
+</table>
+
+<h3>训练曲线 — fight_15s 全程</h3>
+<svg viewBox="0 0 900 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="fight_15s training curve">
+  <rect x="0" y="0" width="900" height="280" fill="#fff"/>
+  <!-- axes -->
+  <line x1="60" y1="40" x2="60" y2="240" stroke="#999"/>
+  <line x1="60" y1="240" x2="860" y2="240" stroke="#999"/>
+  <!-- Y left: Episode_Length (steps, 0-300) -->
+  <text x="50" y="244" text-anchor="end" fill="#555" font-size="11">0</text>
+  <text x="50" y="144" text-anchor="end" fill="#555" font-size="11">150</text>
+  <text x="50" y="44" text-anchor="end" fill="#555" font-size="11">300</text>
+  <text x="30" y="140" text-anchor="middle" fill="#555" font-size="11" transform="rotate(-90 30 140)">Test_Ep_Length</text>
+  <!-- X: iters 0-1500 -->
+  <text x="60"  y="258" text-anchor="middle" fill="#555" font-size="11">0</text>
+  <text x="220" y="258" text-anchor="middle" fill="#555" font-size="11">300</text>
+  <text x="380" y="258" text-anchor="middle" fill="#555" font-size="11">600</text>
+  <text x="540" y="258" text-anchor="middle" fill="#555" font-size="11">900</text>
+  <text x="700" y="258" text-anchor="middle" fill="#555" font-size="11">1200</text>
+  <text x="860" y="258" text-anchor="middle" fill="#555" font-size="11">1500</text>
+  <text x="460" y="272" text-anchor="middle" fill="#555" font-size="11">iter</text>
+
+  <!-- ceiling line (300 = 10 s episode) -->
+  <line x1="60" y1="44" x2="860" y2="44" stroke="#aaa" stroke-dasharray="4,3"/>
+  <text x="855" y="40" text-anchor="end" fill="#999" font-size="10">10 s ceiling</text>
+
+  <!-- inflection markers + polyline -->
+  <!-- iter→x: 60 + iter*(800/1500); len→y: 240 - len*(200/300) -->
+  <!-- points (iter, len): 0/29.0, 100/43.6, 200/47.6, 300/54.7, 400/75.5, 500/95.3, 600/138.6, 700/166.1, 800/297.0, 900/299.7, 1000/300, 1100/235, 1200/289.1, 1300/296.9, 1400/297.2, 1500/297.6 -->
+  <polyline fill="none" stroke="#d77757" stroke-width="2.5"
+            points="60,221 113,211 167,208 220,204 273,190 327,176 380,148 433,129 487,42 540,40 593,40 647,84 700,47 753,42 807,42 860,42"/>
+
+  <!-- inflection annotation -->
+  <circle cx="487" cy="42" r="4" fill="#d77757"/>
+  <text x="495" y="35" fill="#4a2810" font-size="11" font-weight="600">iter 800: 297/300 → ship</text>
+
+  <circle cx="380" cy="148" r="4" fill="#d77757"/>
+  <text x="390" y="143" fill="#4a2810" font-size="11">iter 600: inflection</text>
+</svg>
+
+<h3>4 motion 对比 — Episode Length 进度</h3>
+<svg viewBox="0 0 900 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="all 4 motions comparison">
+  <rect x="0" y="0" width="900" height="240" fill="#fff"/>
+  <line x1="60" y1="40" x2="60" y2="200" stroke="#999"/>
+  <line x1="60" y1="200" x2="860" y2="200" stroke="#999"/>
+  <text x="50" y="204" text-anchor="end" fill="#555" font-size="11">0</text>
+  <text x="50" y="124" text-anchor="end" fill="#555" font-size="11">150</text>
+  <text x="50" y="44"  text-anchor="end" fill="#555" font-size="11">300</text>
+  <text x="60"  y="218" text-anchor="middle" fill="#555" font-size="11">0</text>
+  <text x="220" y="218" text-anchor="middle" fill="#555" font-size="11">300</text>
+  <text x="380" y="218" text-anchor="middle" fill="#555" font-size="11">600</text>
+  <text x="540" y="218" text-anchor="middle" fill="#555" font-size="11">900</text>
+  <text x="700" y="218" text-anchor="middle" fill="#555" font-size="11">1200</text>
+  <text x="860" y="218" text-anchor="middle" fill="#555" font-size="11">1500</text>
+
+  <line x1="60" y1="44" x2="860" y2="44" stroke="#aaa" stroke-dasharray="4,3"/>
+
+  <!-- fight (orange) -->
+  <polyline fill="none" stroke="#d77757" stroke-width="2"
+            points="60,184 113,177 167,175 220,171 273,160 327,149 380,126 433,112 487,42 540,40 593,40 647,79 700,46 753,42 807,42 860,42"/>
+  <text x="870" y="46" fill="#d77757" font-size="11" font-weight="600">fight</text>
+
+  <!-- run (blue) — plateau early -->
+  <polyline fill="none" stroke="#3a7abf" stroke-width="2"
+            points="60,184 113,176 167,164 220,153 273,128 327,108 380,93 433,82 487,72 540,68 593,68 647,68 700,67 753,67 807,67 860,67"/>
+  <text x="870" y="71" fill="#3a7abf" font-size="11" font-weight="600">run</text>
+
+  <!-- dance (green) -->
+  <polyline fill="none" stroke="#2a9d4a" stroke-width="2"
+            points="60,187 113,178 167,174 220,168 273,159 327,151 380,138 433,123 487,106 540,82 593,46 647,43 700,42 753,42 807,42 860,42"/>
+  <text x="870" y="46" fill="#2a9d4a" font-size="11" font-weight="600" dy="14">dance</text>
+
+  <!-- jumps (purple) -->
+  <polyline fill="none" stroke="#7a5fbc" stroke-width="2"
+            points="60,188 113,182 167,180 220,178 273,175 327,169 380,160 433,148 487,133 540,118 593,90 647,58 700,43 753,42 807,42 860,42"/>
+  <text x="870" y="46" fill="#7a5fbc" font-size="11" font-weight="600" dy="28">jumps</text>
+</svg>
+
+<div class="warn">
+<strong>run_15s 早 plateau 警告</strong> <small class="en">— observed sprint/jump phase stalls vanilla PPO</small><br>
+run motion 含连续 sprint + 蹦跳，single-task DeepMimic PPO（SGD lr=1e-4，action_std=0.05）探索能力受限，Len 卡在 ~190/300 (63 %)。建议下一步换 ADD 或加 motion curriculum，或 init from fight_15s ckpt 走 sequence transfer。
+</div>
+
+<hr class="sep">
+
+<h2 id="material">3. USD 材质修复 <small class="en">— Why your G1 renders white, and the real fix</small></h2>
+
+<div class="tldr">
+<strong>根因 · Root cause</strong>: MimicKit 的 <code>g1.usd</code> 在转换过程中把 MJCF 的 per-geom rgba 压成了**单一 DefaultMaterial=(1,1,1) 白**。改 <code>visual_material</code> 或 PBR 调色都治标。<br>
+<strong>正解 · Fix</strong>: 从 <code>g1.xml</code> 反推 per-mesh rgba，新建对应 UsdPreviewSurface 材质，重绑 36 mesh。
+</div>
+
+<h3>排查路径 <small class="en">— Debug journey</small></h3>
+<svg viewBox="0 0 940 380" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="debug journey">
+  <rect x="0" y="0" width="940" height="380" fill="#fff"/>
+  <defs>
+    <marker id="arr2" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#888"/>
+    </marker>
+  </defs>
+
+  <g font-size="12" fill="#1f1f1f">
+    <!-- step 1 -->
+    <rect x="20" y="20" width="280" height="50" rx="6" fill="#fce6e6" stroke="#a04040"/>
+    <text x="160" y="40" text-anchor="middle" font-weight="600" fill="#7a0d0d">观察: G1 看着像卡通蓝色</text>
+    <text x="160" y="58" text-anchor="middle" fill="#555">char_color = (0.2, 0.25, 0.7)</text>
+
+    <line x1="300" y1="45" x2="350" y2="45" stroke="#888" marker-end="url(#arr2)"/>
+
+    <!-- step 2 -->
+    <rect x="350" y="20" width="280" height="50" rx="6" fill="#fff6e1" stroke="#a07f10"/>
+    <text x="490" y="40" text-anchor="middle" font-weight="600" fill="#5a3a00">改 color=None 期望保留 USD 材质</text>
+    <text x="490" y="58" text-anchor="middle" fill="#555">→ 渲染变全白</text>
+
+    <line x1="630" y1="45" x2="680" y2="45" stroke="#888" marker-end="url(#arr2)"/>
+
+    <!-- step 3 -->
+    <rect x="680" y="20" width="240" height="50" rx="6" fill="#fff6e1" stroke="#a07f10"/>
+    <text x="800" y="40" text-anchor="middle" font-weight="600" fill="#5a3a00">Codex 建议 Nucleus G1 USD</text>
+    <text x="800" y="58" text-anchor="middle" fill="#555">→ body 顺序不兼容崩</text>
+
+    <line x1="800" y1="70" x2="800" y2="100" stroke="#888" marker-end="url(#arr2)"/>
+
+    <!-- step 4 -->
+    <rect x="680" y="100" width="240" height="50" rx="6" fill="#fff6e1" stroke="#a07f10"/>
+    <text x="800" y="120" text-anchor="middle" font-weight="600" fill="#5a3a00">PBR 重涂 (单色 chrome)</text>
+    <text x="800" y="138" text-anchor="middle" fill="#555">→ 还是单色，不像 teaser</text>
+
+    <line x1="680" y1="125" x2="630" y2="125" stroke="#888" marker-end="url(#arr2)"/>
+
+    <!-- step 5 -->
+    <rect x="350" y="100" width="280" height="50" rx="6" fill="#fff6e1" stroke="#a07f10"/>
+    <text x="490" y="120" text-anchor="middle" font-weight="600" fill="#5a3a00">UsdPreviewSurface 输入名问题</text>
+    <text x="490" y="138" text-anchor="middle" fill="#555">_constant vs diffuseColor — 都治标</text>
+
+    <line x1="350" y1="125" x2="300" y2="125" stroke="#888" marker-end="url(#arr2)"/>
+
+    <!-- step 6 -->
+    <rect x="20" y="100" width="280" height="50" rx="6" fill="#fff6e1" stroke="#a07f10"/>
+    <text x="160" y="120" text-anchor="middle" font-weight="600" fill="#5a3a00">查 teaser_g1.gif</text>
+    <text x="160" y="138" text-anchor="middle" fill="#555">→ 黑色 head/joints + 浅灰 panels</text>
+
+    <line x1="160" y1="150" x2="160" y2="180" stroke="#888" marker-end="url(#arr2)"/>
+
+    <!-- step 7 -->
+    <rect x="20" y="180" width="280" height="50" rx="6" fill="#ecfaef" stroke="#2a9d4a"/>
+    <text x="160" y="200" text-anchor="middle" font-weight="600" fill="#114c1f">grep g1.xml: rgba per geom</text>
+    <text x="160" y="218" text-anchor="middle" fill="#555">2 色: (0.2 0.2 0.2) / (0.7 0.7 0.7)</text>
+
+    <line x1="300" y1="205" x2="350" y2="205" stroke="#888" marker-end="url(#arr2)"/>
+
+    <!-- step 8 -->
+    <rect x="350" y="180" width="280" height="50" rx="6" fill="#ecfaef" stroke="#2a9d4a"/>
+    <text x="490" y="200" text-anchor="middle" font-weight="600" fill="#114c1f">USD 检查 binding</text>
+    <text x="490" y="218" text-anchor="middle" fill="#555">35 meshes → 全部 DefaultMaterial 白</text>
+
+    <line x1="630" y1="205" x2="680" y2="205" stroke="#888" marker-end="url(#arr2)"/>
+
+    <!-- step 9 -->
+    <rect x="680" y="180" width="240" height="50" rx="6" fill="#ecfaef" stroke="#2a9d4a"/>
+    <text x="800" y="200" text-anchor="middle" font-weight="600" fill="#114c1f">真根因锁定</text>
+    <text x="800" y="218" text-anchor="middle" fill="#555">MJCF → USD 颜色丢失</text>
+
+    <line x1="800" y1="230" x2="800" y2="260" stroke="#2a9d4a" stroke-width="2" marker-end="url(#arr2)"/>
+
+    <!-- step 10 - solution -->
+    <rect x="350" y="260" width="560" height="80" rx="6" fill="#ecfaef" stroke="#2a9d4a" stroke-width="2"/>
+    <text x="630" y="285" text-anchor="middle" font-weight="700" font-size="14" fill="#114c1f">scripts/g1_usd_recolor.py</text>
+    <text x="630" y="305" text-anchor="middle" fill="#114c1f">解析 g1.xml → 提 per-mesh rgba → 建 2 个 UsdPreviewSurface 材质</text>
+    <text x="630" y="322" text-anchor="middle" fill="#114c1f">→ 36 mesh per-link 重绑 → g1_textured.usd → MIMICKIT_G1_USD env var 切入</text>
+  </g>
+</svg>
+
+<h3>错路 vs 正解 <small class="en">— What didn't work, and what did</small></h3>
+<table>
+<thead><tr><th>尝试</th><th>结果</th><th>原因</th></tr></thead>
+<tbody>
+<tr><td><span class="diff-bad">char_color = np.array([0.18, 0.18, 0.20])</span></td><td>单色深灰</td><td>覆盖 USD binding，治标</td></tr>
+<tr><td><span class="diff-bad">char_color = None + Nucleus G1 USD</span></td><td>body 顺序错</td><td>官方 USD 拓扑与 MimicKit 不一致</td></tr>
+<tr><td><span class="diff-bad">改 OmniPBR style: diffuse_color_constant</span></td><td>不生效</td><td>Isaac Lab 读标准 <code>diffuseColor</code></td></tr>
+<tr><td><span class="diff-bad">UsdPreviewSurface chrome (单材质)</span></td><td>单色铬白</td><td>缺失 per-link 区分</td></tr>
+<tr><td><span class="diff-good">parse g1.xml rgba + rebind per-mesh</span></td><td>✅ teaser 黑灰两色</td><td>恢复 MJCF source of truth</td></tr>
+</tbody>
+</table>
+
+<h3>关键代码 <small class="en">— Core fix</small></h3>
+<pre><code># scripts/g1_usd_recolor.py 核心 — parse MJCF and rebind USD meshes
+
+def parse_mjcf_colors():
+    """ Visual <geom> in g1.xml: contype=0 conaffinity=0 group=1, with rgba per mesh """
+    colors = {}
+    for geom in ET.parse(MJCF).getroot().iter("geom"):
+        mesh = geom.attrib.get("mesh")
+        if not mesh or geom.attrib.get("contype") != "0":
+            continue
+        rgba = geom.attrib["rgba"].split()
+        colors[mesh] = tuple(float(p) for p in rgba[:3])
+    return colors  # {mesh_name: (r, g, b)}
+
+# build one UsdPreviewSurface Material per unique color, then per-prim rebind:
+for prim in stage.TraverseAll():
+    if prim.GetTypeName() != "Mesh":
+        continue
+    color = mjcf_colors.get(prim.GetName())
+    if color:
+        UsdShade.MaterialBindingAPI.Apply(prim).Bind(
+            UsdShade.Material(stage.GetPrimAtPath(color2matpath[color])))
+</code></pre>
+
+<div class="good">
+<strong>使用方式 · How to use the fix</strong><br>
+<pre><code># 1) generate g1_textured.usd (one-time)
+python scripts/g1_usd_recolor.py
+
+# 2) point engine at it (no source edits to MimicKit submodule):
+export MIMICKIT_G1_USD=/home/david/work/isaaclab-experience/dependencies/MimicKit/data/assets/g1/g1_textured.usd
+
+# 3) run eval — student now has per-link 黑灰两色, teacher 仍是绿
+bash scripts/mimickit_eval_chain.sh</code></pre>
+</div>
+
+<hr class="sep">
+
+<h2 id="reproduce">4. 复现 <small class="en">— Reproduce</small></h2>
+
+<h3>训练（重训 4 motion）</h3>
+<pre><code>cd /home/david/work/isaaclab-experience
+# 4 × 15 s 切段已落 dependencies/MimicKit/data/motions/g1/lafan_*_15s.pkl
+# 如需重新切，用:
+#   python scripts/lafan_g1_npz_to_mimickit.py --input npz --output pkl \
+#          --start_frame N --end_frame N+450
+
+# 串行训 4 motion，每 motion 1500 iter cap
+bash scripts/mimickit_train_queue.sh 1500
+# 中间产物: dependencies/MimicKit/output/train_lafan_&lt;motion&gt;_15s/int_models/
+# 进度日志: dependencies/MimicKit/output/queue_summary.log</code></pre>
+
+<h3>GUI eval（看 4 个 ckpt）</h3>
+<pre><code>export MIMICKIT_G1_USD=$(pwd)/dependencies/MimicKit/data/assets/g1/g1_textured.usd
+bash scripts/mimickit_eval_chain.sh
+# 关一个 Isaac Sim 窗口 → 自动起下一个 motion</code></pre>
+
+<h3>单 motion replay</h3>
+<pre><code>cd dependencies/MimicKit
+source ~/miniconda3/etc/profile.d/conda.sh && conda activate isaaclab
+python mimickit/run.py --mode test --num_envs 4 \
+  --engine_config data/engines/isaac_lab_engine.yaml \
+  --env_config output/preview_envs/train_lafan_fight_15s_env.yaml \
+  --agent_config data/agents/deepmimic_g1_ppo_agent.yaml \
+  --visualize true \
+  --model_file output/train_lafan_fight_15s/int_models/model_0000001500.pt \
+  --out_dir output/eval_lafan_fight_15s --logger txt</code></pre>
+
+<hr class="sep">
+
+<h2 id="assets">5. 产物清单 <small class="en">— Artifacts</small></h2>
+<table>
+<thead><tr><th>路径</th><th>说明</th></tr></thead>
+<tbody>
+<tr><td><code>scripts/lafan_g1_npz_to_mimickit.py</code></td><td>ember-lab npz → MimicKit pkl 转换 + 切段</td></tr>
+<tr><td><code>scripts/mimickit_train_one.sh</code></td><td>单 motion 训练 + iter 自动 SIGTERM</td></tr>
+<tr><td><code>scripts/mimickit_train_queue.sh</code></td><td>4 motion 串行队列</td></tr>
+<tr><td><code>scripts/mimickit_eval_chain.sh</code></td><td>4 motion GUI eval 串行</td></tr>
+<tr><td><code>scripts/g1_usd_recolor.py</code></td><td>MJCF → USD per-mesh 颜色 rebind</td></tr>
+<tr><td><code>scripts/mimickit_preview.sh</code></td><td>原 preview 多 profile（spinkick / cartwheel / lafan_*）</td></tr>
+<tr><td><code>patches/mimickit/isaaclab-v23-api.patch</code></td><td>Isaac Lab v2.3 API 兼容 patch</td></tr>
+<tr><td><code>dependencies/MimicKit/data/assets/g1/g1_textured.usd</code></td><td>per-link 黑灰着色 USD（26.3 MB）</td></tr>
+<tr><td><code>dependencies/MimicKit/data/motions/g1/lafan_*_15s.pkl</code></td><td>4 × 15 s 中段切段</td></tr>
+<tr><td><code>dependencies/MimicKit/output/train_lafan_*/int_models/model_0000001500.pt</code></td><td>4 × ship ckpts（11 MB each）</td></tr>
+<tr><td><code>.memory/mimickit-lafan-fight-training-plan.md</code></td><td>训练 plan + ship 数据</td></tr>
+<tr><td><code>.memory/mimickit-g1-usd-material-fix.md</code></td><td>USD 材质修复纪要</td></tr>
+</tbody>
+</table>
+
+<p class="muted" style="margin-top: 32px;">— 文档生成 2026-06-02 · 仓库 <a href="https://huggingface.co/vitorcen/isaaclab-experience">vitorcen/isaaclab-experience</a> · 训练脚本基于 <a href="https://github.com/xbpeng/MimicKit">xbpeng/MimicKit</a> @ v0.91</p>
+
+</main>
+</body>
+</html>

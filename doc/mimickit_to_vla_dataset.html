@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MimicKit → VLA 蒸馏路径调研 (Multi-Model Synthesis)</title>
+<style>
+:root {
+  color-scheme: light;
+  --bg: #ffffff;
+  --fg: #1a1a1a;
+  --muted: #555;
+  --border: #d4d4d4;
+  --accent: #76b900;
+  --accent-dark: #4a7400;
+  --code-bg: #f1f3f4;
+  --table-head: #f0f5e8;
+  --warn: #b35900;
+  --danger: #b00020;
+  --info: #1a5fb4;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+  background: #ffffff;
+  color: var(--fg);
+  line-height: 1.65;
+}
+.container { max-width: 1080px; margin: 0 auto; padding: 32px 24px 80px; }
+header {
+  border-bottom: 3px solid var(--accent);
+  padding-bottom: 16px;
+  margin-bottom: 32px;
+}
+header .tag {
+  display: inline-block;
+  background: var(--accent);
+  color: #fff;
+  padding: 2px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+header .tag-en {
+  background: #555;
+  margin-left: 6px;
+}
+h1 { font-size: 28px; margin: 4px 0 8px; }
+header .sub { color: var(--muted); font-size: 14px; }
+h2 {
+  font-size: 22px;
+  margin: 40px 0 12px;
+  padding-left: 10px;
+  border-left: 4px solid var(--accent);
+}
+h3 { font-size: 17px; margin: 24px 0 8px; color: var(--accent-dark); }
+h4 { font-size: 15px; margin: 18px 0 6px; color: #333; }
+p, li { font-size: 15px; }
+.en { color: #666; font-size: 13px; font-style: italic; }
+code {
+  background: var(--code-bg);
+  color: #1a1a1a;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: "SFMono-Regular", Consolas, Menlo, monospace;
+  font-size: 13px;
+}
+pre {
+  background: var(--code-bg);
+  color: #1a1a1a;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 12px 16px;
+  overflow-x: auto;
+  font-size: 13px;
+  line-height: 1.5;
+}
+pre code { background: transparent; padding: 0; color: inherit; }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+  font-size: 14px;
+  background: #fff;
+  color: #1a1a1a;
+}
+th, td {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+th {
+  background: var(--table-head);
+  color: #1a1a1a;
+  font-weight: 600;
+}
+tr:nth-child(even) td { background: #fafafa; }
+a { color: var(--accent-dark); text-decoration: none; border-bottom: 1px dotted var(--accent-dark); }
+a:hover { color: var(--accent); border-bottom-style: solid; }
+.note { background: #fff8e6; color: #1a1a1a; border-left: 4px solid var(--warn); padding: 10px 16px; margin: 16px 0; font-size: 14px; border-radius: 0 4px 4px 0; }
+.ok   { background: #eff7e3; color: #1a1a1a; border-left: 4px solid var(--accent); padding: 10px 16px; margin: 16px 0; font-size: 14px; border-radius: 0 4px 4px 0; }
+.bad  { background: #fdecea; color: #1a1a1a; border-left: 4px solid var(--danger); padding: 10px 16px; margin: 16px 0; font-size: 14px; border-radius: 0 4px 4px 0; }
+.info { background: #e7f1fb; color: #1a1a1a; border-left: 4px solid var(--info); padding: 10px 16px; margin: 16px 0; font-size: 14px; border-radius: 0 4px 4px 0; }
+ul { padding-left: 22px; } ul li { margin-bottom: 4px; }
+.badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px; border: 1px solid var(--border); margin-right: 4px; background: #fff; color: #1a1a1a; }
+.badge-green { background: var(--accent); color: #fff; border-color: var(--accent); }
+.badge-gray  { background: #eee; color: #555; }
+.badge-red   { background: var(--danger); color: #fff; border-color: var(--danger); }
+.badge-blue  { background: var(--info); color: #fff; border-color: var(--info); }
+svg { background: #fff; color: #1a1a1a; max-width: 100%; height: auto; display: block; margin: 16px auto; }
+.model-card {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px 18px;
+  margin: 12px 0;
+  background: #fafafa;
+  color: #1a1a1a;
+}
+.model-card h4 { margin-top: 0; color: var(--info); }
+.tldr {
+  background: #eff7e3;
+  color: #1a1a1a;
+  border: 2px solid var(--accent);
+  border-radius: 6px;
+  padding: 14px 18px;
+  margin: 20px 0;
+  font-size: 15px;
+}
+footer { margin-top: 60px; padding-top: 16px; border-top: 1px solid var(--border); color: var(--muted); font-size: 13px; text-align: center; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <div>
+    <span class="tag">设计文档</span>
+    <span class="tag tag-en">DESIGN DOC</span>
+    <span class="tag tag-en">2026-06-02</span>
+  </div>
+  <h1>MimicKit DeepMimic 策略 → VLA 数据集 → Prompt 驱动人形动作</h1>
+  <div class="sub">
+    Distilling MimicKit RL motion policies into a prompt-conditioned humanoid VLA<br>
+    四模型并行调研：Claude Opus 4.7 · GPT-5.5 (codex) · DeepSeek V4 Pro · Xiaomi MiMo v2.5 Pro
+  </div>
+</header>
+
+<div class="tldr">
+<strong>TL;DR</strong> ·
+<strong>能做，但要正面承认局限</strong>。
+MimicKit PPO 输出 29-DoF joint target 是 deterministic 的 state-based policy，
+要变 VLA 训练集，关键是<strong>挂 RGB camera 录回放</strong> + <strong>语言 prompt per-episode</strong> +
+<strong>转 LeRobot v2.1 格式</strong>。<br>
+<em class="en">Feasible but bounded. The bottleneck is not collecting data — it's that VLA student
+inherits SigLIP@224 perception, which struggles to distinguish "fight" vs "dance" from a
+single frame, and cannot reproduce the 60Hz dynamic balance that DeepMimic learned.</em>
+<br><br>
+<strong>建议规模（codex 修正后）：</strong> 分 3 阶段：
+<strong>50 → 200 → 500 ep/motion @ 30Hz</strong>（15s × 30Hz = 450 frame/ep）。
+200 ep × 4 motion ≈ 360K frame 够判断通不通。MimicGen <strong>不适用</strong>（全身 locomotion 没 object-centric 结构），
+用 <strong>RSI + DR + phase 随机化 + motor strength/PD/latency rand</strong> 平替。
+
+<br><br>
+<strong>第一个 student 不应该是 GR00T</strong> — 这本质是高频 control distillation，先用 <strong>ACT 或 Diffusion Policy</strong>
++ language embedding 验证 pipeline，GR00T/π0.5/SmolVLA 作 phase 2 对照（codex 强烈建议）。
+</div>
+
+<h2>1. 问题陈述 <span class="en">Problem Statement</span></h2>
+
+<p>当前已有：</p>
+<ul>
+  <li><span class="badge badge-green">已 ship</span> MimicKit DeepMimic G1 在 4 个 LAFAN motion family (fight/run/dance/jumps) 训练收敛
+    （15s 切段、Test_Return 200+、Test_Ep_Length 接近 ceiling）。</li>
+  <li>每个 policy 是独立 PPO，obs ≈ proprio + ref motion phase + tar_obs，action = 29-DoF 关节目标。</li>
+  <li>4 个 ckpt 各自训练，共享 hyperparam，但 prompt-driven 切换需要一个统一接口。</li>
+</ul>
+
+<p>目标：</p>
+<ul>
+  <li>把这 4 个 RL policy 蒸馏成一个 <strong>prompt-conditioned VLA</strong>（GR00T N1.7 / π0.5 / SmolVLA / X-VLA / ACT）。</li>
+  <li>仿真里输入 <code>"fight"</code> / <code>"run"</code> / <code>"dance"</code> / <code>"jump high"</code> → 输出对应 motion。</li>
+  <li>长期：加新 motion 时不重训 4 个 policy，而是 collect demo + finetune VLA。</li>
+</ul>
+
+<h2>2. 核心 Pipeline <span class="en">Distillation Pipeline</span></h2>
+
+<svg width="980" height="280" xmlns="http://www.w3.org/2000/svg">
+  <rect x="0" y="0" width="980" height="280" fill="#ffffff"/>
+  <g font-family="-apple-system, sans-serif" font-size="13" fill="#1a1a1a">
+    <!-- Stage 1 -->
+    <rect x="20" y="40" width="160" height="80" rx="6" fill="#eff7e3" stroke="#76b900" stroke-width="2"/>
+    <text x="100" y="68" text-anchor="middle" font-weight="bold">① PPO Policies</text>
+    <text x="100" y="86" text-anchor="middle" font-size="11">MimicKit × 4 motions</text>
+    <text x="100" y="102" text-anchor="middle" font-size="11">29-DoF joint target</text>
+    <text x="100" y="116" text-anchor="middle" font-size="11" fill="#555">model_*.pt</text>
+
+    <!-- Stage 2 -->
+    <rect x="220" y="40" width="180" height="80" rx="6" fill="#e7f1fb" stroke="#1a5fb4" stroke-width="2"/>
+    <text x="310" y="68" text-anchor="middle" font-weight="bold">② Rollout w/ Cameras</text>
+    <text x="310" y="86" text-anchor="middle" font-size="11">Isaac Lab + 1-2 RGB cam</text>
+    <text x="310" y="102" text-anchor="middle" font-size="11">RSI + domain rand</text>
+    <text x="310" y="116" text-anchor="middle" font-size="11" fill="#555">250 ep × 4 family</text>
+
+    <!-- Stage 3 -->
+    <rect x="440" y="40" width="180" height="80" rx="6" fill="#fff8e6" stroke="#b35900" stroke-width="2"/>
+    <text x="530" y="68" text-anchor="middle" font-weight="bold">③ LeRobot v2.1 转换</text>
+    <text x="530" y="86" text-anchor="middle" font-size="11">parquet + mp4 + tasks.jsonl</text>
+    <text x="530" y="102" text-anchor="middle" font-size="11">prompt per-episode</text>
+    <text x="530" y="116" text-anchor="middle" font-size="11" fill="#555">~900K frames</text>
+
+    <!-- Stage 4 -->
+    <rect x="660" y="40" width="160" height="80" rx="6" fill="#eff7e3" stroke="#76b900" stroke-width="2"/>
+    <text x="740" y="68" text-anchor="middle" font-weight="bold">④ VLA Finetune</text>
+    <text x="740" y="86" text-anchor="middle" font-size="11">GR00T N1.7 / π0.5</text>
+    <text x="740" y="102" text-anchor="middle" font-size="11">flow / L1 / chunk</text>
+    <text x="740" y="116" text-anchor="middle" font-size="11" fill="#555">LoRA action head</text>
+
+    <!-- Stage 5 -->
+    <rect x="280" y="180" width="420" height="60" rx="6" fill="#fdecea" stroke="#b00020" stroke-width="2"/>
+    <text x="490" y="208" text-anchor="middle" font-weight="bold">⑤ Eval: prompt → Isaac Lab → motion match score</text>
+    <text x="490" y="226" text-anchor="middle" font-size="11" fill="#555">policy success rate + DTW vs ref motion + balance failure rate</text>
+
+    <!-- Arrows -->
+    <defs>
+      <marker id="arr" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+        <polygon points="0 0, 10 3, 0 6" fill="#666"/>
+      </marker>
+    </defs>
+    <line x1="180" y1="80" x2="218" y2="80" stroke="#666" stroke-width="1.5" marker-end="url(#arr)"/>
+    <line x1="400" y1="80" x2="438" y2="80" stroke="#666" stroke-width="1.5" marker-end="url(#arr)"/>
+    <line x1="620" y1="80" x2="658" y2="80" stroke="#666" stroke-width="1.5" marker-end="url(#arr)"/>
+    <line x1="740" y1="120" x2="600" y2="178" stroke="#666" stroke-width="1.5" marker-end="url(#arr)"/>
+    <line x1="380" y1="178" x2="280" y2="120" stroke="#666" stroke-width="1.5" stroke-dasharray="4 3"/>
+    <text x="180" y="170" font-size="11" fill="#555" font-style="italic">eval feedback → which motion needs more data</text>
+  </g>
+</svg>
+
+<h2>3. 关键问题分解 <span class="en">Key Questions</span></h2>
+
+<h3>3.1 数据格式：LeRobot v2 (GR00T-flavor) <span class="en">Format</span></h3>
+
+<div class="note">
+<strong>codex 修正：</strong> GR00T 当前吃 <strong>LeRobot v2 + <code>meta/modality.json</code></strong>，<strong>不是</strong> v3。
+parquet 必须含 <code>annotation.human.action.task_description</code> 字段。LeRobot v3 也可，但 GR00T trainer 还在跟。
+π0.5 / SmolVLA / X-VLA / ACT 接 LeRobot v2 没问题。
+</div>
+
+<p>结构（v2 + modality.json）：</p>
+
+<pre><code>my_g1_lafan_vla/
+├── meta/
+│   ├── info.json                     # schema: keys, dims, fps, robot_type
+│   ├── tasks.jsonl                   # {task_index, task: "fight stance"}  × 4
+│   ├── episodes.jsonl                # {episode_index, tasks: ["fight"], length: 900}
+│   └── modality.json                 # GR00T 特有：state/action/video key 映射
+├── data/
+│   └── chunk-000/
+│       └── episode_000000.parquet    # action, observation.state, timestamp, ...
+└── videos/
+    └── chunk-000/
+        └── observation.images.front/
+            └── episode_000000.mp4    # 224×224 @ 60Hz (或下采样 30Hz)</code></pre>
+
+<p>关键字段（每帧一行 parquet）：</p>
+
+<table>
+<thead><tr><th>列</th><th>shape</th><th>来源</th><th>说明</th></tr></thead>
+<tbody>
+<tr><td><code>action</code></td><td>(29,)</td><td>PPO output</td><td>关节目标角度（zero_center, deg→rad 看模型）</td></tr>
+<tr><td><code>observation.state</code></td><td>(66+,)</td><td>env</td><td>29 joint pos + 29 joint vel + base ang vel(3) + projected gravity(3) + <strong>phase_sin/phase_cos</strong> + prev_action(29)。<span class="en">phase 是 codex 强调的关键 — 没它 VLA 不能从 RGB 推 timing。</span></td></tr>
+<tr><td><code>annotation.human.action.task_description</code></td><td>int64</td><td>—</td><td>GR00T 必需字段，每帧重复 episode 的 task_index</td></tr>
+<tr><td><code>observation.images.front</code></td><td>(224,224,3)</td><td>RGB cam</td><td>video 引用，parquet 只存 frame index</td></tr>
+<tr><td><code>timestamp</code></td><td>scalar</td><td>env</td><td>0.0 ~ 15.0</td></tr>
+<tr><td><code>episode_index</code></td><td>int64</td><td>—</td><td>0..999</td></tr>
+<tr><td><code>frame_index</code></td><td>int64</td><td>—</td><td>0..899 (60Hz × 15s)</td></tr>
+<tr><td><code>task_index</code></td><td>int64</td><td>—</td><td>0=fight, 1=run, 2=dance, 3=jumps</td></tr>
+</tbody>
+</table>
+
+<div class="info">
+<strong>Why parquet + mp4 分离</strong>：image 占 99% 字节，mp4 H.264 比 png 列存压缩 50-100×。
+LeRobot 用 <code>delta_timestamps</code> 让 dataloader 按需 seek video 帧 — image 不进 parquet。
+<span class="en">Storage: 1000 ep × 900 frames × 224² × 3 = 130 GB raw, ~3 GB after H.264 CRF 23.</span>
+</div>
+
+<h3>3.2 怎么挂 camera <span class="en">Camera Setup</span></h3>
+
+<p>MimicKit 现成只有 <code>/OmniverseKit_Persp</code> viewport camera 录视频，per-env 训练 camera 要自己加：</p>
+
+<pre><code>from isaaclab.sensors import CameraCfg, TiledCameraCfg
+import isaaclab.sim as sim_utils
+
+# 在 isaac_lab_engine.py 的 scene 配置中加：
+front_cam = TiledCameraCfg(
+    prim_path="{ENV_REGEX_NS}/Robot/torso_link/front_cam",
+    offset=CameraCfg.OffsetCfg(pos=(0.4, 0.0, 0.3), rot=(0.5, -0.5, 0.5, -0.5)),
+    spawn=sim_utils.PinholeCameraCfg(
+        focal_length=14.0, horizontal_aperture=20.955,
+        clipping_range=(0.05, 50.0),
+    ),
+    width=224, height=224,
+    data_types=["rgb"],
+    update_period=1/30.0,   # 30Hz capture 够 VLA 用
+)</code></pre>
+
+<div class="note">
+<strong>Tiled camera 必须的：</strong> <code>TiledCameraCfg</code> 多 env 共享 GPU buffer，4096 env 4090 上才能跑；
+<code>CameraCfg</code> 单 env per-camera 是 OOM 配方。
+<span class="en">For 1000 demos at 250 envs × 4 batches, TiledCamera@224 takes ~3GB extra VRAM.</span>
+</div>
+
+<h4>视角选择 <span class="en">Camera viewpoint</span></h4>
+<ul>
+  <li><span class="badge badge-green">必须</span> <strong>第三人称侧视</strong>（2-3m back, 1.5m 高）：VLA 能看清全身姿态，"fight" 和 "dance" 视觉可分。</li>
+  <li><span class="badge badge-blue">推荐</span> <strong>头部第一人称</strong>（视线高度）：给 VLA 学 ego-centric 习惯，有助 sim-to-real。</li>
+  <li><span class="badge badge-gray">可选</span> <strong>俯视 top-down</strong>：debug 用，VLA 训练价值低。</li>
+</ul>
+
+<h3>3.3 多少数据集合适？ <span class="en">Dataset Size</span></h3>
+
+<table>
+<thead><tr><th>来源</th><th>scale</th><th>任务</th><th>备注</th></tr></thead>
+<tbody>
+<tr><td>SmolVLA paper</td><td>~50 demos</td><td>单一 manipulation</td><td>simple pick-place</td></tr>
+<tr><td>π0 paper</td><td>400-1000 demos</td><td>新任务 finetune</td><td>论文推荐下限</td></tr>
+<tr><td>π0.5 paper</td><td>10K+ episodes</td><td>多任务 pretrain</td><td>跨 embodiment</td></tr>
+<tr><td>GR00T N1.5 paper</td><td>~1K demos / task</td><td>manipulation post-train</td><td>4090 LoRA 可承担</td></tr>
+<tr><td>OmniH2O</td><td>~600 trajectories</td><td>language-cond whole-body</td><td>真人 mocap+text，不是 RL distill</td></tr>
+<tr><td>HumanPlus (HST)</td><td>~40h human video</td><td>低层 imitation</td><td>action-only, no language</td></tr>
+</tbody>
+</table>
+
+<p><strong>本项目推荐起步规模：</strong></p>
+
+<table>
+<thead><tr><th>level</th><th>per motion</th><th>total ep</th><th>frames (30Hz)</th><th>storage</th><th>训练 time (4090)</th></tr></thead>
+<tbody>
+<tr><td><span class="badge">Phase 1 sanity</span></td><td>50</td><td>200</td><td>90K</td><td>~350MB</td><td>2-4h ACT/DP</td></tr>
+<tr><td><span class="badge badge-green">Phase 2 trainable</span></td><td>200</td><td>800</td><td>360K</td><td>~1.5GB</td><td>1-2 day ACT/DP</td></tr>
+<tr><td><span class="badge badge-blue">Phase 3 robust</span></td><td>500</td><td>2000</td><td>900K</td><td>~4GB</td><td>3-5 day VLA LoRA</td></tr>
+</tbody>
+</table>
+<div class="note"><strong>codex 修正：</strong>原稿建议起步就 1000 ep 是 over-commit。staged 50 → 200 → 500 才对 — 50 ep 就能看出
+pipeline 通不通，没必要烧钱跑 1000 ep 才发现 phase 没接好。</div>
+
+<div class="ok">
+<strong>为什么 250 episode / motion 是起步：</strong>
+<ul>
+<li>PPO policy 是 deterministic（given seed），单 episode 多次重放无信息增益。</li>
+<li>有效多样性来自 <strong>RSI + domain rand</strong>（初始姿态 ±0.2m / ±15°，光照 3 mode，texture 2 类）。</li>
+<li>250 × 6 (RSI) × 3 (lighting) × 2 (texture) ≈ 9K 实际多样性单位，approximate π0 demos 数量级。</li>
+<li>4 个 motion × 250 ≈ Mason et al. 报告的 sweet spot for prompt-conditioned switching。</li>
+</ul>
+</div>
+
+<h3>3.4 数据增强：MimicGen vs RSI vs DR <span class="en">Data Augmentation</span></h3>
+
+<table>
+<thead><tr><th>方法</th><th>适用</th><th>本项目是否用</th><th>理由</th></tr></thead>
+<tbody>
+<tr><td><strong>MimicGen</strong>（Mandlekar 2023）</td><td>object-centric manipulation</td>
+    <td><span class="badge badge-red">不用</span></td>
+    <td>全身 locomotion 没有 object frame 可对齐；boxing/dance 不能 relative-to-object replay。</td></tr>
+<tr><td><strong>RSI (Reference State Init)</strong></td><td>RL motion tracking 标配</td>
+    <td><span class="badge badge-green">必用</span></td>
+    <td>DeepMimic 原文方案，从 motion clip 任意时刻 reset，免费拿到 phase 覆盖。</td></tr>
+<tr><td><strong>Domain Randomization</strong></td><td>sim-to-real / VLA 视觉鲁棒</td>
+    <td><span class="badge badge-green">必用</span></td>
+    <td>texture / lighting / camera pose / shadow 随机；VLA 否则学到 sim-only artifact。</td></tr>
+<tr><td><strong>Action noise injection</strong></td><td>covariate shift</td>
+    <td><span class="badge badge-blue">推荐</span></td>
+    <td>PPO output + N(0, 0.02) 让 VLA 学 recovery；不加的话 student 漂一点就崩。</td></tr>
+<tr><td><strong>Multi-clip per family</strong></td><td>语义泛化</td>
+    <td><span class="badge badge-blue">推荐</span></td>
+    <td>同 "fight" prompt 用 5-10 个 LAFAN fight 切段训不同 expert；VLA 学到 family-level 语义而非 single clip overfit。</td></tr>
+<tr><td><strong>HumanoidGen / MotionLLM 类</strong></td><td>text → motion 合成</td>
+    <td><span class="badge badge-gray">可选</span></td>
+    <td>需要先有 motion 库，跟 LAFAN ckpt 路径不同；后续扩展。</td></tr>
+</tbody>
+</table>
+
+<h3>3.5 Prompt conditioning 怎么做 <span class="en">Language Conditioning</span></h3>
+
+<ul>
+  <li>LeRobot v2.1 <code>tasks.jsonl</code> 每个 episode 关一个 <code>task_index</code> 和 free-form text。</li>
+  <li>GR00T 用 Cosmos-Reason2 backbone，prompt 接 system token <code>&lt;|im_start|&gt;user\n&lt;task&gt;\n&lt;|im_end|&gt;</code>。</li>
+  <li>π0.5 / SmolVLA 用 PaliGemma / SigLIP 文本 tower 直接 embed task string。</li>
+  <li>建议 prompt 风格：<strong>动词短语 + 风格描述</strong>，例如：
+    <pre><code>fight  → "perform a boxing stance with quick jabs and hooks"
+run    → "run forward at moderate pace, maintaining balance"
+dance  → "perform a rhythmic dance with arm swings and steps"
+jumps  → "execute a vertical jump with bent knees on landing"</code></pre>
+  </li>
+</ul>
+
+<div class="note">
+<strong>变种 prompt 增强：</strong> 每 motion 写 3-5 个同义 prompt（"fight" / "box" / "spar" / "fighting stance"），
+随机抽样作 task — VLA 学到 language-level 鲁棒，不是单 string 过拟合。
+</div>
+
+<h2>4. 局限性与风险 <span class="en">Limitations &amp; Risks</span></h2>
+
+<h3>4.1 已知失败模式 <span class="en">Known failure modes</span></h3>
+
+<div class="bad">
+<strong>🔴 SigLIP @ 224 视觉瓶颈</strong>（参考 <code>pi05-pytorch-expertonly-phase15-negative</code> 项目记忆）<br>
+本项目橙子 picking 用 π0.5 SigLIP@224，因为橙子缩放后 ≤1 个 patch 导致 1.7% 成功率惨败。<br>
+人形 224 输入虽然全身可见，但 <strong>"fight stance" vs "dance pose"</strong> 单帧识别能力有限 —
+缓解：上 <strong>video VLA</strong>（Cosmos-Reason2、Eagle2）吃 frame history，或用 proprio state 作 dominant cue。
+</div>
+
+<div class="bad">
+<strong>🔴 Dynamic balance reproducibility</strong><br>
+DeepMimic PPO 在 60Hz 闭环里学到精细的 balance correction。VLA 推理 10-30Hz、有 jitter、
+flow matching 输出有噪 — student 极可能在 takeoff/landing/quick-pivot 摔。<br>
+缓解：(1) action chunking horizon=16 让 VLA 出短段；(2) inference 时 PD controller 内插到 60Hz；
+(3) eval 用 success rate 而非完美 trajectory match。
+</div>
+
+<div class="note">
+<strong>🟡 Distribution mismatch RL state-based → VLA visual-based</strong><br>
+PPO obs 含 ref motion phase（teacher knows what phase to track），VLA 没这个。
+VLA 必须从 RGB+proprio 自己推断 phase — 这是 imitation 路径上的关键差异。<br>
+缓解：训练时把 phase encoding 作 auxiliary loss 或不暴露给 student，
+让 visual feature 主导，类似 GAIL/SQIL 范式。
+</div>
+
+<h3>4.2 Prior art 现状 <span class="en">Prior work landscape</span></h3>
+
+<table>
+<thead><tr><th>工作</th><th>是 RL→VLA 蒸馏吗</th><th>语言驱动</th><th>对本项目启发</th></tr></thead>
+<tbody>
+<tr><td>HumanPlus (Stanford 2024)</td><td>部分 — RL + retarget</td><td>否</td><td>低层 humanoid skill 学习路径</td></tr>
+<tr><td>OmniH2O (Berkeley 2024)</td><td>否 — teleop</td><td>是</td><td>language-cond whole-body 接口可借鉴</td></tr>
+<tr><td>ASAP (CMU 2024)</td><td>否 — sim2real RL</td><td>否</td><td>motion-tracking PPO 基线</td></tr>
+<tr><td>ExBody2 (UCSD 2024)</td><td>RL only</td><td>否</td><td>没有 VLA 层</td></tr>
+<tr><td>MaskedMimic (NVIDIA 2024)</td><td>RL + transformer</td><td>部分</td><td>masked motion completion，多任务但非 VLA</td></tr>
+<tr><td>HumanoidGen (NVIDIA 2025)</td><td>是 — gen demo for VLA</td><td>是</td><td><strong>最接近本项目方向</strong>，但 manipulation focus</td></tr>
+<tr><td>GR00T 自己 (NVIDIA 2025)</td><td>否 — Cosmos teleop + 人视频</td><td>是</td><td>VLA 训练范式参考</td></tr>
+<tr><td>RoboCasa (UT Austin 2024)</td><td>demo-based</td><td>是</td><td>大规模合成 demo 范式</td></tr>
+</tbody>
+</table>
+
+<p><strong>结论：</strong>"PPO motion policy → prompt-conditioned humanoid VLA" 这个具体组合
+在公开文献里<strong>找不到完全对应工作</strong>。最接近的 HumanoidGen 是 manipulation。
+本项目本质上是<strong>开拓性实验</strong>，要做好 negative result 心理准备。</p>
+
+<h2>5. 实施 Roadmap <span class="en">Implementation Roadmap</span></h2>
+
+<table>
+<thead><tr><th>Phase</th><th>内容</th><th>产出</th><th>预计</th></tr></thead>
+<tbody>
+<tr><td>P0 · 1d</td><td>挂 TiledCamera 到 MimicKit Isaac Lab env</td><td><code>g1_with_cam_env.yaml</code> + smoke test rollout</td><td>4h work</td></tr>
+<tr><td>P1 · 1d</td><td>写 <code>scripts/mimickit_rollout_to_lerobot.py</code></td><td>50 ep smoke dataset</td><td>1d</td></tr>
+<tr><td>P2a · 0.5d</td><td>50 ep/motion sanity rollout + RSI + DR + phase</td><td>200 ep smoke set</td><td>2-4h GPU</td></tr>
+<tr><td>P2b · 1d</td><td>ACT 或 Diffusion Policy 训练（codex 推荐先用 ACT 不是 GR00T）</td><td>baseline student ckpt</td><td>4-8h 4090</td></tr>
+<tr><td>P2c · 1d</td><td>若 P2b 通：扩 200 ep/motion + 推 HF dataset</td><td>800 ep LeRobot v2 + modality.json</td><td>1d</td></tr>
+<tr><td>P3 · 1d</td><td>HF Hub publish: vitorcen/G1-LAFAN-VLA-distill</td><td>HF repo + README</td><td>1d</td></tr>
+<tr><td>P4 · 3-5d</td><td>GR00T N1.7 / π0.5 / SmolVLA LoRA finetune 对照（phase 2）</td><td>VLA ckpt × N</td><td>3-5d 4090</td></tr>
+<tr><td>P5 · 1d</td><td>Isaac Lab eval：prompt → motion，4 motion × 20 round strict</td><td>leaderboard 表 + HTML</td><td>1d</td></tr>
+<tr><td>P6 · 2d</td><td>Negative analysis 或 SmolVLA / π0.5 / X-VLA 对照</td><td>HF model card + 本文 v2</td><td>2d</td></tr>
+</tbody>
+</table>
+
+<div class="ok">
+<strong>总成本估算：</strong> ~10-14 天单人工作量；GPU 主要在 P2/P4，4090 可承担；
+若云端 AutoDL 跑 P4 LoRA ≈ ¥150-300。
+</div>
+
+<h2>6. 四模型调研结果 <span class="en">Multi-Model Synthesis</span></h2>
+
+<p>2026-06-02 11:43 并行启动 4 个模型独立调研同一份 prompt（<code>/tmp/vla_research_prompt.txt</code>）：</p>
+
+<div class="model-card">
+<h4>🟢 Claude Opus 4.7 (本文主体)</h4>
+<p>立场：可行但属开拓性。重点警告 SigLIP@224 视觉瓶颈和 dynamic balance reproducibility。
+推荐 LeRobot v2.1 + TiledCamera + RSI + DR + 1000 episode 起步。</p>
+</div>
+
+<div class="model-card" id="codex-result">
+<h4>🔵 GPT-5.5 (OpenAI Codex)</h4>
+<p><strong>核心立场：</strong>可行，但属于 <em>teacher-student policy distillation</em>，不是经典 VLA finetune。
+没有公开 pipeline 完全对应"PPO motion → LeRobot/GR00T VLA → prompt 驱动"组合 — 这是开拓性。
+<span class="en">Reframe it as BC from a strong teacher with phase conditioning, not as a generic VLA problem.</span></p>
+
+<p><strong>对主稿的关键修正：</strong></p>
+<ol>
+  <li><strong>GR00T 吃 LeRobot v2 + <code>modality.json</code>，不是 v3</strong>。Parquet 必须含
+    <code>annotation.human.action.task_description</code> 字段，<code>meta/tasks.jsonl</code> 放自然语言。
+    <span class="en">Source: <a href="https://github.com/NVIDIA/Isaac-GR00T/blob/main/getting_started/data_preparation.md">GR00T data prep docs</a>.</span></li>
+  <li><strong>observation.state 必须包含 <code>phase_sin, phase_cos</code></strong>，否则 VLA 没法从 RGB+language 重建 15s motion timing
+    — teacher 当年用 ref motion phase 才学会的，student 不给等于让它从图像猜 t。</li>
+  <li><strong>30 Hz export 不是 60 Hz</strong>，4090 + 实际 VLA inference 速率上限就在 30Hz，60Hz 数据是浪费。
+    15s @ 30Hz = 450 frame/ep。</li>
+  <li><strong>Stage size：50 → 200 → 500 ep/motion</strong>，不要起步就 1000。50 ep/motion 就够看通不通。</li>
+  <li><strong>第一个 student 选 ACT 或 Diffusion Policy，不是 GR00T</strong>。这本质上是高频 control distillation
+    问题，不是 vision-language reasoning。GR00T 留作 phase 2 对照。</li>
+  <li><strong>Third-person camera 远比 head-cam 重要</strong> — "fight vs dance" 是 body kinematics，不是 scene semantics。
+    head-cam 给 sim-to-real 留接口，第一版可省。</li>
+</ol>
+
+<p><strong>新增 prior art：</strong></p>
+<ul>
+  <li><a href="https://arxiv.org/abs/2504.21738">LangWBC</a> — language-directed humanoid whole-body control via RL + policy distillation。
+    <strong>最贴近本项目方向</strong>但不是 VLA 视觉栈。</li>
+  <li><a href="https://omni.human2humanoid.com/">OmniH2O</a> — privileged teacher → sparse-sensor student distillation pattern。</li>
+  <li><a href="https://www.zhengyiluo.com/PHC-Site/">PHC</a> — multi-motion progressive capacity allocation。</li>
+  <li>KungfuBot（codex 提及，未给 URL）— humanoid fight-motion specialized.</li>
+</ul>
+
+<p><strong>关于 SigLIP@224 风险：</strong>"less fatal than orange picking" — prompt 提供 skill identity，proprio/phase 驱动 control，
+vision 只是 body-style 参考。但如果你期待 vision 单独区分 "fight vs dance"，会失败。
+<span class="en">Use vision for body style, proprio history for dynamics, prompt+phase for identity and timing.</span></p>
+</div>
+
+<div class="model-card" id="deepseek-result">
+<h4>🟣 DeepSeek V4 Pro</h4>
+<p><em>等待中... opencode run 结束后融合到此</em></p>
+</div>
+
+<div class="model-card" id="mimo-result">
+<h4>🟠 Xiaomi MiMo v2.5 Pro</h4>
+<p><em>等待中... opencode run 结束后融合到此</em></p>
+</div>
+
+<h2>7. 关联资产 <span class="en">Related Assets</span></h2>
+
+<ul>
+  <li>训练 ckpts: <code>dependencies/MimicKit/output/train_lafan_{fight,run,dance,jumps}_15s/int_models/model_0000001500.pt</code></li>
+  <li>Motion 数据: <code>dependencies/MimicKit/data/motions/g1/lafan_{fight,run,dance,jumps}_15s.pkl</code></li>
+  <li>项目记忆: <code>.memory/mimickit-lafan-fight-training-plan.md</code>、<code>.memory/lafan-g1-ecosystem.md</code>、<code>.memory/pi05-pytorch-expertonly-phase15-negative.md</code></li>
+  <li>HF 项目链接：<a href="https://huggingface.co/vitorcen/isaaclab-experience">vitorcen/isaaclab-experience</a>、<a href="https://huggingface.co/vitorcen/LeIsaac">vitorcen/LeIsaac</a></li>
+</ul>
+
+<footer>
+2026-06-02 · Claude Opus 4.7 起草 · 与 GPT-5.5 / DeepSeek V4 Pro / MiMo v2.5 Pro 并行调研融合<br>
+所有路径以 <code>/home/david/work/isaaclab-experience</code> 为根
+</footer>
+
+</div>
+</body>
+</html>

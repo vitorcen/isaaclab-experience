@@ -4,6 +4,35 @@ NVIDIA Isaac Sim 和 Isaac Lab 学习与实践项目，包含完整的机器人�
 
 ---
 
+## 🕺 Humanoid Motion-Tracking：MimicKit × Unitree G1 × LAFAN1
+
+_Unitree G1 (29-DoF) learns LAFAN1 mocap clips via MimicKit DeepMimic PPO — fight / run / dance / jumps_
+
+https://github.com/user-attachments/assets/61569673-657c-472e-ac9f-18741b53812c
+
+单卡 4090 24G，4096 envs × 1500 PPO iters，每个 motion 约 1 小时跑完；4 个 motion 共享一套 hyperparams + USD per-link 材质修复脚本。
+_One 4090, 4 motions, single recipe — drop-in MimicKit + restored per-link USD material._
+
+- **数据 / Data**：LAFAN1 mocap → Unitree-style G1 retarget ([`lvhaidong/LAFAN1_Retargeting_Dataset`](https://huggingface.co/datasets/lvhaidong/LAFAN1_Retargeting_Dataset)) → IsaacLab repack ([`ember-lab-berkeley/LAFAN-G1`](https://huggingface.co/datasets/ember-lab-berkeley/LAFAN-G1)) → 450-frame 中段切段（15 s @ 30 fps）
+- **算法 / Algo**：DeepMimic PPO (MimicKit default), action_std=0.05, SGD lr=1e-4
+- **入口 / Entry point**：📓 [MimicKit.ipynb](./MimicKit.ipynb) + 📄 [`doc/mimickit_lafan_training.html`](./doc/mimickit_lafan_training.html)
+- **HF model card / weights**：[`wsagi/MimicKit-G1-LAFAN`](https://huggingface.co/wsagi/MimicKit-G1-LAFAN)（4 ckpt + textured USD + 4 demo mp4）
+
+### Motion Results
+
+| Motion | Episode-Length (终态 / 15 s 满分) | Ship quality | Source slice |
+|---|---|---|---|
+| **fight** | 14.85 s · **99.0 %** | 🟢 触顶 | LAFAN `fight1_subject2` [600:1050] |
+| **dance** | 14.70 s · **98.0 %** | 🟢 触顶 | LAFAN `dance1_subject1` [1746:2196] |
+| **jumps** | 14.70 s · **98.0 %** | 🟢 触顶 | LAFAN `jumps1_subject1` [3441:3891] |
+| **run**   |  9.45 s · **63.0 %** | 🟡 plateau | LAFAN `run1_subject2` [3341:3791] |
+
+> 3/4 触顶，`run` 在 63 % plateau — vanilla DeepMimic 在快速接触/滑步段饱和，候选改造方向 ADD residual / motion curriculum。
+>
+> **附带修复（独立 reusable）**：`scripts/g1_usd_recolor.py` — MimicKit 自带 `g1.usd` 在 USD 转换时把 MJCF per-geom `rgba` 压成单一 `DefaultMaterial=(1,1,1)` 白；脚本反推 `g1.xml` 重绑 36 mesh 双色（深灰 joints + 浅灰 panels），还原 Unitree G1 原色。`export MIMICKIT_G1_USD=$PWD/.../g1_textured.usd` 即生效。
+
+---
+
 ## ✨ VLA 推理实测：LeIsaac SO-101 PickOrange
 
 _VLA Inference Benchmark — strict 20-round on SO-101 PickOrange_

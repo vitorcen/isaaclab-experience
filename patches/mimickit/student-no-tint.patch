@@ -1,0 +1,22 @@
+diff --git a/mimickit/envs/char_env.py b/mimickit/envs/char_env.py
+index c8b5889..7ebb6cb 100644
+--- a/mimickit/envs/char_env.py
++++ b/mimickit/envs/char_env.py
+@@ -364,14 +364,9 @@ class CharEnv(sim_env.SimEnv):
+         return
+     
+     def _get_char_color(self):
+-        engine_name = self._engine.get_name()
+-        if (engine_name == "isaac_lab"):
+-            col = np.array([0.2, 0.25, 0.7])
+-        elif (engine_name == "newton"):
+-            col = np.array([0.35, 0.45, 0.7])
+-        else:
+-            col = np.array([0.5, 0.65, 0.95])
+-        return col
++        # Return None → engine keeps the asset's original USD/URDF materials
++        # (real G1 robot textures), so the student isn't tinted blue.
++        return None
+ 
+ 
+ #####################################################################

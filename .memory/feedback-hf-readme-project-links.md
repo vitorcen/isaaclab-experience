@@ -1,35 +1,42 @@
 ---
 name: feedback-hf-readme-project-links
-description: 发到 HF Hub 的 model card README 顶部必须放 vitorcen/isaaclab-experience + vitorcen/LeIsaac 两个项目仓库链接 — 给自己带流量
-metadata: 
-  node_type: memory
+description: HF model card 顶部插入与本 ckpt 任务相关的 GitHub repo 链接（不是固定两个，按相关性选）— 给自己引流但不强塞无关项目
+metadata:
   type: feedback
-  originSessionId: c14e8ac0-2fe8-4b9e-96f8-0c66dd49e974
 ---
 
-发布到 HuggingFace Hub 的 model card README（`pretrained_model/README.md`）顶部，**图片之后、TL;DR 之前**插入项目仓库链接区，引流回我们的 GitHub。
+发布到 HuggingFace Hub 的 model card README（`pretrained_model/README.md`）顶部，**图片之后、TL;DR 之前**插入"项目仓库 / Project repo(s)"链接区，引流回 GitHub。
 
-**Why:** 用户原话 "相当于给自己带点流量"。HF 模型卡是被搜索/直接打开的入口（dataset 页面 filter / Google 搜索），但 GitHub repo 的 star/issue/exposure 完全独立于 HF。在每个发布的 ckpt README 顶部加两个 repo 链接 ≈ 0 成本 cross-promotion。
+**Why:** 用户原话 "相当于给自己带点流量"，但**只链相关项目** — 2026-06-02 在 `wsagi/MimicKit-G1-LAFAN` (motion-tracking) 上强塞 LeIsaac (pick-orange) 链接被用户砍掉："不想干的"。无关项目的反向链接稀释 HF SEO 信号 + 让卡片看着像 spam。
 
 **How to apply:**
 
-固定格式（中文为主 + 英文对照标点）：
+按 ckpt 所在领域选链接：
+
+| ckpt 领域 | 链接 |
+|---|---|
+| Manipulation / pick-orange (ACT, DP, π0.5, GR00T, SmolVLA, X-VLA) | `vitorcen/isaaclab-experience` + `vitorcen/LeIsaac` |
+| Motion-tracking (MimicKit, ProtoMotions, AMP, ADD) | `vitorcen/isaaclab-experience` 单条即可 |
+| Locomotion / RL-only (rsl_rl baseline) | `vitorcen/isaaclab-experience` 单条即可 |
+| 双线都涉及（罕见） | 两条都加 |
+
+固定格式（中文为主 + 英文对照标点，**复数 / 单数**视情况）：
 
 ```markdown
-**🔗 项目仓库 / Project repos**：
-- [vitorcen/isaaclab-experience](https://github.com/vitorcen/isaaclab-experience) — Isaac Lab + LeIsaac 多策略横评（parent project）
-- [vitorcen/LeIsaac](https://github.com/vitorcen/LeIsaac) — LeIsaac fork（训练脚本 + 设计文档 / training scripts + design docs）
+**🔗 项目仓库 / Project repo(s)**：
+- 🧪 [vitorcen/isaaclab-experience](https://github.com/vitorcen/isaaclab-experience) — <这个 ckpt 在该 repo 的具体角色：脚本路径 / 设计文档 / 训练入口>
+- 🍊 [vitorcen/LeIsaac](https://github.com/vitorcen/LeIsaac) — <仅 manipulation ckpt 才放，注明是 pick-orange leaderboard / sim eval framework>
 ```
 
 插入位置：模型截图之后、`## TL;DR` 之前（如果没截图就在描述段之后）。
 
-对于特殊模型（如 pi05），第一个链接的 description 可以追加："含 π0.5 PT server `server/serve_pi05.sh`" 这种额外引导。
+**判断 rule of thumb：** 在 README 里把每条链接的 description 写出来；如果你写不出"为什么这个 repo 跟当前 ckpt 直接相关"，就别放它。
 
-**已应用到的 ckpt READMEs**（截至 2026-05-17）：
-- `wsagi/ACT-PickOrange` (act-leisaac-pick-orange/checkpoints/010000/pretrained_model/README.md)
-- `wsagi/DiffusionPolicy-PickOrange` (dp-leisaac-pick-orange-v2/checkpoints/last/pretrained_model/README.md)
-- pi05 v3 (pi05-leisaac-pt-v3/pretrained_model/README.md，待 upload HF)
+**已应用到的 ckpt READMEs：**
+- `wsagi/ACT-PickOrange` — 两条都放（manipulation）
+- `wsagi/DiffusionPolicy-PickOrange` — 两条都放（manipulation）
+- `wsagi/MimicKit-G1-LAFAN` (2026-06-02) — 只放 isaaclab-experience（motion-tracking，LeIsaac 无关）
 
-后续新发的任何 model card README 都必须有这一段。
-
-关联：[[feedback-style]] 设计文档先行 + 中英对照规则
+关联：
+- [[feedback-style]] — 设计文档先行 + 中英对照规则
+- [[feedback-hf-frontmatter-datasets-basemodel]] — YAML frontmatter 必填 datasets + base_model

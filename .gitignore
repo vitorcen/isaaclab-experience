@@ -39,4 +39,4 @@ videos/
 *.bak
 .cache/
 results/
-
+dist/

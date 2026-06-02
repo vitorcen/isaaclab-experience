@@ -6,7 +6,8 @@
 - [benchmark 表格排序规则](feedback-benchmark-table-sort.md) — README leaderboard 排序：strict Rounds DESC → oranges DESC → time ASC
 
 ## Training discipline
-- [🥊 MimicKit LAFAN_fight 训练 + GUI eval resume 计划](mimickit-lafan-fight-training-plan.md) — compact 后接力训 G1 5s/15s 切段；pipeline + 切段 + 命令模板已落盘；4090 24G 5s 30min 出形 2h ship
+- [🏆 MimicKit LAFAN G1 × 4 motion SHIPPED](mimickit-lafan-fight-training-plan.md) — 2026-06-02 fight/run/dance/jumps 15s 切段，4h pipeline，3/4 触顶 ≥98%，run plateau 63%；scripts/mimickit_train_{one,queue,pipeline}.sh + eval_chain.sh + g1_usd_recolor.py 全套；doc/mimickit_lafan_training.html
+- [🎨 MimicKit g1.usd 全白根因 + 修复](mimickit-g1-usd-material-fix.md) — MJCF per-geom rgba 转 USD 被压成单一 DefaultMaterial 白；scripts/g1_usd_recolor.py 反推 + per-mesh rebind；`MIMICKIT_G1_USD` env var 切入
 - [🧹 训练完 benchmark 后 outputs 清理](feedback-training-output-cleanup.md) — leaderboard 落地后每家族留 1 dir + 3-6 ckpts；负面家族也留 1 个存档；规则写入 `LeIsaac/CLAUDE.md`
 - [🎯 GPU util 是训练效率优化的判断锚](feedback-gpu-util-as-efficiency-anchor.md) — 不看 step/s 看 mid-window GPU util %；1Hz GPU+CPU 双采样 + per-phase profile + micro-bench 隔离；瓶颈分层判断表
 - [训练 = 训练 + 自动每阶段 eval](auto-eval-watcher-standard.md) — `lerobot_finetune.sh AUTO_EVAL=1` spawn `eval_watcher.sh` poll ckpts/ → 3 连 0 → `.eval_abort` SIGTERM；CSV 持久 dedup 保 resume
@@ -36,7 +37,8 @@
 - [🔧 AutoDL × CN uv sync Isaac-GR00T 6-patch 配方](autodl-uv-sync-cn-strategy.md) — aliyun pypi default + 直接 URL torch + x86_64 only + 砍 tensorrt + no_proxy + flash-attn cxx11abiFALSE
 - [hf upload-large-folder 实战坑](hf-upload-tricks.md) — `pip install hf_transfer` + `HF_HUB_ENABLE_HF_TRANSFER=1` 5-10× 提速；`--exclude` 单 flag 多 value；resume cache `.cache/huggingface/upload/<file>.metadata`
 - [💰 AutoDL 云端训练成本纪律](feedback-autodl-cost-discipline.md) — 每步先问"真的需要 GPU 模式吗"，无卡 ¥0.1/h vs GPU ¥6-8/h 差 60-80×
-- [HF README 必带项目链接](feedback-hf-readme-project-links.md) — 发到 HF Hub 的 model card 顶部图片之后、TL;DR 之前固定插入 vitorcen/isaaclab-experience + vitorcen/LeIsaac 两个 repo 链接
+- [HF README 项目链接按相关性](feedback-hf-readme-project-links.md) — model card 顶部插入与本 ckpt **任务相关**的 GitHub repo 链接（不是固定两个）；manipulation→两条都放，motion-tracking/locomotion→只放 isaaclab-experience；无关项目反向链接 = SEO 噪音 + 看着像 spam
+- [HF frontmatter 必填 datasets + base_model](feedback-hf-frontmatter-datasets-basemodel.md) — model card YAML 必须有 `datasets:` 和 `base_model:` (无则 `[]`)，否则 HF UI 不渲染数据集卡片 + 血缘关系；body 用 markdown 链接不算数
 
 ## Collab style
 - [HTML 文档样式规则](feedback-html-doc-rules.md) — 必须 `:root{color-scheme:light}` + body 显式 `background:#fff`；SVG/pre/table 都要成对显式 background+color；内嵌 SVG 不外链
