@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>治 covariate shift：高质量数据扩充 + WBC 架构（三模型调研）</title>
+<style>
+:root{ color-scheme:light; --bg:#fff; --fg:#1a1a1a; --muted:#555; --border:#d4d4d4;
+  --accent:#76b900; --accent-dark:#4a7400; --code-bg:#f1f3f4; --table-head:#f0f5e8;
+  --warn:#b35900; --danger:#b00020; --info:#1a5fb4; }
+*{box-sizing:border-box;}
+body{ margin:0; font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Segoe UI",sans-serif;
+  background:#fff; color:var(--fg); line-height:1.65; }
+.container{ max-width:1080px; margin:0 auto; padding:32px 24px 80px; }
+header{ border-bottom:3px solid var(--accent); padding-bottom:16px; margin-bottom:32px; }
+header .tag{ display:inline-block; background:var(--accent); color:#fff; padding:2px 10px; border-radius:4px; font-size:12px; font-weight:600; margin-bottom:8px; }
+header .tag-en{ background:#555; margin-left:6px; }
+h1{ font-size:27px; margin:4px 0 8px; }
+header .sub{ color:var(--muted); font-size:14px; }
+h2{ font-size:22px; margin:40px 0 12px; padding-left:10px; border-left:4px solid var(--accent); }
+h3{ font-size:17px; margin:24px 0 8px; color:var(--accent-dark); }
+h4{ font-size:15px; margin:18px 0 6px; color:#333; }
+p,li{ font-size:15px; }
+.en{ color:#666; font-size:13px; font-style:italic; }
+code{ background:var(--code-bg); color:#1a1a1a; padding:2px 6px; border-radius:3px; font-family:"SFMono-Regular",Consolas,Menlo,monospace; font-size:13px; }
+pre{ background:var(--code-bg); color:#1a1a1a; border:1px solid var(--border); border-radius:4px; padding:12px 16px; overflow-x:auto; font-size:13px; line-height:1.5; }
+pre code{ background:transparent; padding:0; color:inherit; }
+table{ width:100%; border-collapse:collapse; margin:12px 0; font-size:14px; background:#fff; color:#1a1a1a; }
+th,td{ padding:8px 12px; border:1px solid var(--border); text-align:left; vertical-align:top; }
+th{ background:var(--table-head); color:#1a1a1a; font-weight:600; }
+tr:nth-child(even) td{ background:#fafafa; }
+a{ color:var(--accent-dark); text-decoration:none; border-bottom:1px dotted var(--accent-dark); }
+a:hover{ color:var(--accent); border-bottom-style:solid; }
+.note{ background:#fff8e6; color:#1a1a1a; border-left:4px solid var(--warn); padding:10px 16px; margin:16px 0; font-size:14px; border-radius:0 4px 4px 0; }
+.ok{ background:#eff7e3; color:#1a1a1a; border-left:4px solid var(--accent); padding:10px 16px; margin:16px 0; font-size:14px; border-radius:0 4px 4px 0; }
+.bad{ background:#fdecea; color:#1a1a1a; border-left:4px solid var(--danger); padding:10px 16px; margin:16px 0; font-size:14px; border-radius:0 4px 4px 0; }
+.info{ background:#e7f1fb; color:#1a1a1a; border-left:4px solid var(--info); padding:10px 16px; margin:16px 0; font-size:14px; border-radius:0 4px 4px 0; }
+ul{ padding-left:22px; } ul li{ margin-bottom:4px; }
+.badge{ display:inline-block; padding:1px 8px; border-radius:10px; font-size:12px; border:1px solid var(--border); margin-right:4px; background:#fff; color:#1a1a1a; }
+.badge-green{ background:var(--accent); color:#fff; border-color:var(--accent); }
+.badge-gray{ background:#eee; color:#555; }
+.badge-red{ background:var(--danger); color:#fff; border-color:var(--danger); }
+.badge-blue{ background:var(--info); color:#fff; border-color:var(--info); }
+svg{ background:#fff; color:#1a1a1a; max-width:100%; height:auto; display:block; margin:16px auto; }
+.model-card{ border:1px solid var(--border); border-radius:6px; padding:14px 18px; margin:12px 0; background:#fafafa; color:#1a1a1a; }
+.model-card h4{ margin-top:0; color:var(--info); }
+.tldr{ background:#eff7e3; color:#1a1a1a; border:2px solid var(--accent); border-radius:6px; padding:14px 18px; margin:20px 0; font-size:15px; }
+footer{ margin-top:60px; padding-top:16px; border-top:1px solid var(--border); color:var(--muted); font-size:13px; text-align:center; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <div>
+    <span class="tag">调研报告</span>
+    <span class="tag tag-en">RESEARCH</span>
+    <span class="tag tag-en">2026-06-03</span>
+  </div>
+  <h1>为什么 ACT 学生 0.5 秒就摔，以及怎么治：covariate shift 与高质量数据扩充</h1>
+  <div class="sub">
+    Fixing the balance collapse in MimicKit→VLA distillation — covariate shift, recovery data, and the WBC route<br>
+    三模型并行调研：Claude Opus 4.8 · GPT-5.5 (codex) · MiMo v2.5 Pro
+  </div>
+</header>
+
+<div class="tldr">
+<strong>TL;DR</strong> · 学生摔倒<strong>不是模型问题，是数据「分布」问题</strong>（covariate shift）。
+三个模型独立调研<strong>高度一致</strong>：纯堆「干净数据」或「更大模型」都不治本，必须<strong>主动制造「快摔→teacher 拉回」的恢复态</strong>。
+<br><br>
+<strong>两条治本路（互补，不互斥）：</strong>
+<strong>① 数据侧</strong> —— <strong>DART（录制时给 teacher 动作注入噪声）→ 1-3 轮 DAgger</strong>，全程用免费的 PPO teacher 标注。便宜、沿用现有 ACT 管线、<strong>半天能判 go/pivot</strong>。
+<strong>② 架构侧</strong> —— 用 <strong>NVIDIA GEAR-SONIC 全身控制器（WBC）当平衡底座</strong>，VLA 只出高层 latent，<strong>平衡 by construction 不摔</strong>，天花板更高但需引入 GEAR-SONIC + GR00T 栈。
+<br><br>
+<strong>铁律（文献支撑）：</strong> 公开 humanoid 全身控制工作里 <strong>没有一个靠纯离线 BC 成功</strong> —— 都用了 RSI / online teacher query(DAgger) / RL fine-tune / 真人 teleop 恢复中至少一种。我们的负面结果是<strong>预期且解法 charted</strong> 的。
+</div>
+
+<h2>1. 问题复盘 <span class="en">The diagnosed failure</span></h2>
+
+<p>把 MimicKit DeepMimic PPO（G1，29-DoF，30Hz 闭环）蒸馏成 ACT 学生，闭环里 <strong>15-24 帧（0.5-0.8s）必摔</strong>（teacher 同起点跑满 300 帧）。诊断结论：</p>
+<ul>
+  <li>✅ 任务条件化成立（fight/dance 动作分离比 3.84，无 mode collapse）—— 模型<strong>能表达、能区分</strong>，不是容量问题。</li>
+  <li>✅ <code>n_action_steps</code> 16→1 几乎无差 —— 不是 open-loop horizon 问题。</li>
+  <li>✅ train loss→0.149（拟合很死）—— 模型把<strong>给的数据</strong>学透了，数据本身不含恢复态。</li>
+</ul>
+
+<div class="bad"><strong>根因 = covariate shift（协变量漂移）。</strong>
+Teacher 是反应式闭环，访问过很宽的状态盆地；但录的数据只是它<strong>成功时走过的细轨迹管</strong>（它很少漂出去，所以数据里<strong>没有恢复样本</strong>）。学生一个小误差 → 漂出管 → 进入数据没覆盖的态 → 无恢复动作可学 → 误差<strong>二次累积</strong>（Ross &amp; Bagnell 2010，BC error <code>O(εT²)</code>）→ 摔。</div>
+
+<h2>2. 方法谱系（三模型共识） <span class="en">Method spectrum</span></h2>
+
+<table>
+<thead><tr><th>方法</th><th>机制</th><th>出处</th><th>本 setup</th></tr></thead>
+<tbody>
+<tr><td><strong>DART</strong>（noise-injected BC）</td>
+  <td>录制时给 teacher 动作注入噪声 <code>a_exec = teacher(s)+ε</code>，但 label 存 <code>teacher(s)</code>；噪声把机器人推离轨迹，teacher 自然示范恢复。<strong>一次性、离线、不需在线交互。</strong></td>
+  <td>Laskey et al., <em>DART: Noise Injection for Robust Imitation Learning</em>, CoRL 2017</td>
+  <td><span class="badge badge-green">🟢 必做·最高 ROI</span></td></tr>
+<tr><td><strong>DAgger</strong></td>
+  <td>学生闭环跑、访问<strong>自己</strong>的状态分布，每个 state 查 teacher 要 label，聚合重训，迭代 2-3 轮。把 <code>O(εT²)</code> 降到 <code>O(εT)</code>。</td>
+  <td>Ross, Gordon, Bagnell, <em>A Reduction of Imitation Learning…to No-Regret Online Learning</em>, AISTATS 2011</td>
+  <td><span class="badge badge-green">🟢 必做·第二步</span></td></tr>
+<tr><td><strong>RSI</strong>（reference/perturbed state init）</td>
+  <td>每 episode 从任意 phase + 小扰动初态 reset，teacher 从附近恢复。teacher 本来就在 RSI 下训的，天然能处理。<strong>免费增量。</strong></td>
+  <td>Peng et al., <em>DeepMimic</em>, SIGGRAPH 2018（teacher 的基础方法）</td>
+  <td><span class="badge badge-green">🟢 免费做</span></td></tr>
+<tr><td>SafeDAgger / EnsembleDAgger</td>
+  <td>用 safety classifier / ensemble 方差只在「危险/不确定」处查 teacher，省查询。我们 teacher 免费 → query-efficiency 非核心，但可借其思想<strong>筛选高价值帧</strong>（root tilt 大、teacher-student action gap 大）。</td>
+  <td>Zhang &amp; Cho 2017；Menda et al. 2019</td>
+  <td><span class="badge">🟡 借鉴筛选</span></td></tr>
+<tr><td>HG-DAgger</td><td>human-gated，靠人决定何时切换。我们 teacher 是自动 PPO → 改成<strong>自动 recovery gating</strong>（学生快摔时切 teacher 拉回并录）。</td>
+  <td>Kelly et al., ICRA 2019</td><td><span class="badge">🟡 改自动</span></td></tr>
+<tr><td>外力 push 扰动</td>
+  <td>rollout 中给 root 随机外力脉冲，teacher recover。覆盖 CoM/平衡恢复态。</td>
+  <td>OmniH2O（每 5s push, vxy≈1m/s）；DeepMimic（pelvis 0.2s push）</td>
+  <td><span class="badge badge-green">🟢 补充</span></td></tr>
+</tbody>
+</table>
+
+<h2>3. 恢复态怎么造（具体参数） <span class="en">Generating recovery states</span></h2>
+
+<table>
+<thead><tr><th>来源</th><th>做法</th><th>参数（三模型综合）</th></tr></thead>
+<tbody>
+<tr><td><strong>action-noise / DART</strong></td>
+  <td><code>a_exec = teacher(s) + N(0,σ)</code> 喂 env；label 存 <code>teacher(s)</code>；下一步继续由 noisy teacher 控制。</td>
+  <td>扫 <strong>σ = 0.02 / 0.05 / 0.08 rad</strong>（≈1°/3°/4.6°）。选「teacher 300 帧存活率 ≥90% 但 root tilt/height 明显偏离」的最大 σ。<strong>σ&gt;0.1 不试</strong>（humanoid 频繁摔，recovery label 变成「从地上爬」的大力矩，分布严重偏斜）。DART 原文：σ 应近似 learner error。</td></tr>
+<tr><td><strong>perturbed RSI</strong></td>
+  <td>reset 到任意 phase 的 reference state + 小扰动。免费，不增 episode。</td>
+  <td>joint pos ±0.02-0.05 rad，joint vel ±0.1-0.3 rad/s，root roll/pitch ±3-8°，root xy vel ±0.2-0.6 m/s。</td></tr>
+<tr><td>push 扰动</td><td>每 30-60 帧给 root 一次脉冲。</td>
+  <td>50-150N × 0.1-0.2s，或 velocity kick vxy=0.5-1.0 m/s，分层。</td></tr>
+<tr><td><strong>dynamics DR</strong></td>
+  <td>随机物理参数，让学生见过不同 dynamics 下的恢复。</td>
+  <td>friction U(0.4,1.2)，mass U(0.8,1.2)，PD gain U(0.8,1.2)，control delay 0-2 frame。</td></tr>
+<tr><td>auto recovery gating</td><td>学生控制到风险阈值后切 teacher 1-2s，录 teacher 拉回段。</td>
+  <td>阈值：pelvis height 低于均值 10-15cm / root roll·pitch &gt;12-18° / action L2 &gt; p95。</td></tr>
+</tbody>
+</table>
+
+<div class="bad"><strong>关键判定：dynamics DR ≠ visual DR。</strong>
+平衡是 <strong>dynamics</strong> 问题，dynamics DR（摩擦/质量/PD/延迟）才治；<strong>visual DR（光照/纹理）对 15-24 帧摔倒基本无用</strong>，只治视觉泛化。何况我们相机取景差（G1 占画面极小，类 π0.5 橙子瓶颈），vision 本就近乎噪声。
+<span class="en">Dynamics DR for control, visual DR for perception — separate concerns (Miki et al., Science Robotics 2022).</span></div>
+
+<h2>4. ROI 排序 <span class="en">ROI ranking · 三模型一致</span></h2>
+
+<svg width="900" height="150" xmlns="http://www.w3.org/2000/svg">
+  <rect x="0" y="0" width="900" height="150" fill="#fff"/>
+  <g font-family="-apple-system,sans-serif" font-size="13" fill="#1a1a1a">
+    <rect x="10" y="30" width="180" height="48" rx="5" fill="#eff7e3" stroke="#76b900" stroke-width="2"/>
+    <text x="100" y="52" text-anchor="middle" font-weight="bold">🥇 DART noise-BC</text>
+    <text x="100" y="69" text-anchor="middle" font-size="11">治本·最便宜·~分钟级录制</text>
+    <rect x="210" y="30" width="170" height="48" rx="5" fill="#eff7e3" stroke="#76b900" stroke-width="2"/>
+    <text x="295" y="52" text-anchor="middle" font-weight="bold">🥈 1-3 轮 DAgger</text>
+    <text x="295" y="69" text-anchor="middle" font-size="11">治本·须先 DART</text>
+    <rect x="400" y="30" width="170" height="48" rx="5" fill="#f0f5e8" stroke="#4a7400" stroke-width="1.5"/>
+    <text x="485" y="52" text-anchor="middle" font-weight="bold">🥉 RSI + push</text>
+    <text x="485" y="69" text-anchor="middle" font-size="11">补稀有恢复段</text>
+    <rect x="590" y="30" width="150" height="48" rx="5" fill="#fff8e6" stroke="#b35900" stroke-width="1.5"/>
+    <text x="665" y="52" text-anchor="middle">🔻 多 clip / 扩 clean</text>
+    <text x="665" y="69" text-anchor="middle" font-size="11">边际·不治平衡</text>
+    <rect x="760" y="30" width="130" height="48" rx="5" fill="#fdecea" stroke="#b00020" stroke-width="1.5"/>
+    <text x="825" y="52" text-anchor="middle">🔻 更大模型</text>
+    <text x="825" y="69" text-anchor="middle" font-size="11">不治本</text>
+    <text x="10" y="110" font-size="12" fill="#555">治本（造恢复态）————————————————————————————————→ 治标（堆量/堆参数）</text>
+    <line x1="10" y1="95" x2="890" y2="95" stroke="#ccc" stroke-width="1" stroke-dasharray="3 3"/>
+  </g>
+</svg>
+
+<div class="note"><strong>顺序铁律（两个外部模型都强调）：必须先 DART 再 DAgger。</strong>
+裸 BC 直接跑 DAgger，学生第 1 秒就摔 → 采到的全是「快摔态」→ 数据集被恢复样本淹没、正常控制被稀释。先用 DART 把学生拉到 50+ 帧存活，DAgger 才能采到「有恢复力但偶尔漂移」的有价值数据。</div>
+
+<h2>5. 本 setup 专属 pipeline <span class="en">Executable recipe</span></h2>
+
+<p>目标：闭环 episode 从 ~20 帧 → 能跑完（≥300 帧）。规模从 5,732 帧升到 <strong>~50k-250k 高质量帧</strong>（不是盲目百万帧）。</p>
+
+<table>
+<thead><tr><th>Phase</th><th>内容</th><th>规模 / 参数</th><th>时间</th></tr></thead>
+<tbody>
+<tr><td>P0 基线</td><td>现有 20ep ACT 跑 10× 闭环，记帧数分布 mean±std</td><td>baseline ≈ 20 帧</td><td>0.5h</td></tr>
+<tr><td><strong>P1 DART 数据</strong></td><td>改 <code>rollout_record.py</code> 加 <code>action += randn×σ</code>；fight+dance 各录 noise 数据 + perturbed RSI</td><td>σ={0.02,0.05,0.08} 各 20-30 ep；20 clean + 60 noise = 80 ep/类（~46k 帧）。label 永远 clean teacher action</td><td>2h<br>（Isaac 并行更快）</td></tr>
+<tr><td><strong>P2 重训 + 判定</strong></td><td>合并重训 ACT 10k 步，闭环 eval 10×</td><td><strong>go：mean≥50 帧（涨 2.5×）→ 进 P3；no-go：&lt;35 帧 → 查相机/state/action scaling</strong></td><td>1h</td></tr>
+<tr><td>P3 DAgger（可选）</td><td>仅 P2 成功后。学生闭环跑→teacher 每帧标注→重训。fall 前 15 帧、tilt 大、action gap 大的帧 oversample 2-4×。recovery 帧 loss 加权 2×，每 batch ≥30-50% 来自 DART/DAgger</td><td>每轮各 50 ep，2-3 轮；停止条件 5 seeds×20ep ≥90% 跑满 300 帧</td><td>4h</td></tr>
+</tbody>
+</table>
+
+<div class="ok"><strong>一句话最终建议（三模型趋同）：</strong>
+今天就改 <code>rollout_record.py</code> 加 1 行 noise（σ=0.03），录 60 ep noise-BC（fight+dance 各 30）+ perturbed RSI，并入现有 20ep 重训 ACT 10k 步，闭环看帧数。
+<strong>预期 2 小时出「数据能不能救平衡」的确定性结论</strong>：mean 从 20 涨到 ≥50 → DART 有效，继续 DAgger 到 300；&lt;35 → 问题不在数据分布。</div>
+
+<h2>6. 架构侧：GEAR-SONIC WBC 当平衡底座 <span class="en">The WBC route</span></h2>
+
+<p>用户提问：「能不能用<strong>会 G1 走路的 GR00T 当 base，再 fine-tune dance</strong>？」—— 答案是<strong>能，而且 NVIDIA 已经把这条路铺好了</strong>，这是 <code>UNITREE_G1_SONIC</code> embodiment。</p>
+
+<svg width="820" height="120" xmlns="http://www.w3.org/2000/svg">
+  <rect x="0" y="0" width="820" height="120" fill="#fff"/>
+  <g font-family="-apple-system,sans-serif" font-size="13" fill="#1a1a1a">
+    <rect x="20" y="35" width="180" height="50" rx="6" fill="#e7f1fb" stroke="#1a5fb4" stroke-width="2"/>
+    <text x="110" y="58" text-anchor="middle" font-weight="bold">GR00T VLA</text>
+    <text x="110" y="74" text-anchor="middle" font-size="11">prompt → SONIC latent</text>
+    <rect x="320" y="35" width="220" height="50" rx="6" fill="#eff7e3" stroke="#76b900" stroke-width="2"/>
+    <text x="430" y="55" text-anchor="middle" font-weight="bold">GEAR-SONIC WBC</text>
+    <text x="430" y="71" text-anchor="middle" font-size="11">已会平衡/locomotion 的底座</text>
+    <rect x="640" y="35" width="160" height="50" rx="6" fill="#eff7e3" stroke="#76b900" stroke-width="2"/>
+    <text x="720" y="58" text-anchor="middle" font-weight="bold">稳定全身关节</text>
+    <text x="720" y="74" text-anchor="middle" font-size="11">G1 不摔</text>
+    <defs><marker id="a" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><polygon points="0 0,10 3,0 6" fill="#666"/></marker></defs>
+    <line x1="200" y1="60" x2="318" y2="60" stroke="#666" stroke-width="1.5" marker-end="url(#a)"/>
+    <line x1="540" y1="60" x2="638" y2="60" stroke="#666" stroke-width="1.5" marker-end="url(#a)"/>
+    <text x="260" y="25" text-anchor="middle" font-size="11" fill="#555">latent（高层意图）</text>
+    <text x="590" y="25" text-anchor="middle" font-size="11" fill="#555">WBC 解码</text>
+  </g>
+</svg>
+
+<div class="ok"><strong>为什么从构造上不摔</strong>：VLA 只出 <strong>latent（高层意图）</strong>，<strong>平衡交给鲁棒的 WBC</strong>。VLA 的小误差 → 略不同的 latent → WBC 照样把机器人稳住。VLA <strong>不需要学精细平衡</strong>。这正是 PULSE/ASE 的 latent-skill 范式被 NVIDIA 产品化。</div>
+
+<p><strong>已核实可用（web 核查）：</strong> <code>nvidia/GEAR-SONIC</code>（HuggingFace）是 G1 全身行为基础模型，会 walk/run/crawl/jump/manipulation；提供 MuJoCo sim demo、MotionBricks 键盘交互 viewer、`download_from_hf.py`、live web demo。GR00T 侧 <code>UNITREE_G1_SONIC</code> 是 <strong>posttrain tag</strong>（VLA 动作空间 = SONIC latent），需 finetune checkpoint。
+来源：<a href="https://github.com/NVlabs/GR00T-WholeBodyControl">NVlabs/GR00T-WholeBodyControl</a>、<a href="https://nvlabs.github.io/GR00T-WholeBodyControl/tutorials/vla_workflow.html">GEAR-SONIC VLA Workflow</a>。</p>
+
+<div class="note"><strong>诚实的代价</strong>：① 需引入 GEAR-SONIC + GR00T 栈；② <strong>动作空间变了</strong>（latent，非 29-DoF 关节）→ 现有 dataset 不能直接用；③ MimicKit teacher 出关节角，要把动作经 SONIC 重表示或用 GEAR-SONIC 自己的数据流程。</div>
+
+<h2>7. 两条路对比 + GR00T 角度 <span class="en">Two routes · GR00T verdict</span></h2>
+
+<table>
+<thead><tr><th></th><th>① 数据侧 DART/DAgger</th><th>② 架构侧 SONIC WBC</th></tr></thead>
+<tbody>
+<tr><td>思路</td><td>给学生喂恢复样本，补 covariate shift</td><td>平衡 offload 给鲁棒 WBC，VLA 只出 latent</td></tr>
+<tr><td>成本</td><td>便宜，沿用现有 ACT/29-DoF 管线</td><td>重（GEAR-SONIC + latent 数据 + GR00T）</td></tr>
+<tr><td>天花板</td><td>raw-joint BC 平衡本就难，中等</td><td><strong>高 —— 平衡 by construction</strong></td></tr>
+<tr><td>现有数据</td><td>直接用</td><td>不能直接用（动作空间不同）</td></tr>
+<tr><td>建议</td><td>先做，快速验证 + 见底</td><td>更高投入更高回报的第二条腿</td></tr>
+</tbody>
+</table>
+
+<div class="info"><strong>GR00T N1.7（同数据、不换架构）会更好吗？</strong>
+三模型一致：<strong>会有边际改善（+10-30% 帧数），但不是 covariate shift 的解</strong>。GR00T 更大 + flow-matching 帮的是<strong>表达能力</strong>（拟合更复杂 action），不是<strong>分布外泛化</strong>。训练集没有「摔前 tilt + recovery action」，闭环照样进 OOD。而且 GR00T 是为 <strong>manipulation（容错）</strong>设计验证的，dynamic balance（不容错）是另一回事，且期待 ~1K demo/task（我们差 50×）。<strong>先用 ACT+DART 验证数据能救，再上 GR00T。</strong>
+（GR00T N1.7：Cosmos-Reason2 backbone + flow-matching action head，<a href="https://huggingface.co/nvidia/GR00T-N1.7-3B">nvidia/GR00T-N1.7-3B</a>）</div>
+
+<h2>8. 陷阱与公开工作铁律 <span class="en">Pitfalls &amp; prior art</span></h2>
+
+<h3>8.1 看似有用实则不治本</h3>
+<table>
+<thead><tr><th>做法</th><th>为什么不治本</th></tr></thead>
+<tbody>
+<tr><td>纯干净重放 ×10</td><td>数据分布不变（同一细管），学生摔前 state 仍无 label</td></tr>
+<tr><td><code>n_action_steps</code> 16→1</td><td>已验证无效；瓶颈不是 open-loop horizon</td></tr>
+<tr><td>只加 visual DR</td><td>不改 dynamics，proprio/control recovery 不会凭空出现</td></tr>
+<tr><td>只堆参数 / 更大 VLA</td><td>模型容量补不了缺失的 state-action 标签</td></tr>
+<tr><td>σ 太大的 DART（&gt;0.1 rad）</td><td>humanoid 频繁摔，recovery label 变「从地上爬」的大力矩，分布偏斜，反而更糟</td></tr>
+<tr><td>recovery 数据不做配比</td><td>稀有恢复帧被 clean 帧淹没，loss 降但闭环不变</td></tr>
+</tbody>
+</table>
+
+<h3>8.2 公开 humanoid 全身控制：数据怎么解决 covariate shift</h3>
+<table>
+<thead><tr><th>工作</th><th>怎么治 covariate shift</th></tr></thead>
+<tbody>
+<tr><td>DeepMimic (2018)</td><td>RSI + early termination + 外扰鲁棒性（不是纯 BC clean mocap）</td></tr>
+<tr><td>OmniH2O (2024)</td><td>privileged RL teacher → supervised distill + 大规模 retarget/DR/push；混合 RL recovery</td></tr>
+<tr><td>HumanPlus (2024)</td><td>真人 shadowing/teleop —— <strong>人操作时天然含 OOD recovery</strong>（人帮机器人修正）</td></tr>
+<tr><td>ExBody / ExBody2 (2024)</td><td>RL teacher + 可行性过滤 + RSI + dynamics DR + 超大数据（10k+ ep）</td></tr>
+<tr><td>PHC / PULSE (2022-24)</td><td>RSI + teacher online query（本质 DAgger）；latent space + RL，不纯 BC</td></tr>
+<tr><td>MaskedMimic (2024) / ASAP (2025)</td><td>RL fine-tune + physics prior；BC warm-start 后用 RL polish</td></tr>
+</tbody>
+</table>
+
+<div class="bad"><strong>铁律：没有任何一个成功的 humanoid whole-body 工作是纯 offline BC。</strong>
+全部至少用了：RSI / online teacher query(DAgger) / RL fine-tune / 真人 teleop 恢复 之一。数据规模典型 500-10k ep（我们 20 ep 是极端小）。dynamics DR 几乎必做。<strong>我们撞到的负面结果完全在文献预期内，解法是 charted 的。</strong>
+<span class="en">Every successful humanoid whole-body work uses RSI / DAgger / RL-finetune / human-teleop recovery — never pure offline BC. Our negative result is expected; the fix is well-charted.</span></div>
+
+<h2>9. 三模型立场 <span class="en">Three-model synthesis</span></h2>
+
+<div class="model-card">
+<h4>🟢 Claude Opus 4.8</h4>
+<p>框定为经典 imitation learning 问题（Ross&amp;Bagnell <code>O(εT²)</code>），不是新难题。强调<strong>架构侧 SONIC WBC 路线</strong>（核实 <code>nvidia/GEAR-SONIC</code> 真实存在）作为「会走路的 base」的最强形态，与数据侧 DART/DAgger 互补。文献铁律：humanoid 全身无一靠纯离线 BC。</p>
+</div>
+<div class="model-card">
+<h4>🔵 GPT-5.5 (codex)</h4>
+<p>逐方法核到一手文献（DAgger AISTATS'11 / DART CoRL'17 / OmniH2O / DeepMimic）。给出最细的<strong>恢复态参数表</strong>（σ 扫描、push 100-300N、RSI 噪声、dynamics DR 区间）+ 5-Phase pipeline + 失败 precursor 帧 oversample + recovery 帧 2× 加权、每 batch ≥30-50% 非 clean。明确 DceptionDAgger 无可核验出处、不纳入。</p>
+</div>
+<div class="model-card">
+<h4>🟠 MiMo v2.5 Pro</h4>
+<p>给出最完整的<strong>公开 humanoid 工作对照表</strong>（PHC/OmniH2O/HumanPlus/ExBody/MaskedMimic/PULSE/ASAP/H2O 各自怎么治）+ 时间预算（P0-2 约 4h，含 P3 约 8h 出结论）+ go/no-go 阈值（mean≥50 进 DAgger，&lt;35 查相机/state/scaling）。强调「先 DART 再 DAgger」的 curriculum 必要性。</p>
+</div>
+
+<footer>
+2026-06-03 · 三模型并行调研（Claude Opus 4.8 起草 + 融合，GPT-5.5 codex + MiMo v2.5 Pro 独立调研）<br>
+关联：<code>doc/mimickit_to_vla_dataset.html</code>（§8 闭环 go/pivot 终判）· <code>.memory/mimickit-to-vla-distill-plan.md</code><br>
+所有路径以 <code>/home/david/work/isaaclab-experience</code> 为根
+</footer>
+
+</div>
+</body>
+</html>

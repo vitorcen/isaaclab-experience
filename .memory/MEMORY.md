@@ -18,8 +18,12 @@
 ## MimicKit motion training (G1)
 - [🔴 AMP dance 负面 vs ✅ PPO-30s 成功（同 clip dance1_s2）](mimickit-amp-g1-dance-negative.md) — AMP Disc_Agent_Acc 平台 0.98 跟不上节奏；DeepMimic PPO-30s Test_Return 244>15s基线227 收敛；dance 保真用 phase-tracking 不用 AMP；含 AMP/PPO 启动 (BASE_ENV/AGENT, init ckpt 要绝对路径) + 指标解读 (Return=0正常/Agent_Acc应降0.5/γ折扣返回值15s/30s同档/eval_chain硬编码1500对本地30s会SKIP)
 
+## VLA — 架构侧 (SONIC WBC) 路线
+- [🕺 架构侧 GR00T×SONIC-WBC 路线 + 路 A 动作源](sonic-wbc-vla-route.md) — VLA 只吐 64 维 FSQ token，WBC 当平衡底座；**下一步走路 A**：本地 deploy demo(macarena/kick/dance 13条) 经 `convert_soma_csv_to_motion_lib.py --fps 50`(唯一坑) 转 robot_filtered，smpl=dummy，跑 eval 看 WBC 跟不跟得住踢/舞；评审验过 smpl_joints非坑、HF无多动作robot_filtered别下30G；doc/groot_sonic_wbc_route + sonic_dance_motion_source.html
+
 ## VLA distillation (planned)
 - [🧬 MimicKit→VLA 蒸馏路径计划](mimickit-to-vla-distill-plan.md) — DeepMimic PPO → prompt-conditioned 人形 VLA；基建优先于 expert，先补 recorder/modality.json/第三人称camera 跑 10ep×2motion sanity；doc/mimickit_to_vla_dataset.html
+- [🐛 lerobot-v040 转换 segfault + recorder teardown 修法](lerobot-v040-convert-segfault-fix.md) — 多 ep 写 LeRobotDataset 随机崩(SIGSEGV/pandas/sre/datasets)= dual-ffmpeg(PyAV+torchcodec)堆损坏；修=encode 改 ffmpeg-CLI 子进程 + get_task_index 用 .at + shape 用 tuple；另 Isaac headless recorder teardown 卡死用 os._exit(0)；脚手架 rollout_record.py + rollout_common.py + mimickit_episodes_to_lerobot.py
 - [📊 VLA 蒸馏数据多样性 ROI 排序](vla-distill-data-diversity-roi.md) — prompt侧 > DR/RSI/action-noise > multi-clip > 训更长；DR ≠ semantic diversity；clip 选择不同编舞>不同phrase>不同subject；2-3验证/4-6覆盖
 
 ## Sim eval bugs / patches (reusable)
@@ -30,6 +34,7 @@
 - [LeIsaac eval timeout + DP DDIM swap](leisaac-eval-timeout.md) — DDPM 100-step → DDIM 32-step 不重训直接 swap，inference 393→147ms；4090 sweet spot 公式：`(target_ms - 36) / 3.3 ≈ 29 step`
 
 ## Current baseline architecture
+- [🦿 GEAR-SONIC G1 预览跑通配方](gear-sonic-preview-setup.md) — 走 `gear_sonic_preview.sh` 单进程 Isaac-eval（非 DDS/C++ sim2sim）；isaaclab env 补 easydict/loguru/open3d/vector_quantize_pytorch + **trl==0.28.0**（新版删了旧路径）；WBC 已 submodule + patches/gear-sonic symlink 448M ckpt 进 HF cache
 - [🤖 LAFAN G1 motion-tracking ecosystem 地图](lafan-g1-ecosystem.md) — 数据 + 现成 ckpt + retargeter 全集；结论 LAFAN_fight G1 ckpt 生态里 0 个，要么 ProtoMotions 不兼容，要么自训 (MimicKit)
 - [🏗️ GR00T N1.5/N1.6/N1.7 多 release 环境分离](gr00t-multi-release-env-split.md) — 3 submodule + 3 venv；transformers 4.51.3 (N1.5/N1.6) vs 4.57.3 (N1.7) 隔离；policy_type 统一 `gr00t`
 - [🔧 GR00T-N1.7 × LeIsaac 4 层 wire 协议 debug](gr00t-n17-leisaac-wire-debug.md) — 剥洋葱 4 bug：missing observation envelope / 缺 T 轴 + float32 / msgpack-numpy bytes-key 漏解码 / mnp.decode 强制 bytes keys。fix 在 `service_policy_clients.py:Gr00tServicePolicyClient`
@@ -51,3 +56,4 @@
 - [HTML 文档样式规则](feedback-html-doc-rules.md) — 必须 `:root{color-scheme:light}` + body 显式 `background:#fff`；SVG/pre/table 都要成对显式 background+color；内嵌 SVG 不外链
 - [启动 GPU 任务前先检查显存](feedback-pre-run-gpu-check.md) — nvidia-smi + pgrep 残留进程，发现 >2GB 占用 / 老 server 状态错位先清理再启动
 - [协作风格偏好](feedback-style.md) — 设计文档先行（HTML+中文+SVG）、目录按语义不按工具、开源化是默认目标、本地优先、负面结果如实写、不问废话
+- [🔍 mimo 独立审查习惯](feedback-mimo-independent-review.md) — 关键设计/取舍前后习惯性开 `opencode run -m xiaomi/mimo-v2.5-pro` 拿第二意见；tmux 跑不阻塞、用完收 session

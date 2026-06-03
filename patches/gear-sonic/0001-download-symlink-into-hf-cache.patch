@@ -1,0 +1,20 @@
+diff --git a/download_from_hf.py b/download_from_hf.py
+index fc78b54..e00fba4 100644
+--- a/download_from_hf.py
++++ b/download_from_hf.py
+@@ -99,8 +99,13 @@ def download_file(hf_hub_download, repo_id, hf_filename, local_dest, token=None)
+         token=token,
+     )
+     local_dest.parent.mkdir(parents=True, exist_ok=True)
+-    shutil.copy2(cached, local_dest)
+-    print(f"  -> {local_dest}")
++    # Keep one physical copy in the HF cache (~/.cache/huggingface/hub) and only
++    # symlink it into the repo, so this submodule's working tree stays clean and we
++    # don't duplicate the ~448 MB checkpoint. `cached` already lives in the HF cache.
++    if local_dest.is_symlink() or local_dest.exists():
++        local_dest.unlink()
++    local_dest.symlink_to(os.path.realpath(cached))
++    print(f"  -> {local_dest} -> {os.path.realpath(cached)}")
+ 
+ 
+ def download_and_extract_smpl(hf_hub_download, repo_id, output_dir, token=None):
