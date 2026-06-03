@@ -1,0 +1,396 @@
+diff --git a/gear_sonic/data/vla_token_injector.py b/gear_sonic/data/vla_token_injector.py
+new file mode 100644
+index 0000000..0b0324b
+--- /dev/null
++++ b/gear_sonic/data/vla_token_injector.py
+@@ -0,0 +1,176 @@
++"""VLA token injector — eval-callback that DRIVES SONIC with GR00T's predicted tokens.
++
++Counterpart to vla_token_recorder: instead of READING the actor's token at decode, it
++REPLACES ``decode_input_dict["token_flattened"]`` with a precomputed GR00T motion_token
++trajectory (from scripts/gr00t_dump_pred_tokens.py). SONIC's WBC then decodes GR00T's
++tokens into balanced joints — so the Isaac viewer shows *what the current GR00T checkpoint
++actually drives* (prompt -> GR00T -> token -> SONIC -> G1), with no C++/ZMQ.
++
++We trained GR00T on the QUANTIZED token (action.motion_token == the post-FSQ token the
++recorder captured), so injecting at the post-quantization ``token_flattened`` input of
++``decode`` is the matching level (not pre_quantization_replace).
++
++The reference motion still feeds the env's observations/command (so the green ref skeleton
++shows the TARGET); only the executed action follows GR00T's token. Press V to see ref vs
++actual, F for free camera.
++"""
++
++from __future__ import annotations
++
++import numpy as np
++
++try:
++    from loguru import logger
++except Exception:  # pragma: no cover
++    import logging
++
++    logger = logging.getLogger(__name__)
++
++
++class VlaTokenInjector:
++    """Eval-callback: feed a saved GR00T motion_token trajectory into SONIC's decoder."""
++
++    model = None  # injected by the eval loop
++
++    def __init__(self, token_npz: str, decoder_name: str = "g1_dyn", loop: bool = True,
++                 tint_env0_green: bool = False):
++        # token_npz: one path, or comma-separated paths (one per env, e.g. GT,predicted for
++        # side-by-side teacher-vs-student). env i uses list[i % len].
++        # tint_env0_green: paint env_0's robot translucent green (the "teacher" reference),
++        # the conventional motion-tracking viz when comparing reference vs policy.
++        self.token_npz = token_npz
++        self.decoder_name = decoder_name
++        self.loop = loop
++        self.tint_env0_green = tint_env0_green
++        self._tinted = False
++        self._tokens_list = None   # list of (T, 64) np.float32, one per env slot
++        self._step = 0
++        self._orig_decode = None
++        self._installed = False
++
++    def _load_tokens(self) -> None:
++        paths = [p for p in self.token_npz.split(",") if p]
++        self._tokens_list = []
++        for p in paths:
++            d = np.load(p, allow_pickle=True)
++            t = np.asarray(d["motion_token"], dtype=np.float32)
++            self._tokens_list.append(t)
++            logger.info(
++                f"[vla_injector] env slot {len(self._tokens_list)-1}: {t.shape} from {p} "
++                f"(key={d.get('motion_key')}, prompt={d.get('prompt')})"
++            )
++
++    def _install_hook(self) -> None:
++        import torch
++
++        actor_module = self.model.policy.actor_module
++        orig = actor_module.decode
++        want = self.decoder_name
++        self._orig_decode = orig
++
++        def wrapped(decoder_name, decode_input_dict, token_mask=None):
++            if decoder_name == want and "token_flattened" in decode_input_dict:
++                ref = decode_input_dict["token_flattened"]            # (num_envs, 64) flattened
++                rep = ref.clone()
++                n_env = ref.shape[0]
++                for e in range(n_env):
++                    toks = self._tokens_list[e % len(self._tokens_list)]
++                    idx = self._step % len(toks) if self.loop else min(self._step, len(toks) - 1)
++                    rep[e] = torch.as_tensor(
++                        toks[idx], device=ref.device, dtype=ref.dtype
++                    ).reshape(rep[e].shape)
++                decode_input_dict = {**decode_input_dict, "token_flattened": rep}
++                self._step += 1
++            return orig(decoder_name, decode_input_dict, token_mask=token_mask)
++
++        actor_module.decode = wrapped
++        self._installed = True
++        logger.info(f"[vla_injector] decode hook installed (decoder='{want}', loop={self.loop})")
++
++    # eval loop calls on_step_end on every callback BEFORE the rollout loop -> install here
++    def on_step_end(self, *args, **kwargs) -> None:
++        if self.model is None and kwargs.get("model") is not None:
++            self.model = kwargs["model"]
++        if self.model is not None and not self._installed:
++            if self._tokens_list is None:
++                self._load_tokens()
++            self._install_hook()
++
++    def _tint_teacher(self) -> None:
++        """Bind a translucent-green material to env_0's robot meshes (reference/teacher)."""
++        try:
++            import omni.usd
++            from pxr import Gf, Sdf, UsdGeom, UsdShade
++
++            stage = omni.usd.get_context().get_stage()
++            mtl_path = "/World/Looks/TeacherGreen"
++            mtl = UsdShade.Material.Define(stage, mtl_path)
++            shader = UsdShade.Shader.Define(stage, mtl_path + "/Shader")
++            shader.CreateIdAttr("UsdPreviewSurface")
++            shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(
++                Gf.Vec3f(0.05, 0.85, 0.15)
++            )
++            shader.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(0.6)
++            mtl.CreateSurfaceOutput().ConnectToSource(shader.ConnectableAPI(), "surface")
++
++            from pxr import Usd
++
++            root = "/World/envs/env_0/Robot"
++            # de-instance env_0's robot (the asset is instanceable for perf) so its meshes
++            # become real, editable prims — otherwise they're read-only instance proxies.
++            root_prim = stage.GetPrimAtPath(root)
++            if root_prim and root_prim.IsValid():
++                for p in Usd.PrimRange(root_prim, Usd.TraverseInstanceProxies()):
++                    pass
++                # flip instanceable off on the robot subtree (root + any instanceable child)
++                root_prim.SetInstanceable(False)
++                for child in Usd.PrimRange(root_prim):
++                    if child.IsInstanceable():
++                        child.SetInstanceable(False)
++            n = 0
++            # descend into instance proxies (replicated envs are USD instances)
++            rng = Usd.PrimRange(stage.GetPrimAtPath("/World/envs/env_0"),
++                                Usd.TraverseInstanceProxies())
++            sample = []
++            for prim in rng:
++                if prim.IsA(UsdGeom.Mesh):
++                    if len(sample) < 3:
++                        sample.append(prim.GetPath().pathString)
++                    tgt = prim
++                    if prim.IsInstanceProxy():
++                        # cannot edit an instance proxy; recolor via displayColor on the
++                        # authoring path is also blocked -> fall back to gprim displayColor
++                        pass
++                    try:
++                        UsdShade.MaterialBindingAPI(tgt).Bind(
++                            mtl, bindingStrength=UsdShade.Tokens.strongerThanDescendants
++                        )
++                        n += 1
++                    except Exception:  # noqa: BLE001
++                        # instance proxy: try authoring displayColor instead
++                        try:
++                            UsdGeom.Gprim(tgt).GetDisplayColorAttr().Set(
++                                [Gf.Vec3f(0.05, 0.85, 0.15)]
++                            )
++                            n += 1
++                        except Exception:  # noqa: BLE001
++                            pass
++            logger.info(
++                f"[vla_injector] tint env_0: bound {n} meshes; sample={sample}; "
++                f"(0 + instancing -> per-env recolor blocked)"
++            )
++        except Exception as exc:  # noqa: BLE001
++            logger.warning(f"[vla_injector] tint_env0_green failed: {exc}")
++
++    def eval_step(self, env, results) -> bool:
++        if self.tint_env0_green and not self._tinted:
++            self._tint_teacher()
++            self._tinted = True
++        # results = (obs, rewards, dones, infos); on episode reset, restart token playback.
++        try:
++            dones = results[2]
++            if hasattr(dones, "any") and bool(dones.any()):
++                self._step = 0
++        except Exception:  # noqa: BLE001
++            pass
++        return False  # never exit; user closes the viewer window
+diff --git a/gear_sonic/data/vla_token_recorder.py b/gear_sonic/data/vla_token_recorder.py
+new file mode 100644
+index 0000000..a495724
+--- /dev/null
++++ b/gear_sonic/data/vla_token_recorder.py
+@@ -0,0 +1,208 @@
++"""VLA token recorder — eval-callback that taps SONIC motion tokens during Isaac eval.
++
++Architecture-side VLA route (Path T1, step 1): while the released SONIC WBC tracks a
++reference motion, capture the 64-dim FSQ ``motion_token`` the actor emits each step,
++plus the ego camera frame and robot proprioception, and dump one ``.npz`` per episode.
++
++This runs INSIDE the isaaclab conda env (Isaac Sim + gear_sonic). It deliberately does
++NOT touch lerobot — the GR00T-WholeBodyControl exporter needs the old ``lerobot.common``
++layout which conflicts with our lerobot. A separate offline converter turns these raw
++``.npz`` episodes into the ``UNITREE_G1_SONIC`` LeRobot dataset.
++
++Token tap: the actor is ``model.policy.actor_module`` (UniversalTokenModule). We wrap its
++``decode("g1_dyn", {token_flattened, proprioception})`` and grab ``token_flattened`` — the
++exact 64-dim vector the C++ deploy publishes as ``proprio["token_state"]``.
++
++Registered as an eval-callback (``eval_callbacks=[vla_recorder]``); the eval loop sets
++``callback.model`` and calls ``eval_step(env, results)`` every step. Returning ``True``
++signals the loop to exit (which then ``os._exit(0)``s cleanly).
++"""
++
++from __future__ import annotations
++
++from collections import defaultdict
++import os
++from pathlib import Path
++
++import numpy as np
++
++try:
++    from loguru import logger
++except Exception:  # pragma: no cover - loguru always present in this env
++    import logging
++
++    logger = logging.getLogger(__name__)
++
++
++class VlaTokenRecorder:
++    """Eval-callback: record (motion_token, ego_rgb, proprio) into one npz per episode."""
++
++    # The eval loop injects the live model here when this is None.
++    model = None
++
++    def __init__(
++        self,
++        output_dir: str,
++        motion_key: str,
++        prompt: str,
++        max_steps: int = 0,
++        warmup_steps: int = 5,
++        episode_tag: str = "000",
++        camera_key: str = "ego_camera",
++        decoder_name: str = "g1_dyn",
++        env_index: int = 0,
++    ):
++        self.output_dir = output_dir
++        self.motion_key = motion_key
++        self.prompt = prompt
++        self.max_steps = int(max_steps)
++        self.warmup_steps = int(warmup_steps)
++        self.episode_tag = str(episode_tag)
++        self.camera_key = camera_key
++        self.decoder_name = decoder_name
++        self.env_index = int(env_index)
++
++        self._hook_installed = False
++        self._orig_decode = None
++        self._token_capture: dict = {}
++        self._scene_ref = None
++        self._buf: dict[str, list] = defaultdict(list)
++        self._step = 0
++        self._saved = False
++
++    # --- trainer-callback surface (eval loop calls on_step_end on every cb) ---
++    def on_step_end(self, *args, **kwargs) -> None:
++        # The eval loop injects the live model here (same pattern as ImEvalCallback).
++        if self.model is None and kwargs.get("model") is not None:
++            self.model = kwargs["model"]
++
++    # --- token tap -------------------------------------------------------
++    def _install_hook(self) -> None:
++        actor_module = self.model.policy.actor_module
++        orig = actor_module.decode
++        cap = self._token_capture
++        want = self.decoder_name
++
++        def wrapped(decoder_name, decode_input_dict, token_mask=None):
++            if decoder_name == want and "token_flattened" in decode_input_dict:
++                cap["token"] = decode_input_dict["token_flattened"].detach()
++            return orig(decoder_name, decode_input_dict, token_mask=token_mask)
++
++        actor_module.decode = wrapped
++        self._orig_decode = orig
++        logger.info(
++            f"[vla_recorder] decode hook installed on actor_module (decoder='{want}')"
++        )
++
++    def _restore_hook(self) -> None:
++        if self._orig_decode is not None:
++            self.model.policy.actor_module.decode = self._orig_decode
++            self._orig_decode = None
++
++    # --- scene resolution (callback gets the wrapper) --------------------
++    @staticmethod
++    def _resolve_scene(env):
++        for getter in (
++            lambda e: e.env.scene,
++            lambda e: e.scene,
++            lambda e: e.env.unwrapped.scene,
++        ):
++            try:
++                scene = getter(env)
++                _ = scene["robot"]
++                return scene
++            except Exception:  # noqa: BLE001
++                continue
++        raise RuntimeError("[vla_recorder] could not resolve env scene")
++
++    # --- per-step hook ---------------------------------------------------
++    def eval_step(self, env, results) -> bool:
++        if self._saved:
++            return True
++        if not self._hook_installed:
++            assert self.model is not None, "[vla_recorder] model not injected by eval loop"
++            self._install_hook()
++            self._scene_ref = self._resolve_scene(env)
++            self._hook_installed = True
++            logger.info(
++                f"[vla_recorder] motion='{self.motion_key}' prompt='{self.prompt}' "
++                f"max_steps={self.max_steps} camera='{self.camera_key}'"
++            )
++
++        # Warmup: let the camera/physics settle before recording.
++        if self._step < self.warmup_steps:
++            self._step += 1
++            return False
++
++        scene = self._scene_ref
++        tok = self._token_capture.get("token")
++        if tok is None:
++            # Actor hasn't produced a token yet this step; skip (do not advance buffer).
++            self._step += 1
++            return False
++
++        i = self.env_index
++        robot = scene["robot"]
++        joint_pos = robot.data.joint_pos[i].detach().cpu().numpy().astype(np.float32)
++        root_quat = robot.data.root_quat_w[i].detach().cpu().numpy().astype(np.float32)
++
++        rgb = None
++        try:
++            cam = scene[self.camera_key]
++            rgb_t = cam.data.output["rgb"][i]
++            rgb = rgb_t.detach().cpu().numpy()[..., :3].astype(np.uint8)
++        except Exception as exc:  # noqa: BLE001
++            if not self._buf["_warned_cam"]:
++                logger.warning(f"[vla_recorder] no camera '{self.camera_key}': {exc}")
++                self._buf["_warned_cam"].append(1)
++
++        # token_flattened is (num_envs, num_tokens, token_dim) or (num_envs, 64);
++        # flatten env i to a flat 64-vector.
++        self._buf["motion_token"].append(
++            tok[i].detach().cpu().numpy().reshape(-1).astype(np.float32)
++        )
++        self._buf["joint_pos"].append(joint_pos)
++        self._buf["root_quat"].append(root_quat)
++        if rgb is not None:
++            self._buf["ego_rgb"].append(rgb)
++
++        self._step += 1
++        recorded = len(self._buf["motion_token"])
++        if self.max_steps > 0 and recorded >= self.max_steps:
++            self._save()
++            return True
++        return False
++
++    # --- persistence -----------------------------------------------------
++    def _save(self) -> None:
++        if self._saved:
++            return
++        out_dir = Path(self.output_dir) / self.motion_key
++        out_dir.mkdir(parents=True, exist_ok=True)
++        out_path = out_dir / f"episode_{self.episode_tag}.npz"
++
++        payload = {
++            "motion_token": np.stack(self._buf["motion_token"]),  # (T, 64)
++            "joint_pos": np.stack(self._buf["joint_pos"]),        # (T, J)
++            "root_quat": np.stack(self._buf["root_quat"]),        # (T, 4) wxyz
++            "fps": np.int64(50),
++            "prompt": str(self.prompt),
++            "motion_key": str(self.motion_key),
++        }
++        if self._buf["ego_rgb"]:
++            payload["ego_rgb"] = np.stack(self._buf["ego_rgb"])   # (T, H, W, 3) uint8
++
++        np.savez_compressed(out_path, **payload)
++        self._restore_hook()
++        self._saved = True
++        T = payload["motion_token"].shape[0]
++        cam_shape = payload["ego_rgb"].shape if "ego_rgb" in payload else "NO-CAMERA"
++        logger.info(
++            f"[vla_recorder] SAVED {out_path}  T={T}  token={payload['motion_token'].shape} "
++            f"ego_rgb={cam_shape}"
++        )
++
++    # The eval loop may break for other reasons; flush whatever we have.
++    def on_eval_end(self, *args, **kwargs) -> None:  # best-effort
++        if not self._saved and self._buf["motion_token"]:
++            self._save()

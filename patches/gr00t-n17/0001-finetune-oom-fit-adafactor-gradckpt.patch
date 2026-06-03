@@ -1,0 +1,29 @@
+diff --git a/gr00t/experiment/experiment.py b/gr00t/experiment/experiment.py
+index 990d915..c220faf 100755
+--- a/gr00t/experiment/experiment.py
++++ b/gr00t/experiment/experiment.py
+@@ -225,6 +225,7 @@ def run(config: Config):
+         bf16=config.training.bf16,
+         tf32=config.training.tf32,
+         gradient_checkpointing=config.training.gradient_checkpointing,
++        gradient_checkpointing_kwargs={"use_reentrant": False},
+         optim=config.training.optim,
+         dataloader_num_workers=config.training.dataloader_num_workers,
+         report_to="wandb" if config.training.use_wandb else "none",
+diff --git a/gr00t/experiment/launch_finetune.py b/gr00t/experiment/launch_finetune.py
+index 0c84850..03bddcc 100644
+--- a/gr00t/experiment/launch_finetune.py
++++ b/gr00t/experiment/launch_finetune.py
+@@ -93,7 +93,11 @@ if __name__ == "__main__":
+ 
+     config.training.experiment_name = ft_config.experiment_name
+     config.training.start_from_checkpoint = ft_config.base_model_path
+-    config.training.optim = "adamw_torch"
++    # GR00T_OPTIM=adafactor + GR00T_GRAD_CKPT=1 make the 1.6B-trainable head fit a 24GB 4090
++    # (adamw momentum state OOMs; adafactor has none). Defaults preserve original behaviour.
++    config.training.optim = os.environ.get("GR00T_OPTIM", "adamw_torch")
++    if os.environ.get("GR00T_GRAD_CKPT", "0") == "1":
++        config.training.gradient_checkpointing = True
+     config.training.global_batch_size = ft_config.global_batch_size
+     config.training.dataloader_num_workers = ft_config.dataloader_num_workers
+     config.training.learning_rate = ft_config.learning_rate

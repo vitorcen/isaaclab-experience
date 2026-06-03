@@ -81,6 +81,7 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--border
     <li><a href="#detail">关键接口：embodiment / 数据 / 微调</a></li>
     <li><a href="#risk">拦路虎与风险</a></li>
     <li><a href="#review">留给评审的开放问题</a></li>
+    <li><a href="#derisk">derisk 复盘：全链路跑通 + MSE 0.0011</a></li>
   </ol>
 </div>
 
@@ -90,6 +91,9 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--border
 关键发现：<code>UniversalTokenModule.decode()</code> 在 Python 内独立可调 → 可在 Isaac 里闭环驱动，<strong>免 C++ / 免 DDS</strong>。
 分三步走：<strong>Stage A</strong>（外部 token→WBC round-trip）→ <strong>Stage B</strong>（stub 把 prompt 路由到已知动作）→ <strong>Stage C</strong>（真 GR00T 微调）。
 <span class="en">Skills live in the token space, not in GR00T. GR00T only needs to learn prompt→token; the WBC does the rest. decode() is callable in-process → close the loop in Isaac with no C++.</span>
+<br><br>
+<strong>✅ 2026-06-03 更新：</strong>A→C 全链路已实跑通（见 <a href="#derisk">§10</a>）。GR00T N1.7 微调 8000 步，预测 token 对 GT 的 <strong>open-loop MSE = 0.0011</strong>（破「按动作均值预测」基线 ~35×）；7 条动作经 <code>decode()</code> 注入 SONIC，踢腿/舞蹈/macarena 与 GT 老师基本同步。<strong>但仅训练集内</strong>——新动作泛化被数据卡死，且注入是<strong>开环回放</strong>，闭环抗漂移仍未验。
+<span class="en">UPDATE 2026-06-03: full A→C chain executed. 8k-step finetune, predicted-token open-loop MSE 0.0011 (~35× below the per-motion-mean baseline); injected tokens track the GT teacher. But training-set only — held-out is data-blocked and injection is open-loop replay; closed-loop drift untested.</span>
 </div>
 
 <h2 id="bg">1. 两条路线：数据侧蒸馏 vs 架构侧 WBC</h2>
@@ -239,9 +243,102 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--border
 <li>这条架构侧路线 vs 数据侧蒸馏（DART），在「出舞蹈/武术」这个目标上，谁的期望 ROI 更高？</li>
 </ol>
 
+<h2 id="derisk">10. derisk 复盘：全链路跑通 + MSE 0.0011（2026-06-03）</h2>
+<p>计划里的 Stage A→C 在本机一条龙跑通，<strong>架构侧路线 GO 坐实</strong>（限训练集内）。无 C++、无 DDS，全程 Python。<span class="en">The whole prompt→token→WBC chain runs locally end-to-end, no C++/DDS.</span></p>
+
+<figure class="fig">
+<svg viewBox="0 0 920 150" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="sans-serif" font-size="12">
+  <rect x="0" y="0" width="920" height="150" fill="#fff"/>
+  <!-- boxes -->
+  <g>
+    <rect x="8"   y="44" width="120" height="44" rx="5" fill="#f0f5e8" stroke="#76b900"/>
+    <text x="68"  y="62" text-anchor="middle" fill="#1a1a1a">① record</text>
+    <text x="68"  y="78" text-anchor="middle" fill="#555" font-size="10.5">SONIC eval + 钩子</text>
+
+    <rect x="160" y="44" width="120" height="44" rx="5" fill="#f0f5e8" stroke="#76b900"/>
+    <text x="220" y="62" text-anchor="middle" fill="#1a1a1a">② convert</text>
+    <text x="220" y="78" text-anchor="middle" fill="#555" font-size="10.5">npz→LeRobot v2.1</text>
+
+    <rect x="312" y="44" width="130" height="44" rx="5" fill="#eff7e3" stroke="#4a7400"/>
+    <text x="377" y="62" text-anchor="middle" fill="#1a1a1a">③ finetune</text>
+    <text x="377" y="78" text-anchor="middle" fill="#555" font-size="10.5">GR00T N1.7 · 8k步</text>
+
+    <rect x="474" y="44" width="130" height="44" rx="5" fill="#f0f5e8" stroke="#76b900"/>
+    <text x="539" y="62" text-anchor="middle" fill="#1a1a1a">④ open-loop eval</text>
+    <text x="539" y="78" text-anchor="middle" fill="#555" font-size="10.5">MSE 0.0011</text>
+
+    <rect x="636" y="44" width="120" height="44" rx="5" fill="#f0f5e8" stroke="#76b900"/>
+    <text x="696" y="62" text-anchor="middle" fill="#1a1a1a">⑤ dump token</text>
+    <text x="696" y="78" text-anchor="middle" fill="#555" font-size="10.5">(T,64)/动作</text>
+
+    <rect x="788" y="44" width="124" height="44" rx="5" fill="#eff7e3" stroke="#4a7400"/>
+    <text x="850" y="62" text-anchor="middle" fill="#1a1a1a">⑥ inject</text>
+    <text x="850" y="78" text-anchor="middle" fill="#555" font-size="10.5">decode→Isaac 可视</text>
+  </g>
+  <!-- arrows -->
+  <g stroke="#76b900" stroke-width="1.6" marker-end="url(#ah)">
+    <line x1="128" y1="66" x2="158" y2="66"/>
+    <line x1="280" y1="66" x2="310" y2="66"/>
+    <line x1="442" y1="66" x2="472" y2="66"/>
+    <line x1="604" y1="66" x2="634" y2="66"/>
+    <line x1="756" y1="66" x2="786" y2="66"/>
+  </g>
+  <defs><marker id="ah" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#76b900"/></marker></defs>
+  <text x="460" y="22" text-anchor="middle" fill="#4a7400" font-size="13" font-weight="600">prompt → GR00T token → SONIC decode() → 平衡全身动作（免 C++）</text>
+  <text x="460" y="128" text-anchor="middle" fill="#555" font-size="11">钩 actor_module.decode 的 token_flattened：录时读出，注入时替换</text>
+</svg>
+<figcaption>架构侧 derisk 全链路 / Architecture-side derisk pipeline (record → convert → finetune → eval → dump → inject)</figcaption>
+</figure>
+
+<h3>训练收敛：MSE 越训越低，不是天花板而是欠拟合</h3>
+<p>open-loop eval = 预测 token 对 GT token 的逐轨迹 MSE。两个朴素基线：按<strong>动作均值</strong>预测 ≈0.039、按<strong>全局均值</strong>预测 ≈0.048。</p>
+<table>
+<thead><tr><th>checkpoint</th><th>open-loop MSE</th><th>对比基线</th><th>解读</th></tr></thead>
+<tbody>
+<tr><td>2000 步（LR 已衰减完）</td><td>0.065</td><td>＞基线 0.039</td><td>欠拟合（LR schedule 在 2000 就衰到 0，没学够）</td></tr>
+<tr><td>8k run @ 2000</td><td>0.0167</td><td>＜基线</td><td>同步数、LR 不早衰 → 直接过基线</td></tr>
+<tr><td><strong>8k run @ 8000</strong></td><td><strong>0.0011</strong></td><td><strong>破基线 ~35×</strong></td><td>继续降 → 证明是欠拟合不是天花板</td></tr>
+</tbody>
+</table>
+<p class="en">MSE kept dropping to 0.0011 (35× below the per-motion-mean baseline) — the earlier 0.065 was an undertrained LR-schedule artifact, not a representational ceiling.</p>
+
+<h3>注入可视：GR00T 驱动 vs GT 老师</h3>
+<p>把 GR00T 预测的 token 经 <code>decode()</code> 注入 SONIC，Isaac 里 env_0 跑 GT token（老师）、env_1 跑 GR00T 预测 token（学生）并排对比。踢腿 / macarena / party-dance / lunge / squat / jump 等 7 条<strong>基本同步</strong>。</p>
+<div class="ok"><strong>结论 / Verdict.</strong> 架构侧路线在「prompt→token→WBC 出平衡动作」上<strong>跑通且收敛</strong>。GR00T 确实能把动作语义压进 64 维 FSQ token，WBC 兜住平衡——验证了核心假设「技能在 token 空间」。</div>
+
+<div class="danger"><strong>诚实边界 / Honest caveats（必须写清）：</strong>
+<ul>
+<li><strong>仅训练集内</strong>：只录了 7 条动作各 1 episode，eval/注入都在这 7 条上 → 本质是 7-ep 过拟合的「能记住」，<strong>不是泛化</strong>。</li>
+<li><strong>新动作泛化 = 数据卡死</strong>：本地 <code>demo_robot_filtered.pkl</code> 只含这 7 条；更多动作要从 HF 下 ~30G robot_filtered。</li>
+<li><strong>开环回放</strong>：注入的是预先 dump 的 token 序列，env 观测不参与 → 没测过「闭环里观测漂移后 GR00T 还稳不稳」，而这才是架构侧真正的风险点。</li>
+</ul></div>
+
+<div class="note"><strong>死路存档 / Dead-end：</strong> 想把 env_0 老师机器人涂绿做对比 → IsaacLab 机器人是 <code>instanceable</code> 资产，mesh 是只读 instance proxy（bind 0）；<code>SetInstanceable(False)</code> 能去实例化（bind 50 mesh）但<strong>破物理</strong>（"Failed to set DOF actuation forces"）。结论：用<strong>位置</strong>区分老师/学生，别涂色。</div>
+
+<h3>下一步：闭环活循环（唯一能用现有素材推进的真 derisk）</h3>
+<p>GR00T N1.7（transformers 4.57.3 venv）与 SONIC eval（Isaac conda）<strong>不能同进程</strong>，闭环只能走 server/client 桥：</p>
+<ul>
+<li><strong>起 GR00T ZMQ server</strong>：复用 <code>gr00t/eval/run_gr00t_server.py</code> + <code>server_client.py</code>（wire 协议早已 debug，见记忆 <code>gr00t-n17-leisaac-wire-debug</code>），加载 checkpoint-8000。</li>
+<li><strong>写 SONIC live-injector callback</strong>：复用现有 <code>eval_callbacks</code> 钩子，每步从活 env 组 obs（ego cam + proprio + projected_gravity + prompt）→ ZMQ 取 token → 替换 <code>decode_input_dict["token_flattened"]</code>。</li>
+<li><strong>验</strong>：观测漂移下 GR00T 是否仍出可解码 token、WBC 是否仍兜住平衡。</li>
+</ul>
+
+<h3>复现脚手架</h3>
+<table>
+<thead><tr><th>步骤</th><th>脚本 / 入口</th><th>关键坑</th></tr></thead>
+<tbody>
+<tr><td>① record</td><td><code>scripts/gear_sonic_record.sh</code> + <code>vla_token_recorder.py</code></td><td>相机路径 <code>++manager_env.config.enable_cameras=True</code>（顶层无效）；token reshape (T,1,64)→(64,)</td></tr>
+<tr><td>② convert</td><td><code>scripts/sonic_vla_npz_to_lerobot.py</code>（<code>.venv_data_collection</code>）</td><td>joints 29→43 pad；projected_gravity 从 root_quat 实算</td></tr>
+<tr><td>③ finetune</td><td><code>scripts/gr00t_sonic_finetune.sh</code> + 自愈 <code>gr00t_resume_heal.sh</code></td><td>4090 OOM → <code>GR00T_OPTIM=adafactor</code> + <code>GR00T_GRAD_CKPT=1</code> + <code>use_reentrant=False</code>（patch <code>gr00t-n17/0001</code>）</td></tr>
+<tr><td>④ eval</td><td><code>gr00t/eval/open_loop_eval.py</code></td><td>基线：per-motion-mean 0.039 / global-mean 0.048</td></tr>
+<tr><td>⑤ dump</td><td><code>scripts/gr00t_dump_pred_tokens.py</code></td><td>注入用的是<strong>量化后</strong> action.motion_token（对齐训练目标）</td></tr>
+<tr><td>⑥ inject</td><td><code>scripts/gear_sonic_inject.sh</code> + <code>vla_token_injector.py</code>（patch <code>gear-sonic/0003</code>）</td><td>多 env per-env token：hydra 逗号值要单引号包；并排用 plane+侧相机，自动跟随锁 env_0</td></tr>
+</tbody>
+</table>
+
 <footer>
-设计文档 · 架构侧 GR00T N1.7 × SONIC WBC · 2026-06-03 · 单文件可离线浏览，SVG 内嵌不外链。<br>
-关联：<code>gear-sonic-preview-setup</code> · <code>mimickit-to-vla-distill-plan</code>（数据侧对照）· <code>gr00t-multi-release-env-split</code>（N1.7 env）。
+设计文档 · 架构侧 GR00T N1.7 × SONIC WBC · 2026-06-03（derisk 复盘更新）· 单文件可离线浏览，SVG 内嵌不外链。<br>
+关联记忆：<code>sonic-wbc-vla-route</code>（本路线主记录）· <code>gear-sonic-preview-setup</code> · <code>gr00t-n17-leisaac-wire-debug</code>（闭环 wire）· <code>mimickit-to-vla-distill-plan</code>（数据侧对照）· <code>gr00t-multi-release-env-split</code>（N1.7 env）。
 </footer>
 </div>
 </body>
