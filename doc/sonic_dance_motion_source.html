@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>给 SONIC 弄舞蹈/武术动作：三条路哪条靠谱？</title>
+<style>
+:root {
+  color-scheme: light;
+  --bg: #fafafa; --fg: #1a1a1a; --muted: #555; --border: #d4d4d4;
+  --accent: #76b900; --accent-dark: #4a7400; --code-bg: #f1f3f4;
+  --table-head: #f0f5e8; --warn: #b35900; --blue: #2b6cb0; --red: #c0392b;
+}
+* { box-sizing: border-box; }
+html { background: #fff; }
+body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif; background: var(--bg); color: var(--fg); line-height: 1.65; }
+.container { max-width: 1000px; margin: 0 auto; padding: 32px 24px 80px; }
+header { border-bottom: 3px solid var(--accent); padding-bottom: 16px; margin-bottom: 28px; }
+header .tag { display: inline-block; background: var(--accent); color: #fff; padding: 2px 10px; border-radius: 4px; font-size: 12px; font-weight: 600; margin-bottom: 8px; }
+h1 { font-size: 26px; margin: 4px 0 8px; }
+header .sub { color: var(--muted); font-size: 14px; }
+h2 { font-size: 21px; margin: 38px 0 12px; padding-left: 10px; border-left: 4px solid var(--accent); }
+h3 { font-size: 16px; margin: 22px 0 8px; color: var(--accent-dark); }
+p, li, td, th { font-size: 14.5px; }
+code { background: var(--code-bg); color: #1a1a1a; padding: 2px 6px; border-radius: 3px; font-family: "SFMono-Regular", Consolas, Menlo, monospace; font-size: 13px; }
+pre { background: var(--code-bg); color: #1a1a1a; border: 1px solid var(--border); border-radius: 4px; padding: 12px 16px; overflow-x: auto; font-size: 13px; line-height: 1.5; }
+pre code { background: transparent; padding: 0; }
+table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 14px; background: #fff; color: var(--fg); }
+th, td { padding: 8px 12px; border: 1px solid var(--border); text-align: left; vertical-align: top; }
+th { background: var(--table-head); font-weight: 600; }
+tr:nth-child(even) td { background: #fcfcfc; }
+a { color: var(--accent-dark); text-decoration: none; border-bottom: 1px dotted var(--accent-dark); }
+a:hover { color: var(--accent); border-bottom-style: solid; }
+.note { background: #fff8e6; color: #1a1a1a; border-left: 4px solid var(--warn); padding: 10px 16px; margin: 16px 0; font-size: 14px; border-radius: 0 4px 4px 0; }
+.ok { background: #eff7e3; color: #1a1a1a; border-left: 4px solid var(--accent); padding: 10px 16px; margin: 16px 0; font-size: 14px; border-radius: 0 4px 4px 0; }
+.danger { background: #fdecec; color: #1a1a1a; border-left: 4px solid var(--red); padding: 10px 16px; margin: 16px 0; font-size: 14px; border-radius: 0 4px 4px 0; }
+ul { padding-left: 22px; } ul li { margin-bottom: 4px; }
+.en { color: var(--muted); font-style: italic; font-size: 13px; }
+.fig { background: #fff; border: 1px solid var(--border); border-radius: 6px; padding: 14px; margin: 18px 0; text-align: center; }
+.fig figcaption { color: var(--muted); font-size: 12.5px; margin-top: 8px; }
+.badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px; border: 1px solid var(--border); margin-right: 4px; }
+.b-green { background: var(--accent); color: #fff; border-color: var(--accent); }
+.b-red { background: var(--red); color: #fff; border-color: var(--red); }
+.b-amber { background: #f0ad4e; color: #fff; border-color: #f0ad4e; }
+.win { font-weight: 700; color: var(--accent-dark); }
+footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--border); font-size: 13px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+  <span class="tag">DESIGN · 动作源调研</span>
+  <h1>给 SONIC 弄舞蹈/武术动作：三条路哪条靠谱？</h1>
+  <div class="sub">30G SMPL 重定向 vs LAFAN 重定向 vs 本地 deploy 参考动作 —— 实测取证后的结论<br>
+  <span class="en">Where do dance / martial-arts motions for the SONIC WBC come from? Evidence-based comparison. 2026-06-03.</span></div>
+</header>
+
+<div class="ok">
+<strong>TL;DR.</strong> 调研推翻了"下 30G SMPL"和"retarget LAFAN"两个先验。<strong>第三条路胜出</strong>：
+仓库本地 <code>gear_sonic_deploy/reference/example/</code> 已有 SONIC 自己的 demo 动作 ——
+<strong>macarena、dance_in_da_party（舞）、neutral_kick（踢=武术）、lunge、jumping、squat、walk-360</strong>，
+是 G1 29-DoF 真实轨迹（CSV）。而 <code>gear_sonic/data_process/convert_soma_csv_to_motion_lib.py</code>
+正好把这种 CSV <strong>一条命令</strong>转成 Isaac-eval 要的 <code>robot_filtered</code> pkl；外加
+<code>smpl_motion_file</code> 可传 <code>dummy</code>（源码已支持），<strong>连 SMPL 都不用配</strong>。
+两个独立评审（codex gpt-5.5 + mimo）也都说"先用 SONIC 现成动作，别先投 retarget"。<strong>结论一致：走路 A。</strong>
+<br><span class="en">Local SONIC demo motions (dance/kick/lunge) already ship as G1 CSV; a ready converter turns them into the eval's pkl format, SMPL optional. Don't download 30G, don't retarget LAFAN — yet.</span>
+</div>
+
+<h2>1. 三条路总览</h2>
+<figure class="fig">
+<svg width="940" height="200" viewBox="0 0 940 200" xmlns="http://www.w3.org/2000/svg" style="background:#fff;color:#1a1a1a">
+  <defs><marker id="ah" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#4a7400"/></marker></defs>
+  <!-- Path A -->
+  <rect x="20" y="20" width="270" height="70" rx="7" fill="#eff7e3" stroke="#76b900" stroke-width="2.5"/>
+  <text x="155" y="44" text-anchor="middle" font-size="14" font-weight="700" fill="#4a7400">路 A · 本地 deploy 参考动作 ✅</text>
+  <text x="155" y="64" text-anchor="middle" font-size="11.5" fill="#333">macarena/kick/dance CSV（已在仓库）</text>
+  <text x="155" y="80" text-anchor="middle" font-size="11" fill="#666">一条命令转 robot_filtered</text>
+  <line x1="290" y1="55" x2="360" y2="55" stroke="#4a7400" stroke-width="2.5" marker-end="url(#ah)"/>
+  <!-- Path B -->
+  <rect x="20" y="110" width="270" height="70" rx="7" fill="#fdecec" stroke="#c0392b" stroke-width="1.6"/>
+  <text x="155" y="134" text-anchor="middle" font-size="14" font-weight="700" fill="#c0392b">路 B · 30G SMPL/Bones-SEED</text>
+  <text x="155" y="154" text-anchor="middle" font-size="11.5" fill="#333">下 30G → 重定向 → 转换</text>
+  <text x="155" y="170" text-anchor="middle" font-size="11" fill="#666">重、含 dance 但要跑全管线</text>
+  <line x1="290" y1="145" x2="360" y2="145" stroke="#999" stroke-width="1.6" stroke-dasharray="4"/>
+  <!-- target -->
+  <rect x="360" y="62" width="240" height="76" rx="7" fill="#eaf2fb" stroke="#2b6cb0" stroke-width="2"/>
+  <text x="480" y="90" text-anchor="middle" font-size="13.5" font-weight="700" fill="#2b6cb0">robot_filtered pkl</text>
+  <text x="480" y="110" text-anchor="middle" font-size="11.5" fill="#333">root_trans_offset / pose_aa</text>
+  <text x="480" y="126" text-anchor="middle" font-size="11.5" fill="#333">/ dof(29) / root_rot / fps</text>
+  <line x1="600" y1="100" x2="670" y2="100" stroke="#4a7400" stroke-width="2.5" marker-end="url(#ah)"/>
+  <!-- eval -->
+  <rect x="670" y="62" width="250" height="76" rx="7" fill="#f4f4f4" stroke="#888" stroke-width="2"/>
+  <text x="795" y="90" text-anchor="middle" font-size="13.5" font-weight="700" fill="#333">SONIC Isaac-eval</text>
+  <text x="795" y="110" text-anchor="middle" font-size="11.5" fill="#555">motion_file=&lt;pkl&gt;</text>
+  <text x="795" y="126" text-anchor="middle" font-size="11.5" fill="#555">smpl_motion_file=dummy</text>
+  <!-- Path C dangling -->
+  <rect x="20" y="62" width="0" height="0"/>
+  <text x="330" y="190" font-size="11" fill="#888">路 C（LAFAN→robot）见下表，工作量最大</text>
+</svg>
+<figcaption>三条路殊途同归到 <code>robot_filtered</code> pkl；路 A 已有现成 CSV + 现成转换器，最短。</figcaption>
+</figure>
+
+<table>
+<thead><tr><th>对比项</th><th>路 A · deploy 参考动作 <span class="badge b-green">推荐</span></th><th>路 B · 30G SMPL/Bones-SEED <span class="badge b-red">重</span></th><th>路 C · LAFAN→robot <span class="badge b-amber">最重</span></th></tr></thead>
+<tbody>
+<tr><td>动作在哪</td><td><span class="win">已在本地</span> <code>gear_sonic_deploy/reference/example/</code></td><td>HF <code>bones_seed_smpl</code>（~30G，要下）</td><td>本地有（MimicKit 的 LAFAN dance/fight，G1 已重定向）</td></tr>
+<tr><td>含舞蹈/武术?</td><td>✅ macarena/dance/kick/lunge/jump（7 条 demo）</td><td>大概率（SMPL 训练集含 dance/sports），但要抽样确认</td><td>✅ 明确有 dance1_s2 + fight</td></tr>
+<tr><td>格式距离</td><td>CSV → robot_filtered，<span class="win">差一步</span></td><td>SMPL → 重定向到 G1 CSV → robot_filtered，差两步</td><td>MimicKit motion → robot_filtered，骨架/约定不同</td></tr>
+<tr><td>现成工具</td><td>✅ <code>convert_soma_csv_to_motion_lib.py</code>（输入选项①正是这种 CSV）</td><td>同左转换器（输入选项④ <code>bones_SEED/g1/csv</code>），但前置要 SMPL→G1 重定向管线</td><td>❌ 无；要写 MimicKit→robot_filtered + 物理校正</td></tr>
+<tr><td>SMPL 依赖</td><td>✅ 可 <code>smpl_motion_file=dummy</code>（源码支持）</td><td>本身就是 SMPL，但 G1 重定向后同样可 dummy</td><td>可 dummy</td></tr>
+<tr><td>在 WBC 分布内?</td><td><span class="win">✅ 天然</span>（就是 SONIC 自己的 deploy demo）</td><td>✅（训练集本体）</td><td>⚠️ 未知；LAFAN 是动画非物理，重定向后可能 OOD</td></tr>
+<tr><td>磁盘/时间</td><td>~MB / 分钟级</td><td>30G 下载 + 重定向（小时~半天）</td><td>转换+校正（半天~天）</td></tr>
+<tr><td>风险</td><td>动作只有 ~7 条（够 Stage A/B，不够 Stage C 多样性）</td><td>下完发现要先 SMPL→G1 重定向才能用；多一层不确定</td><td>动画→物理 gap，足滑/穿模/失衡要二次优化</td></tr>
+</tbody>
+</table>
+
+<h2>2. 路 A 详解：本地已有，一条命令</h2>
+<p><strong>动作清单</strong>（<code>gear_sonic_deploy/reference/example/</code>，每条一个目录，内含 <code>joint_pos.csv</code> / <code>body_pos.csv</code> / <code>body_quat.csv</code> / <code>joint_vel.csv</code> / <code>body_{lin,ang}_vel.csv</code> + <code>info.txt</code>）：</p>
+<ul>
+<li><code>macarena_001__A545</code> · <code>dance_in_da_party_001__A464</code>(+_M) —— <strong>舞蹈</strong></li>
+<li><code>neutral_kick_R_001__A543</code> —— <strong>踢（武术向）</strong>，joint_pos 形状 <code>(165, 29)</code></li>
+<li><code>tired_forward_lunge_R_001</code> · <code>tired_one_leg_jumping_R_001</code> · <code>squat_001</code> · <code>walking_quip_360_R_002</code></li>
+</ul>
+<p><strong>转换器</strong> <code>gear_sonic/data_process/convert_soma_csv_to_motion_lib.py</code> 的 docstring 明说：输入「含 joint_pos.csv/body_pos.csv/body_quat.csv 的目录」或「deploy PKL」，输出 motion_lib 训练格式 <code>(root_trans_offset, pose_aa, dof, root_rot, fps)</code> —— 与本机 <code>robot_filtered</code> 实测字段<strong>逐项吻合</strong>。</p>
+<pre><code># 1) deploy CSV → robot_filtered pkl
+#    ⚠️ 转换器默认 --fps 30，但 SONIC eval 的 target_fps=50 → 必须显式 --fps 50。
+#    且要先确认 deploy CSV 源采集帧率：源是 30fps 而当 50 用 → 动作快 1.67x、踢腿变形。
+#    源非 50 时用 --fps_source &lt;真实fps&gt; 降/升采样。
+python gear_sonic/data_process/convert_soma_csv_to_motion_lib.py \
+    --input gear_sonic_deploy/reference/example/neutral_kick_R_001__A543 \
+    --output data/kick_robot.pkl --fps 50
+
+# 2) 跑 Isaac-eval（SMPL 传 dummy，免配套；转换器已输出 smpl_joints=zeros 占位）
+python gear_sonic/eval_agent_trl.py +checkpoint=sonic_release/last.pt +headless=False ++num_envs=1 \
+    "++manager_env.commands.motion.motion_lib_cfg.motion_file=data/kick_robot.pkl" \
+    "++manager_env.commands.motion.motion_lib_cfg.smpl_motion_file=dummy"
+</code></pre>
+<div class="ok"><strong>评审修订（codex gpt-5.5 + mimo，二者均实测核实）：</strong>
+<ul>
+<li><strong>smpl_joints 不是坑（误报）。</strong>转换器 <code>:301</code> 已输出 <code>smpl_joints=zeros(T,24,3)</code> 占位；mimo 追源码证明 <code>smpl=dummy</code> 时 g1 encoder 只吃 <code>command_multi_future_*</code> + <code>motion_anchor_ori</code>（robot FK 派生），<strong>根本不读 smpl_joints</strong>。安全。</li>
+<li><strong>真正的坑是 fps。</strong><code>--fps</code> 默认 30，必须传 <strong>50</strong>（eval <code>target_fps=50</code>），且要确认 deploy CSV 源帧率，否则动作变速变形。这是路 A 唯一实际拦路点。</li>
+<li><strong>动作是 13 条不是 7 条</strong>（含 <code>_M</code> 变体：macarena×2 / dance×2 / kick×2 / lunge×2 / jump×2 / squat / walk）。</li>
+<li><strong>降调结论。</strong>deploy demo 可能是精选"能跑"的动作 → 路 A 全过只证明 WBC 吃<strong>这些</strong>动作，<strong>不等于</strong>能泛化任意武术。是 go/no-go，不是"覆盖武术需求"。</li>
+<li><strong>新增路 D（mimo，先做）：</strong>先用已有 walk <code>robot_filtered</code> pkl 跑通 eval 验证管线（零转换）——<strong>本机预览已跑过 walk，管线实际已验</strong>——再换 kick/dance，把"管线 bug"与"动作 bug"分开排查。</li>
+<li><strong>扩容走路 E（两者一致）：</strong>路 A 之后不下 30G SMPL，而是取 Bones-SEED 的 <strong>G1 retargeted CSV 子集</strong>（按 dance/boxing/kick/jump 关键词筛）走同一转换器；比路 B 省、比路 C 无物理 gap。优先级：A → Bones-SEED G1 CSV 子集 → LAFAN/C → 全量 30G SMPL。</li>
+</ul></div>
+<div class="ok"><strong>为什么最靠谱：</strong>动作是 <strong>SONIC 自己的 deploy demo</strong>（官方随附、格式同源、有官方转换器、SMPL 可 dummy）→ 最适合第一轮验证。<strong>注意（评审降调）：</strong>deploy demo 可能是精选"能跑"的动作，路 A 全过只证明 WBC 吃<strong>这些</strong>动作，不等于泛化任意武术 —— 是 go/no-go 信号，非"覆盖武术需求"。<span class="en">SONIC's own demo motions: ships with the repo, same format, official converter, SMPL optional — best for round-1 validation. But demos may be cherry-picked: passing Path A is a go/no-go, not proof of arbitrary martial-arts coverage.</span></div>
+
+<h2>3. 路 B：30G SMPL / Bones-SEED</h2>
+<p>HF <code>nvidia/GEAR-SONIC</code> 的 <code>bones_seed_smpl/</code>（~30G）是 SMPL <strong>种子</strong>数据，解压到 <code>data/smpl_filtered</code>。注意转换器示例里也有 <code>--input /path/to/bones_SEED/g1/csv/210531</code> —— 说明 Bones-SEED 要<strong>先重定向成 G1 CSV</strong>才能进转换器。即：<code>下 30G SMPL → SMPL 重定向到 G1 CSV → convert_soma → robot_filtered</code>，比路 A 多一层重定向管线，且「种子」是否含舞蹈要抽样确认。</p>
+<div class="note">何时才走 B：Stage A/B 用路 A 的 7 条 demo 验通架构后，需要<strong>大规模多样动作</strong>训 GR00T（Stage C）时，再考虑 Bones-SEED 全量。现在投是过早优化。</div>
+
+<h2>4. 路 C：LAFAN → robot_filtered</h2>
+<p>项目已有 LAFAN <code>dance1_s2</code> + <code>fight</code>（MimicKit 训练用，已重定向到 G1）。优点是动作明确、可控；缺点：<strong>无现成转换器</strong>（要写 MimicKit motion → <code>robot_filtered</code> 的字段映射），且 LAFAN 是<strong>动画数据非物理</strong>，重定向到 SONIC 后可能足滑/失衡 → 需二次物理优化。两个评审都指出这是「动画→物理」gap，不应在架构未验证前投。</p>
+
+<h2>5. 技术附录：关键事实（已取证）</h2>
+<table>
+<thead><tr><th>事实</th><th>来源</th></tr></thead>
+<tbody>
+<tr><td><code>robot_filtered</code> pkl = <code>{motion_key: {root_trans_offset(T,3), pose_aa(T,30,3), dof(T,29), root_rot(T,4), smpl_joints(T,24,3), fps}}</code>，joblib(zlib) 压缩</td><td>joblib.load walk sample 实测</td></tr>
+<tr><td><code>smpl_motion_file</code> 可选：传 <code>"dummy"</code>/<code>"zeros"</code> → <code>smpl_data=[None]*N</code></td><td><code>motion_lib_base.py:252</code></td></tr>
+<tr><td>转换器输入支持「CSV 目录」与「deploy PKL」，输出正是 motion_lib 字段</td><td><code>convert_soma_csv_to_motion_lib.py</code> docstring</td></tr>
+<tr><td>HF <code>nvidia/GEAR-SONIC</code> 顶层只有 walk 的 robot_filtered + 30G bones_seed_smpl；<strong>无现成多动作 robot_filtered</strong></td><td>HfApi.list_repo_files 实测</td></tr>
+<tr><td>deploy 参考动作含 dance/kick/lunge/jump（CSV，G1 29-DoF）</td><td><code>gear_sonic_deploy/reference/example/</code> 实测</td></tr>
+</tbody>
+</table>
+
+<h2>6. 两模型评审的收敛意见（上一轮，架构文档）</h2>
+<ul>
+<li><strong>codex gpt-5.5</strong>：「先赌现成 SONIC motion corpus / <code>gear_sonic_deploy/reference/example</code>；现成 macarena/kick/lunge/jump 足够做 Stage A/B 的 go/pivot。LAFAN→SONIC retarget 应在 token 空间承载性验证<strong>后</strong>再投。」—— <span class="en">本调研正是顺这条线索查实的。</span></li>
+<li><strong>mimo</strong>：「先赌 SONIC 训练集（格式原生兼容，不需 retarget）。LAFAN 是动画非物理，retarget 后要再过物理优化。但若 SONIC 集不含武术/舞蹈，就必须上 LAFAN。」</li>
+<li>二者一致：<strong>先用 SONIC 现成动作；retarget 是最后手段。</strong>本调研把"现成动作"具体定位到了 deploy reference + 现成转换器。</li>
+</ul>
+
+<h2>7. 推荐与下一步</h2>
+<div class="ok"><strong>走路 A。</strong>第一步把 <code>neutral_kick</code> + 一条 dance 用 <code>convert_soma_csv_to_motion_lib.py</code> 转成 <code>robot_filtered</code>，跑 Isaac-eval（<code>smpl=dummy</code>）—— 这同时是架构侧 <a href="groot_sonic_wbc_route.html">Stage A / Milestone 0</a> 的去风险实验：<strong>看 WBC 能不能跟住踢/舞而不摔</strong>。跟得住 → token 空间承载得了 → 架构侧绿灯。</div>
+
+<h2>8. 留给评审的开放问题</h2>
+<ol>
+<li>路 A 的 <code>convert_soma_csv_to_motion_lib.py</code> 输出缺 <code>smpl_joints</code> 字段（它由 SMPL 派生），eval 在 <code>smpl=dummy</code> 下是否真的不需要它？会不会 g1 encoder 仍隐式依赖 smpl_joints？</li>
+<li>deploy 参考动作的 fps / 关节顺序（MJCF actuator order）与 <code>robot_filtered</code> 约定是否完全一致？转换器是否已处理重排？</li>
+<li>只有 ~7 条 demo 动作，够不够 Stage B 的 prompt 多样性？还是 Stage B 就得上路 B 的 Bones-SEED？</li>
+<li>路 B 的「SMPL→G1 重定向」具体用 repo 哪个工具（<code>motionbricks</code>？<code>process_dataset.py</code>？），代价多大？值不值得为 Stage C 提前铺？</li>
+<li>若路 A 验证 WBC 跟不住高能武术（踢/跳），是该退回数据侧蒸馏，还是先在 SONIC token 空间做 reachability 分析？</li>
+</ol>
+
+<footer>
+设计文档 · SONIC 舞蹈/武术动作源调研 · 2026-06-03 · 单文件离线可读，SVG 内嵌不外链。<br>
+关联：<a href="groot_sonic_wbc_route.html">架构侧 GR00T×SONIC 路线</a> · 记忆 <code>gear-sonic-preview-setup</code> · <code>mimickit-lafan-fight-training-plan</code>（LAFAN dance/fight 来源）。
+</footer>
+</div>
+</body>
+</html>

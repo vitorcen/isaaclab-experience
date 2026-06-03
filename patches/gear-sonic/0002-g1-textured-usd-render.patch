@@ -1,0 +1,78 @@
+diff --git a/gear_sonic/envs/manager_env/robots/g1.py b/gear_sonic/envs/manager_env/robots/g1.py
+index 5066546..090ad40 100644
+--- a/gear_sonic/envs/manager_env/robots/g1.py
++++ b/gear_sonic/envs/manager_env/robots/g1.py
+@@ -1,6 +1,8 @@
+ # Robot configuration adapted from the BeyondMimic project.
+ # See: https://github.com/HybridRobotics/whole_body_tracking
+ 
++import os
++
+ from isaaclab.actuators import ImplicitActuatorCfg
+ from isaaclab.assets.articulation import ArticulationCfg
+ import isaaclab.sim as sim_utils
+@@ -196,30 +198,47 @@ G1_ISAACLAB_TO_MUJOCO_MAPPING = {
+     "mujoco_to_isaaclab_body": G1_MUJOCO_TO_ISAACLAB_BODY,
+ }
+ 
+-G1_CYLINDER_MODEL_12_DEX_CFG = ArticulationCfg(
+-    spawn=sim_utils.UrdfFileCfg(
++# Isaac Lab's URDF->USD converter drops main.urdf's per-link <material> rgba (links are
++# 0.05 / 0.2 / 0.7 gray) and renders the G1 all-white. The repo ships a topology-matched,
++# properly-colored USD (same 29-DoF links + 0.105/0.575 gray materials), so spawn from that
++# when present; fall back to live URDF conversion only if it is missing (renders white).
++_G1_TEXTURED_USD = "gear_sonic/data/robots/g1/g1_29dof_textured.usd"
++_G1_RIGID_PROPS = sim_utils.RigidBodyPropertiesCfg(
++    disable_gravity=False,
++    retain_accelerations=False,
++    linear_damping=0.0,
++    angular_damping=0.0,
++    max_linear_velocity=1000.0,
++    max_angular_velocity=1000.0,
++    max_depenetration_velocity=1.0,
++)
++_G1_ART_PROPS = sim_utils.ArticulationRootPropertiesCfg(
++    enabled_self_collisions=True,
++    solver_position_iteration_count=8,
++    solver_velocity_iteration_count=4,
++)
++if os.path.isfile(_G1_TEXTURED_USD):
++    _G1_SPAWN = sim_utils.UsdFileCfg(
++        usd_path=_G1_TEXTURED_USD,
++        activate_contact_sensors=True,
++        rigid_props=_G1_RIGID_PROPS,
++        articulation_props=_G1_ART_PROPS,
++    )
++else:
++    _G1_SPAWN = sim_utils.UrdfFileCfg(
+         fix_base=False,
+         replace_cylinders_with_capsules=True,
+         asset_path=f"{ASSET_DIR}/robot_description/urdf/g1/main.urdf",
+         activate_contact_sensors=True,
+-        rigid_props=sim_utils.RigidBodyPropertiesCfg(
+-            disable_gravity=False,
+-            retain_accelerations=False,
+-            linear_damping=0.0,
+-            angular_damping=0.0,
+-            max_linear_velocity=1000.0,
+-            max_angular_velocity=1000.0,
+-            max_depenetration_velocity=1.0,
+-        ),
+-        articulation_props=sim_utils.ArticulationRootPropertiesCfg(
+-            enabled_self_collisions=True,
+-            solver_position_iteration_count=8,
+-            solver_velocity_iteration_count=4,
+-        ),
++        rigid_props=_G1_RIGID_PROPS,
++        articulation_props=_G1_ART_PROPS,
+         joint_drive=sim_utils.UrdfConverterCfg.JointDriveCfg(
+             gains=sim_utils.UrdfConverterCfg.JointDriveCfg.PDGainsCfg(stiffness=0, damping=0)
+         ),
+-    ),
++    )
++
++G1_CYLINDER_MODEL_12_DEX_CFG = ArticulationCfg(
++    spawn=_G1_SPAWN,
+     init_state=ArticulationCfg.InitialStateCfg(
+         pos=(0.0, 0.0, 0.76),
+         joint_pos={

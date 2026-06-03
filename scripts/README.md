@@ -92,6 +92,24 @@ bash scripts/apply_leisaac_patches.sh
 
 ---
 
+## GEAR-SONIC (GR00T-WholeBodyControl) submodule patch 维护
+
+### `apply_gear_sonic_patches.sh`
+
+把 `patches/gear-sonic/*.patch` 幂等地 apply 到 `dependencies/GR00T-WholeBodyControl/` submodule。
+`gear_sonic_setup.sh` 已自动调用（`submodule update --init` 之后）。
+
+```bash
+bash scripts/apply_gear_sonic_patches.sh
+```
+
+当前 patch：`0001-download-symlink-into-hf-cache.patch` —— `download_from_hf.py` 把 448MB
+checkpoint 从「拷进 repo」改成「symlink 指向 `~/.cache/huggingface/hub`」，避免重复占盘、
+保持 submodule 工作树干净。改了 submodule 源码后用
+`git -C dependencies/GR00T-WholeBodyControl diff <file> > patches/gear-sonic/<n>-*.patch` 重生成。
+
+---
+
 ## 命名约定
 
 - `*.sh` — bash 入口
