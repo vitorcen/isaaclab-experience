@@ -4,7 +4,7 @@
 # This script attempts to download pre-trained checkpoints for common tasks.
 
 BASE_URL="https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/5.1/Isaac/IsaacLab/PretrainedCheckpoints/rsl_rl"
-DEST_DIR="IsaacLab/logs/rsl_rl"
+DEST_DIR="dependencies/IsaacLab/logs/rsl_rl"
 
 # List of common tasks to try downloading
 # Based on official IsaacLab source code and verified availability

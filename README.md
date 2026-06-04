@@ -210,7 +210,7 @@ _BEHAVIOR-1K scene & robot gallery — one-click demo notebook_
 
 ```bash
 conda activate isaaclab
-cd IsaacLab && python scripts/reinforcement_learning/rsl_rl/play.py \
+cd dependencies/IsaacLab && python scripts/reinforcement_learning/rsl_rl/play.py \
     --task Isaac-Cartpole-Direct-v0 \
     --use_pretrained_checkpoint \
     --num_envs 64
@@ -350,7 +350,7 @@ pip install isaacsim-rl isaacsim-extscache-physics isaacsim-extscache-kit-sdk is
 #### 5. 安装 Isaac Lab
 
 ```bash
-cd IsaacLab
+cd dependencies/IsaacLab
 ./isaaclab.sh --install
 ```
 
@@ -377,7 +377,7 @@ git submodule update --init --recursive
 #### 2. 构建 Isaac Sim
 
 ```bash
-cd IsaacSim
+cd dependencies/IsaacSim
 ./build.sh
 ```
 
@@ -414,14 +414,15 @@ ln -s ../IsaacSim/_build/linux-x86_64/release _isaac_sim
 
 ```
 isaaclab-experience/
-├── IsaacLab/                  # Isaac Lab 源码（submodule）
-│   ├── source/                # 核心源码
-│   ├── apps/                  # 应用程序
-│   └── docs/                  # 文档
-└── IsaacSim/                  # Isaac Sim 源码（submodule）
-    ├── source/                # 核心源码
-    ├── tools/                 # 工具集
-    └── docs/                  # 文档
+└── dependencies/              # 第三方依赖（submodules）
+    ├── IsaacLab/              # Isaac Lab 源码（submodule）
+    │   ├── source/            # 核心源码
+    │   ├── apps/              # 应用程序
+    │   └── docs/              # 文档
+    └── IsaacSim/              # Isaac Sim 源码（submodule）
+        ├── source/            # 核心源码
+        ├── tools/             # 工具集
+        └── docs/              # 文档
 ```
 
 ---
@@ -459,7 +460,7 @@ isaaclab-experience/
 
    ```bash
    conda activate isaaclab
-   cd IsaacLab
+   cd dependencies/IsaacLab
    ./isaaclab.sh --install
    ```
 2. **方案二**：如果仍然失败，临时退出 conda 使用系统环境：
@@ -486,7 +487,7 @@ isaaclab-experience/
 - **源码构建**：确保 IsaacSim 已构建完成
 
   ```bash
-  cd IsaacSim
+  cd dependencies/IsaacSim
   ./build.sh
   ```
 

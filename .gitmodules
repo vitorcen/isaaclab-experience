@@ -1,11 +1,11 @@
 [submodule "IsaacLab"]
-	path = IsaacLab
+	path = dependencies/IsaacLab
 	url = https://github.com/isaac-sim/IsaacLab.git
 [submodule "IsaacSim"]
-	path = IsaacSim
+	path = dependencies/IsaacSim
 	url = https://github.com/isaac-sim/IsaacSim.git
 [submodule "lerobot"]
-	path = lerobot
+	path = dependencies/lerobot
 	url = https://github.com/huggingface/lerobot.git
 [submodule "LeIsaac"]
 	path = LeIsaac

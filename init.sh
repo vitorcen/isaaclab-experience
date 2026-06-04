@@ -127,16 +127,16 @@ init_submodule() {
     log_info "Submodule 初始化完成"
 }
 
-# 将 LeIsaac/dependencies/IsaacLab 软链到仓库顶层 IsaacLab，避免重复仓库副本
+# 将 LeIsaac/dependencies/IsaacLab 软链到仓库 dependencies/IsaacLab，避免重复仓库副本
 link_leisaac_isaaclab() {
-    if [ ! -d "LeIsaac" ] || [ ! -d "IsaacLab" ]; then
-        log_warn "LeIsaac 或 IsaacLab 不存在，跳过软链接配置"
+    if [ ! -d "LeIsaac" ] || [ ! -d "dependencies/IsaacLab" ]; then
+        log_warn "LeIsaac 或 dependencies/IsaacLab 不存在，跳过软链接配置"
         return
     fi
 
     mkdir -p LeIsaac/dependencies
     local dep_path="LeIsaac/dependencies/IsaacLab"
-    local link_target="../../IsaacLab"
+    local link_target="../../dependencies/IsaacLab"
 
     if [ -L "$dep_path" ]; then
         log_info "LeIsaac 依赖 IsaacLab 已是软链接"
@@ -161,7 +161,7 @@ link_leisaac_isaaclab() {
 # 配置 Git LFS
 setup_git_lfs() {
     log_info "配置 Git LFS..."
-    cd IsaacSim
+    cd dependencies/IsaacSim
 
     # 初始化 Git LFS
     git lfs install
@@ -170,7 +170,7 @@ setup_git_lfs() {
     log_info "拉取 Git LFS 文件（这可能需要一些时间）..."
     git lfs pull
 
-    cd ..
+    cd ../..
     log_info "Git LFS 配置完成"
 }
 
@@ -215,9 +215,9 @@ build_isaacsim() {
         log_info "开始构建 IsaacSim..."
         log_warn "首次构建可能需要很长时间（取决于网络速度和硬件配置）"
 
-        cd IsaacSim
+        cd dependencies/IsaacSim
         ./build.sh
-        cd ..
+        cd ../..
 
         log_info "IsaacSim 构建完成！"
     else
@@ -239,11 +239,11 @@ show_next_steps() {
     echo "     ./leisaac.sh"
     echo ""
     echo "  2. 构建 IsaacSim:"
-    echo "     cd IsaacSim"
+    echo "     cd dependencies/IsaacSim"
     echo "     ./build.sh"
     echo ""
     echo "  3. 运行 IsaacSim:"
-    echo "     cd IsaacSim/_build/linux-x86_64/release"
+    echo "     cd dependencies/IsaacSim/_build/linux-x86_64/release"
     echo "     ./isaac-sim.sh"
     echo ""
     echo "  4. 查看文档:"
