@@ -4,6 +4,35 @@ NVIDIA Isaac Sim 和 Isaac Lab 学习与实践项目，包含完整的机器人�
 
 ---
 
+## 🤖 架构侧 VLA：一个 GR00T N1.7 → SONIC WBC motion-token → 多动作 G1
+
+_One prompt-conditioned GR00T N1.7 emits a 64-dim SONIC motion token; the pretrained SONIC whole-body controller decodes it into balanced 29-DoF G1 motion — dance / kick / squat / lunge / macarena / jump / walk_
+
+https://github.com/user-attachments/assets/57b8a651-7943-494c-a361-a0e77a0926f4
+
+同一个 GR00T 模型，换 prompt 就出不同动作：VLA **不直接吐关节**，只吐 SONIC 的 64 维 FSQ motion token，预训练 WBC 当现成平衡底座兜底，G1 不摔。闭环 live 已跑通——GR00T (transformers 4.57.3 venv) 起 ZMQ server，Isaac (conda) 端独立 wire client，跨两套 venv，**无 C++ / DDS**。
+_One model, prompt-switched motions. The VLA never emits joints — only SONIC's 64-dim motion token; the WBC keeps balance. The closed loop bridges two venvs over ZMQ — no C++/DDS._
+
+- **架构 / Arch**：prompt → GR00T N1.7 (2.5 Hz, ego-view + joint state) → `action.motion_token` (64) → SONIC decoder (50 Hz) → 29-DoF G1
+- **数据 / Data**：SONIC deploy demo → 录 token → LeRobot v2.1（7 动作 · 3815 帧）— [`wsagi/SONIC-VLA-LeRobot`](https://huggingface.co/datasets/wsagi/SONIC-VLA-LeRobot)
+- **训练 / Train**：冻结 VLM，训 DiT 头 + projector（1.62B 可训），单 4090 × 8000 步；open-loop token MSE **0.0011**，比 per-motion-mean 基线 (0.039) 低 **35×**
+- **入口 / Entry point**：📓 [SONIC.ipynb](./SONIC.ipynb)（④ 区自训全流程一键）+ 📄 [`doc/groot_sonic_wbc_route.html`](./doc/groot_sonic_wbc_route.html) · [`doc/sonic_vla_closeloop_validation.html`](./doc/sonic_vla_closeloop_validation.html)
+- **HF model card / weights**：[`wsagi/GR00T-N1.7-G1-SONIC`](https://huggingface.co/wsagi/GR00T-N1.7-G1-SONIC)（checkpoint-8000 + 7 闭环 demo mp4）
+
+### 闭环 7 动作（dpose = 查询间关节位移 L2，判动/不动）
+
+| Motion | 闭环自持 / Closed-loop | 备注 / Note |
+|---|---|---|
+| squat · lunge · dance · macarena | 🟢 自持（dpose 1.5–2.5） | 单帧 obs 即可延续相位 |
+| jump | 🟡 边缘 | 有 settle 倾向 |
+| kick · walk | 🟠 需 bootstrap | 一次性动作；`BOOTSTRAP=80` 触发式起步 → kick dpose 0.06→**1.42** |
+
+> **血缘 / Lineage**：`bones-studio/seed → nvidia/GEAR-SONIC → wsagi/SONIC-VLA-LeRobot → wsagi/GR00T-N1.7-G1-SONIC`
+>
+> **诚实边界 / Honest scope**：当前为 7-ep 训练集（MSE 极低但 **held-out 泛化未测**，存在过拟合）；kick/walk 这类一次性动作闭环需触发式 bootstrap 起步；平衡兜底依赖 SONIC WBC 栈（VLA 本身不保证不摔）。
+
+---
+
 ## 🕺 Humanoid Motion-Tracking：MimicKit × Unitree G1 × LAFAN1
 
 _Unitree G1 (29-DoF) learns LAFAN1 mocap clips via MimicKit DeepMimic PPO — fight / run / dance / jumps_
