@@ -11,6 +11,36 @@ metadata:
 
 发布 `wsagi/GR00T-N1.6-PickOrange` main + 3 branches 时踩到的坑。
 
+## 0. ⚠️ 硬规则：整个目录 > 几 GB 就别用 `upload-large-folder`，改逐文件 `upload_file` + 重试循环
+
+**2026-06-04 `wsagi/GR00T-N1.7-G1-SONIC` 12G(3×4.7/4.7/2.5G shard)实测**：在 **mihomo TUN**
+（`getent hosts huggingface.co` → FakeIP `198.18.0.x`）下，`upload-large-folder` 和 python
+`HfApi.upload_folder` **都反复断连/卡死**，一个 shard 都没落地。**`upload-large-folder` 的批量并发
+multipart 在 TUN 下 commit 阶段整条连接掉 → 注定失败**（用户原话"注定失败"）。
+
+**正解 = 逐文件 `upload_file`，每文件独立重试循环**（脚手架 `/tmp/hf_per_file_upload.py`，值得留模板）：
+- `os.environ["HF_HUB_ENABLE_HF_TRANSFER"]="1"`（Rust uploader，掉线自动重连）
+- 按文件大小排序**小文件先传**（config/index/statistics 秒过拿稳），大 shard 逐个
+- 每文件 `for attempt in range(1,13): try upload_file… except: sleep(min(10*att,60))` —— **每次重试从 xet 断点续**，掉线只是下次接着传，不从头
+- 已在 repo 的文件 `list_repo_files` 先 skip
+- `ignore`/`EXCLUDE` 训练态文件（optimizer/scheduler/rng_state/trainer_state/training_args/wandb_config）
+
+**判据**：`upload-large-folder` 的优势是省事，但它把整个 dir 当一个 commit batch，**任一文件断连可能拖垮整批**；逐文件每个是独立可续的小操作，**单点失败只影响单文件**。dir > ~几 GB（尤其有 >1.5GB shard + 走代理）一律走逐文件。
+
+**坑**：`upload-large-folder` 跑过会在目录里留 `.cache/huggingface/upload/`（resume 元数据 + `.lock`）。逐文件脚本 `os.walk` 必须 `dirs[:] = [d for d in dirs if d != ".cache"]` 跳过它，否则会试图上传 `.cache/…safetensors.lock` → HF 报 `cannot update files under a '.cache/' folder`。换方案前先 `rm -rf <ckpt>/.cache`。
+
+**🔑 关键修正：逐文件 retry 循环还不够，每次尝试必须套超时。** 99% 诅咒是 **hung 不是 exception**：chunk 传到 100% 但 `commit_chunk` RPC 永久挂住，`upload_file` **不返回也不抛异常** → `except` 永不触发，retry 永不启动（用户连说两次"又断了"其实是 hung）。修：bash `timeout` 包住每次尝试，杀掉挂死的调用再重试（xet dedup 已传 chunk，重试秒续）。**实测 12G/4.7G-shard：两个 4.7G shard 在无超时时卡 99%，加 `timeout 240` 后各 attempt-1 落地。** 脚手架 `/tmp/hf_resume_shards.sh`：
+```bash
+export HF_HUB_ENABLE_HF_TRANSFER=1
+for shard in model-*.safetensors; do
+  for attempt in $(seq 1 10); do
+    timeout 240 hf upload <repo> "$shard" "$shard" --repo-type=model && break
+    echo "[retry $attempt] hung/failed, resuming..."; sleep 5
+  done
+done
+```
+（纯 python 要 `multiprocessing`/`signal.alarm` 限时每个 `upload_file`；bash `timeout hf upload <repo> <file> <file>` 循环更省事，kill 也可靠。）
+
 ## 1. `--exclude` 是单 flag 多 value，**不是**重复 flag
 
 ```bash

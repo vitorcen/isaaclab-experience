@@ -1,0 +1,311 @@
+diff --git a/gear_sonic/data/vla_live_injector.py b/gear_sonic/data/vla_live_injector.py
+new file mode 100644
+index 0000000..027d8f0
+--- /dev/null
++++ b/gear_sonic/data/vla_live_injector.py
+@@ -0,0 +1,305 @@
++"""VLA LIVE injector — close the loop: GR00T-in-the-loop drives SONIC's WBC.
++
++Counterpart to vla_token_injector (which replays an OFFLINE token npz). This one queries a
++running GR00T inference server every control step: it builds the GR00T observation from the
++LIVE Isaac env (ego camera + proprioception + projected_gravity + language prompt), sends it
++over ZMQ to ``gr00t.eval.run_gr00t_server`` (running in the GR00T venv), receives a
++``(action_horizon, 64)`` motion_token chunk, and feeds it one token per step into SONIC's
++``decode("g1_dyn", {token_flattened, ...})``. The WBC turns GR00T's tokens into balanced
++joints — so the viewer shows the genuine closed loop: env state -> GR00T -> token -> WBC -> G1,
++with NO C++/DDS and NO precomputed tokens.
++
++Why this is the real derisk (vs the offline injector): here GR00T sees the ACTUAL drifted env
++state (the WBC decode isn't a perfect tracker, so the robot leaves the recorded trajectory),
++so it must produce good tokens for states it never saw during the open-loop dump.
++
++Runs INSIDE the isaaclab conda env (no ``gr00t`` package), so it speaks the GR00T ZMQ wire
++protocol with a tiny standalone client (msgpack-numpy, the same MsgSerializer format).
++
++Obs assembly mirrors scripts/sonic_vla_npz_to_lerobot.py EXACTLY (consistency > correctness:
++the model learned on whatever the converter produced):
++  - observation.state := _fit(joint_pos, 43), then sliced per meta/modality.json into
++    left_leg[0:6] right_leg[6:12] waist[12:15] left_arm[15:22] left_hand[22:29]
++    right_arm[29:36] right_hand[36:43]
++  - projected_gravity := compute_projected_gravity(root_quat)   (3,)
++  - ego_view := scene["ego_camera"].rgb                          (480,640,3) u8
++  - language := the prompt string
++The GR00T server normalizes internally, so we send RAW values (validated against the dump).
++
++Action chunking: GR00T returns 40 tokens (action_horizon). We consume one per control step
++and re-query when the chunk is exhausted — the query happens in eval_step (which has the env),
++the decode hook only consumes the buffered chunk (clean 1-chunk lag, inherent to chunked VLA).
++"""
++
++from __future__ import annotations
++
++import numpy as np
++
++try:
++    from loguru import logger
++except Exception:  # pragma: no cover
++    import logging
++
++    logger = logging.getLogger(__name__)
++
++# observation.state slices, from datasets/sonic_vla_lerobot/meta/modality.json.
++# Order matches the server's modality_config state keys (group -> slice into the 43-vec).
++_STATE_SLICES = {
++    "left_leg": (0, 6),
++    "right_leg": (6, 12),
++    "waist": (12, 15),
++    "left_arm": (15, 22),
++    "left_hand": (22, 29),
++    "right_arm": (29, 36),
++    "right_hand": (36, 43),
++}
++_STATE_DIM = 43
++
++
++def _fit(vec: np.ndarray, n: int) -> np.ndarray:
++    """Truncate / zero-pad a 1-D vector to length n — identical to the converter's _fit."""
++    vec = np.asarray(vec).reshape(-1)
++    if vec.shape[0] == n:
++        return vec
++    out = np.zeros(n, dtype=vec.dtype)
++    k = min(n, vec.shape[0])
++    out[:k] = vec[:k]
++    return out
++
++
++class _Gr00tWireClient:
++    """Minimal ZMQ REQ client speaking the gr00t PolicyServer wire (msgpack-numpy)."""
++
++    def __init__(self, host: str, port: int, timeout_ms: int = 20000):
++        import msgpack_numpy as mnp
++        import zmq
++
++        self._mnp = mnp
++        self._zmq = zmq
++        self.host, self.port, self.timeout_ms = host, port, timeout_ms
++        self.context = zmq.Context()
++        self._connect()
++
++    def _connect(self) -> None:
++        self.socket = self.context.socket(self._zmq.REQ)
++        self.socket.setsockopt(self._zmq.RCVTIMEO, self.timeout_ms)
++        self.socket.setsockopt(self._zmq.SNDTIMEO, self.timeout_ms)
++        self.socket.connect(f"tcp://{self.host}:{self.port}")
++
++    def _call(self, endpoint: str, data: dict | None, requires_input: bool = True):
++        req = {"endpoint": endpoint}
++        if requires_input:
++            req["data"] = data
++        try:
++            self.socket.send(self._mnp.packb(req))
++            msg = self.socket.recv()
++        except self._zmq.error.Again:
++            self._connect()  # timed-out REQ socket is dead; recreate for next call
++            raise
++        if msg == b"ERROR":
++            raise RuntimeError("[vla_live] GR00T server returned ERROR")
++        resp = self._mnp.unpackb(msg, raw=False)
++        if isinstance(resp, dict) and "error" in resp:
++            raise RuntimeError(f"[vla_live] server error: {resp['error']}")
++        return resp
++
++    def ping(self) -> bool:
++        try:
++            self._call("ping", None, requires_input=False)
++            return True
++        except Exception:  # noqa: BLE001
++            return False
++
++    def get_action(self, observation: dict) -> dict:
++        # server spreads request['data'] as kwargs -> get_action(observation=..., options=...)
++        resp = self._call("get_action", {"observation": observation, "options": None})
++        action = resp[0] if isinstance(resp, (list, tuple)) else resp
++        return action
++
++
++class VlaLiveInjector:
++    """Eval-callback: drive SONIC's decoder with tokens a live GR00T server predicts."""
++
++    model = None  # injected by the eval loop
++
++    def __init__(self, host: str = "127.0.0.1", port: int = 5555, prompt: str = "",
++                 action_horizon: int = 40, decoder_name: str = "g1_dyn",
++                 camera_key: str = "ego_camera", env_index: int = 0,
++                 bootstrap_npz: str = "", bootstrap_steps: int = 0):
++        self.host = host
++        self.port = int(port)
++        self.prompt = prompt
++        self.action_horizon = int(action_horizon)
++        self.decoder_name = decoder_name
++        self.camera_key = camera_key
++        self.env_index = int(env_index)
++        # bootstrap: for the first bootstrap_steps after each reset, inject OPEN-LOOP dump
++        # tokens (from bootstrap_npz) to drive the robot INTO a one-shot motion, then hand
++        # control to live GR00T. Solves the memoryless-policy stall on return-to-rest motions
++        # (the rest-start pose is ambiguous; open-loop carries it past the ambiguity).
++        self.bootstrap_steps = int(bootstrap_steps)
++        self._bootstrap = None       # (T, 64) float32 or None
++        if bootstrap_npz:
++            self._bootstrap = np.asarray(
++                np.load(bootstrap_npz, allow_pickle=True)["motion_token"], dtype=np.float32
++            ).reshape(-1, 64)
++
++        self._client = None
++        self._scene = None
++        self._orig_decode = None
++        self._installed = False
++        self._chunk = None          # (action_horizon, 64) float32
++        self._chunk_pos = 10**9     # force a query on the first eval_step
++        self._decode_t = 0          # decode calls since last reset (drives bootstrap window)
++        self._n_query = 0
++        self._warned_cam = False
++
++    # --- eval-loop surface ----------------------------------------------
++    def on_step_end(self, *args, **kwargs) -> None:
++        if self.model is None and kwargs.get("model") is not None:
++            self.model = kwargs["model"]
++        if self.model is not None and not self._installed:
++            self._install_hook()
++
++    def _install_hook(self) -> None:
++        import torch
++
++        actor_module = self.model.policy.actor_module
++        orig = actor_module.decode
++        want = self.decoder_name
++        self._orig_decode = orig
++
++        def wrapped(decoder_name, decode_input_dict, token_mask=None):
++            if decoder_name == want and "token_flattened" in decode_input_dict:
++                src = None
++                if self._bootstrap is not None and self._decode_t < self.bootstrap_steps:
++                    # bootstrap window: replay open-loop dump tokens to enter the motion.
++                    src = self._bootstrap[self._decode_t % len(self._bootstrap)]
++                elif self._chunk is not None:
++                    # live window: follow GR00T's latest chunk.
++                    src = self._chunk[min(self._chunk_pos, self.action_horizon - 1)]
++                    self._chunk_pos += 1
++                if src is not None:
++                    ref = decode_input_dict["token_flattened"]      # (num_envs, 64)
++                    rep = ref.clone()
++                    tok = torch.as_tensor(src.copy(), device=ref.device, dtype=ref.dtype)
++                    rep[:] = tok.reshape(rep[0].shape)              # all envs follow injected token
++                    decode_input_dict = {**decode_input_dict, "token_flattened": rep}
++                self._decode_t += 1
++            return orig(decoder_name, decode_input_dict, token_mask=token_mask)
++
++        actor_module.decode = wrapped
++        self._installed = True
++        logger.info(
++            f"[vla_live] decode hook installed (decoder='{want}', server={self.host}:{self.port}, "
++            f"action_horizon={self.action_horizon}, prompt={self.prompt!r})"
++        )
++
++    @staticmethod
++    def _resolve_scene(env):
++        for getter in (lambda e: e.env.scene, lambda e: e.scene, lambda e: e.env.unwrapped.scene):
++            try:
++                scene = getter(env)
++                _ = scene["robot"]
++                return scene
++            except Exception:  # noqa: BLE001
++                continue
++        raise RuntimeError("[vla_live] could not resolve env scene")
++
++    # --- build the GR00T observation from the live env ------------------
++    def _build_obs(self) -> dict:
++        from gear_sonic.utils.data_collection.transforms import compute_projected_gravity
++
++        i = self.env_index
++        robot = self._scene["robot"]
++        joint_pos = robot.data.joint_pos[i].detach().cpu().numpy().astype(np.float32)
++        root_quat = robot.data.root_quat_w[i].detach().cpu().numpy().astype(np.float32)
++        self._cur_joint_pos = joint_pos.copy()   # for the per-query motion-magnitude log
++        # pelvis height — a cheap "did it fall" signal (standing G1 ~0.74m; <0.4 = fallen).
++        try:
++            self._root_z = float(robot.data.root_pos_w[i, 2].detach().cpu())
++        except Exception:  # noqa: BLE001
++            self._root_z = float("nan")
++        state_vec = _fit(joint_pos, _STATE_DIM).astype(np.float32)
++        proj_grav = np.asarray(compute_projected_gravity(root_quat), dtype=np.float32).reshape(-1)[:3]
++
++        rgb = None
++        try:
++            rgb = self._scene[self.camera_key].data.output["rgb"][i]
++            rgb = rgb.detach().cpu().numpy()[..., :3].astype(np.uint8)
++        except Exception as exc:  # noqa: BLE001
++            if not self._warned_cam:
++                logger.warning(f"[vla_live] no camera '{self.camera_key}': {exc}")
++                self._warned_cam = True
++            rgb = np.zeros((480, 640, 3), dtype=np.uint8)
++
++        # parsed nested obs with (batch=1, T=1, ...) — same layout parse_observation_gr00t makes.
++        state = {k: state_vec[a:b][None, None] for k, (a, b) in _STATE_SLICES.items()}
++        state["projected_gravity"] = proj_grav[None, None]
++        return {
++            "video": {"ego_view": rgb[None, None]},                       # (1,1,480,640,3) u8
++            "state": state,                                              # each (1,1,d) f32
++            "language": {"annotation.human.task_description": [[self.prompt]]},
++        }
++
++    def _query(self) -> None:
++        obs = self._build_obs()
++        action = self._client.get_action(obs)
++        mt = action.get("action.motion_token", action.get("motion_token"))
++        mt = np.asarray(mt, dtype=np.float32)
++        if mt.ndim == 3:        # (batch, horizon, 64)
++            mt = mt[0]
++        self._chunk = mt.reshape(mt.shape[0], -1)                        # (horizon, 64)
++        self._chunk_pos = 0
++        # DEBUG: dump obs+token on the first query so we can compare live tokens vs the
++        # offline dump (diagnoses whether the LIVE obs makes GR00T emit a neutral token).
++        import os as _os
++        if _os.environ.get("VLA_LIVE_DEBUG") and self._n_query == 0:
++            st = np.concatenate([v.reshape(-1) for v in obs["state"].values()])
++            img = np.asarray(obs["video"]["ego_view"]).reshape(-1)
++            logger.info(f"[vla_live][DBG] state dim={st.shape[0]} min={st.min():.3f} "
++                        f"max={st.max():.3f} nonzero={np.count_nonzero(st)}/{st.shape[0]}")
++            logger.info(f"[vla_live][DBG] img mean={img.mean():.1f} nonzero_frac="
++                        f"{np.count_nonzero(img)/img.size:.3f}")
++            logger.info(f"[vla_live][DBG] live token[0,:6]={np.round(self._chunk[0,:6],4)}")
++            np.savez(_os.environ["VLA_LIVE_DEBUG"], token_chunk=self._chunk,
++                     state=st, img_mean=img.mean(), prompt=self.prompt)
++        # motion magnitude: how far the robot's joints moved since the last query (frozen ~ 0).
++        jp = getattr(self, "_last_joint_pos", None)
++        cur = getattr(self, "_cur_joint_pos", None)
++        dpose = float(np.linalg.norm(cur - jp)) if (jp is not None and cur is not None) else float("nan")
++        self._last_joint_pos = cur
++        self._n_query += 1
++        if self._n_query <= 2 or self._n_query % 10 == 0:
++            z = getattr(self, "_root_z", float("nan"))
++            logger.info(f"[vla_live] query #{self._n_query}: chunk {self._chunk.shape} "
++                        f"pelvis_z={z:.3f}m dpose={dpose:.3f} tok_std={self._chunk.std():.3f} "
++                        f"{'(FALLEN?)' if z < 0.4 else ''}")
++
++    # --- per-step: refill the chunk when exhausted ----------------------
++    def eval_step(self, env, results) -> bool:
++        if self._scene is None:
++            self._scene = self._resolve_scene(env)
++            self._client = _Gr00tWireClient(self.host, self.port)
++            assert self._client.ping(), f"[vla_live] GR00T server not reachable at {self.host}:{self.port}"
++            logger.info(f"[vla_live] connected to GR00T server {self.host}:{self.port}")
++
++        # episode reset -> restart the bootstrap+chunk clocks so playback re-anchors.
++        try:
++            dones = results[2]
++            if hasattr(dones, "any") and bool(dones.any()):
++                self._chunk = None
++                self._chunk_pos = 10**9
++                self._decode_t = 0      # replay the bootstrap window from the motion start
++        except Exception:  # noqa: BLE001
++            pass
++
++        # During the bootstrap window the hook replays open-loop tokens (no server needed);
++        # only query live once we're at/after the hand-off, refilling when the chunk is used up.
++        in_live = self._decode_t >= max(0, self.bootstrap_steps - 1)
++        if in_live and (self._chunk is None or self._chunk_pos >= self.action_horizon):
++            try:
++                self._query()
++            except Exception as exc:  # noqa: BLE001
++                logger.warning(f"[vla_live] query failed (keeping last chunk): {exc!r}")
++        return False  # never exit; user closes the viewer

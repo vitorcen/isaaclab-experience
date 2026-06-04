@@ -125,6 +125,27 @@ python gear_sonic/eval_agent_trl.py +checkpoint=sonic_release/last.pt +headless=
   - **磁盘提醒**：`outputs/gr00t_sonic_8k` 83G（rolling 7000/7500/8000 + keep/2000-8000）、`outputs/gr00t_sonic_derisk` 47G（2000 步旧 run，**已被 8k 完全取代**，可清）。共 130G。
 - **下一步（真问题）**：① held-out 泛化（新 prompt/新起始/新 clip 测 MSE，现 7-ep 过拟合）；② 实时 prompt 活循环；③ 多 clip+RSI 扩数据（DR 放量实测 95% 重复无用）；④ 闭环纠偏治长动作开环漂。
 
+## ✅ 闭环活循环已跑通 + 关键发现（2026-06-04）
+- **闭环桥架构**：GR00T N1.7（transformers 4.57.3 venv）与 SONIC eval（Isaac conda）**不能同进程** → GR00T 自带 ZMQ server (`gr00t.eval.run_gr00t_server --model_path <ckpt> --embodiment_tag unitree_g1_sonic --port 5555`) + Isaac 端独立 wire client。脚手架：`scripts/gear_sonic_live.sh <motion>` + `gear_sonic/data/vla_live_injector.py`(VlaLiveInjector callback，**data/ 被 gitignore 同 recorder/injector，转 patch 要 force-add**) + `doc/sonic_vla_closeloop_validation.html`。
+- **wire 协议**：`PolicyClient.get_action(obs)` 包成 `call_endpoint("get_action",{"observation":obs,"options":None})`，server 端 `handler(**data)` 展开 → 必须键名 `observation`；返回 `(action,info)`，token 在 `action["motion_token"]` (无 prefix，需 `[0]` 去 batch)。序列化 = `msgpack_numpy.packb/unpackb`。conda env 有 zmq/msgpack_numpy。
+- **obs 组装（1:1 复刻 converter）**：video/state/language 全 `delta_indices=[0]`（**只当前帧，无历史窗，不缓冲**）。state = `_fit(robot.data.joint_pos,43)` 按 `meta/modality.json` 切 left_leg[0:6]/right_leg[6:12]/waist[12:15]/left_arm[15:22]/left_hand[22:29]/right_arm[29:36]/right_hand[36:43] + `compute_projected_gravity(root_quat)`(3) + ego cam `scene["ego_camera"].data.output["rgb"]`(480×640) + prompt。每组 reshape (1,1,d)。**server 内部归一化 → 发原始值**。action_horizon=40 → 每 40 步查一次缓冲逐步喂。
+- **🔑 核心发现（无记忆 obs 条件策略的本质）**：GR00T 单帧 obs→token，闭环里**只能延续观测到的姿态相位**，无法自发从静止重启一次性动作。逐层诊断证 GR00T 没坏（live token 正确匹配对应相位 dump token）、obs 没喂错（state L2=0.05 匹配录制帧，cam mean 对得上）。
+- **P2 全 7 动作扫描（dpose=查询间关节位移 L2，判动/不动）**：**自持 ✅** squat/lunge/dance/macarena（dpose ~1.5-2.5）；**卡静止 ❌** 仅 kick(3.3s单踢→0.06)、walk(走+转身停→0.06)；jump 边缘。判别 ≠ 严格周期性，而是「是否 settle 到策略逃不出的通用站立姿」。**先前"周期vs一次性"二分被全扫描推翻，如实修正。**
+- **P-fix 触发式 bootstrap（免重训救一次性动作）**：`VlaLiveInjector` 加 `bootstrap_npz`+`bootstrap_steps`，复位后前 N 步喂开环 dump token 带进动作再交 live。`BOOTSTRAP=80 bash scripts/gear_sonic_live.sh kick` → dpose 0.06→**1.42 持续踢**。证明 live GR00T 能接续中段动作。
+- **踩坑**：① IsaacLab `app_launcher.py:561` 读 env var `HEADLESS` 做 `int()` → `HEADLESS=True` 泄漏崩 `int('True')`；脚本读完 `unset HEADLESS` 只用 `+headless=` arg。② headless 下 `debug_vis=True`(绿骨架)报错，只 GUI 加。③ 单 GPU 连跑多 eval，timeout 杀 wrapper 但 python 子进程 orphan 占 GPU，累积 4 个撑爆 24G(`create_articulation_view:NoneType`)→ run 间按 PID 显式 kill。④ `pkill -f eval_agent` 自杀（当前 shell 命令行含该字串）→ 按 PID 过滤排除 `$$`。
+
+## 🚀 已发布到 HF（2026-06-04）
+- **模型** [`wsagi/GR00T-N1.7-G1-SONIC`](https://huggingface.co/wsagi/GR00T-N1.7-G1-SONIC)：checkpoint-8000 推理权重（3 shard 4.7/4.7/2.5G）+ 7 个闭环 demo mp4 内嵌 model card（`<video>` + resolve full URL）+ 诚实 scope（仅训练集/kick&walk需bootstrap/依赖SONIC栈）。`base_model: nvidia/GR00T-N1.7-3B`（**实测起点，非 Cosmos**；Cosmos-Reason2-2B 只是内部冻结 VLM backbone）。22 文件。
+- **数据集** [`wsagi/SONIC-VLA-LeRobot`](https://huggingface.co/datasets/wsagi/SONIC-VLA-LeRobot)：LeRobot v2.1（7 动作 3.3M）+ 7 ego mp4。**血缘**：`source_datasets: bones-studio/seed`（SONIC 训练源）+ 正文链 `nvidia/GEAR-SONIC`（直接上游：产 token 的 WBC + demo_robot_filtered.pkl 的出处）。23 文件。
+- **血缘闭环**：`bones-studio/seed → nvidia/GEAR-SONIC → wsagi/SONIC-VLA-LeRobot → wsagi/GR00T-N1.7-G1-SONIC`。
+- **录屏源**：`~/视频/录屏/GR00T-N1.7-G1-SONIC-*.webm`（7 条），转 mp4 用 **系统 `/usr/bin/ffmpeg`**（conda ffmpeg libx264.so.138 坏）+ `env -u LD_LIBRARY_PATH` + `-vf scale=trunc(iw/2)*2:trunc(ih/2)*2`（录屏 496x367 奇数高，H.264 要偶数）。
+- **上传踩坑全记进 [[hf-upload-tricks]] + skill `hf-publish-model`**：多 GB 目录走代理别用 upload-large-folder（批量 commit 整条断），用逐文件 + **每次 `timeout` 包住**（99% 是 commit hang 不报错，retry 循环不触发）；`publish.sh` 已重写成 per-file+timeout。
+
+## ⚠️ 闭环阶段新未提交（接着上次"你整理用户自己commit"那批之后）
+- 本 repo：`scripts/gear_sonic_live.sh`(新,含 HEADLESS/BOOTSTRAP/RELAX) + `doc/sonic_vla_closeloop_validation.html`(新) + `SONIC.ipynb`(M?) + `.memory/{sonic-wbc-vla-route,hf-upload-tricks}.md`(M)。
+- WBC submodule：`gear_sonic/data/vla_live_injector.py`(新,**被 data/ gitignore 吞,转 patch 要 force-add**,同 0003 套路 → 建 `patches/gear-sonic/0004-vla-live-injector.patch`)。
+- 全局 skill/memory（在 `~/.claude/`，不在 repo）：`hf-publish-model` SKILL.md + scripts/publish.sh 已改;`hf-upload-tricks.md` 已补。
+
 ## 架构侧 Stage C 要点（评审给的，等路 A 过了再用）
 - token 注入：`UniversalTokenModule.decode("g1_dyn",{token_flattened(64),proprioception})` 或 `forward(latent_residual_mode="pre_quantization_replace")`。in-process，免 C++。
 - **GR00T 训练目标用 pre-quantization 连续 latent**（非分类、非量化后值），推理时过 SONIC 同一 FSQ quantizer 再 decode（codex+mimo 一致）。
