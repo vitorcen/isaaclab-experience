@@ -27,6 +27,8 @@ multipart 在 TUN 下 commit 阶段整条连接掉 → 注定失败**（用户�
 
 **判据**：`upload-large-folder` 的优势是省事，但它把整个 dir 当一个 commit batch，**任一文件断连可能拖垮整批**；逐文件每个是独立可续的小操作，**单点失败只影响单文件**。dir > ~几 GB（尤其有 >1.5GB shard + 走代理）一律走逐文件。
 
+**✅ 2026-06-06 `wsagi/StarVLA-PickOrange` 9.98GB 单 monolith `.pt` 复现 + 关键洞察**：`upload-large-folder` commit 阶段挂死 450s（io 全 idle，repo 只落地 .gitattributes）= §4 curse。杀掉→清 `.cache`→改逐文件 `timeout 360 hf upload <repo> <file> <file>` 循环 → 小文件全过 + **9.98GB monolith attempt-1 60s 落地**。**关键：问题在"批量 commit"不在"文件大小"** —— 同一 9.98GB 文件（5GB 标准 2×、StarVLA `.pt` 单文件 checkpoint 无法 safetensors-reshard）用**单文件 `hf upload` 独立 commit 一次就过**。所以 **monolith 先试单文件 `hf upload`（hf_transfer + timeout 包裹），多半直接过，reshard 是单文件也挂时才用的下策**。脚手架 `/tmp/hf_perfile_upload.sh`（小文件 list 先传 + 大文件 `for a in seq 1 15: timeout 360 hf upload && break` + `${PIPESTATUS[0]}` 判 rc）值得留模板。
+
 **坑**：`upload-large-folder` 跑过会在目录里留 `.cache/huggingface/upload/`（resume 元数据 + `.lock`）。逐文件脚本 `os.walk` 必须 `dirs[:] = [d for d in dirs if d != ".cache"]` 跳过它，否则会试图上传 `.cache/…safetensors.lock` → HF 报 `cannot update files under a '.cache/' folder`。换方案前先 `rm -rf <ckpt>/.cache`。
 
 **🔑 关键修正：逐文件 retry 循环还不够，每次尝试必须套超时。** 99% 诅咒是 **hung 不是 exception**：chunk 传到 100% 但 `commit_chunk` RPC 永久挂住，`upload_file` **不返回也不抛异常** → `except` 永不触发，retry 永不启动（用户连说两次"又断了"其实是 hung）。修：bash `timeout` 包住每次尝试，杀掉挂死的调用再重试（xet dedup 已传 chunk，重试秒续）。**实测 12G/4.7G-shard：两个 4.7G shard 在无超时时卡 99%，加 `timeout 240` 后各 attempt-1 落地。** 脚手架 `/tmp/hf_resume_shards.sh`：

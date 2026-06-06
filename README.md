@@ -68,7 +68,7 @@ _VLA Inference Benchmark — strict 20-round on SO-101 PickOrange_
 
 https://github.com/user-attachments/assets/44205148-1fa0-4b33-8f60-7a079faf9840
 
-多个开源 VLA 通过 ZMQ 远程推理服务接入 LeIsaac SO-101 Isaac Sim，对比同一 PickOrange 任务表现 + 自训 ACT / DP / SmolVLA / X-VLA / OpenVLA / π0.5 / GR00T-N1.6 横评。
+多个开源 VLA 通过 ZMQ 远程推理服务接入 LeIsaac SO-101 Isaac Sim，对比同一 PickOrange 任务表现 + 自训 ACT / DP / SmolVLA / X-VLA / StarVLA / OpenVLA / π0.5 / GR00T-N1.6 横评。
 _Compare open-source VLA policies + our fine-tunes on the same task via remote inference servers._
 
 - **任务 / Task**：`Pick up the orange and place it on the plate` (3 oranges)
@@ -87,10 +87,11 @@ _20 episodes × 3 oranges = **60 oranges total** per row. Sort: E(🍊)/ep DESC.
 | 4  | [`hi-space/GR00T-N1.6-3B-Pick-Orange`](https://huggingface.co/hi-space/GR00T-N1.6-3B-Pick-Orange) (h=40)                              | ~3B    | 48.3%     | 25% | 40% | 87s  | 14.9 GB |
 | 5  | [`wsagi/GR00T-N1.6-PickOrange`](https://huggingface.co/wsagi/GR00T-N1.6-PickOrange) **自训 / ours** (ckpt-6500, h=40)                  | ~3B    | 46.7%     | 20% | 45% | 66s  | 14.9 GB |
 | 6  | [`wsagi/ACT-PickOrange`](https://huggingface.co/wsagi/ACT-PickOrange) **自训 / ours** (lerobot v0.4.0 ckpt-18k, h=70)                  | ~52M   | 43.3%     | 30% | 40% | 151s | 9.5 GB  |
-| 7  | [`shadowHokage/act_policy`](https://huggingface.co/shadowHokage/act_policy) (h=70)                                                    | ~52M   | 28.3%     | 10% | 20% | 169s | 8.6 GB  |
-| 8  | [`edge-inference/smolvla-so101-pick-orange`](https://huggingface.co/edge-inference/smolvla-so101-pick-orange) (h=50)                  | ~450M  | 25.0%     | 0%  | 20% | 179s | ~23 GB  |
-| 9  | [`wsagi/SmolVLA-PickOrange`](https://huggingface.co/wsagi/SmolVLA-PickOrange) **自训 / ours** (main=15k, h=50)                         | ~450M  | 25.0%     | 0%  | 15% | 176s | ~24 GB  |
-| 10 | [`wsagi/X-VLA-PickOrange`](https://huggingface.co/wsagi/X-VLA-PickOrange) **自训 / ours** (weakaug 17k, h=32)                          | 0.9B   | 6.7%      | 0%  | 0%  | 118s | 11.8 GB |
+| 7  | [`wsagi/StarVLA-PickOrange`](https://huggingface.co/wsagi/StarVLA-PickOrange) **自训 / ours** (QwenGR00T freeze-VLM, step-18k, h=16)    | ~4B    | 35.0%     | 10% | 35% | 170s | 16.7 GB |
+| 8  | [`shadowHokage/act_policy`](https://huggingface.co/shadowHokage/act_policy) (h=70)                                                    | ~52M   | 28.3%     | 10% | 20% | 169s | 8.6 GB  |
+| 9  | [`edge-inference/smolvla-so101-pick-orange`](https://huggingface.co/edge-inference/smolvla-so101-pick-orange) (h=50)                  | ~450M  | 25.0%     | 0%  | 20% | 179s | ~23 GB  |
+| 10 | [`wsagi/SmolVLA-PickOrange`](https://huggingface.co/wsagi/SmolVLA-PickOrange) **自训 / ours** (main=15k, h=50)                         | ~450M  | 25.0%     | 0%  | 15% | 176s | ~24 GB  |
+| 11 | [`wsagi/X-VLA-PickOrange`](https://huggingface.co/wsagi/X-VLA-PickOrange) **自训 / ours** (weakaug 17k, h=32)                          | 0.9B   | 6.7%      | 0%  | 0%  | 118s | 11.8 GB |
 
 > **Avg ep** = 平均每 episode wall-clock 时长（s），含 server inference + sim step；越短 = policy 越果断（早完成 or 早 stuck-out）。
 > **Peak VRAM** = `nvidia-smi` 总 GPU 内存峰值（含 Isaac Sim ~5-6 GB baseline + policy server）。
@@ -120,6 +121,8 @@ python3 scripts/benchmark/aggregate_strict_leaderboard.py \
 - **ACT 自训 (43.3%) > shadowHokage (28.3%) 53%**：锁版本 lerobot **v0.4.0** + ckpt-18k h=70 重训。原因 = v0.5 dataloader 行为漂移 (PR #3406 + #3442)；详见 [`LeIsaac/docs/training/act_framework_drift.html`](./LeIsaac/docs/training/act_framework_drift.html)。
 - **DP / OpenVLA / π0.5 自训 全 0/60**：50-60 demo 不够支撑这些 model class。DP 另有 lerobot async server bug — `predict_action_chunk` 不 `populate_queues`，已在 `lerobot-v040` editable 一行 patch 修复。
 - **X-VLA weakaug 17k 6.7%**：之前 single-run 9/18 是 small-N variance，strict 20-round 真实 P(≥1)=20%, P(≥2)=0%。
+- **StarVLA 自训 35.0% (step-18k)**：QwenGR00T 冻 VLM 只训 flow-matching head（云端 4080-32G）。云端 sweep 出倒 U 过拟合曲线，峰值 ~15k 步、>21k 塌陷（手臂晃动悬停）。主死因是慢（17/20 轮撞 180s 墙钟没放完 3 颗），非乱动。3-round 虚高 33% → strict 20-round 真值 P(3)=10%。提分杠杆 = 解冻 VLM 顶层 / 加 demo。
+
 - **GR00T 多 release env 隔离**：N1.5 / N1.6 / N1.7 各独立 submodule + venv (transformers 4.51.3 vs 4.57.3 ABI 冲突)；见 [`doc/gr00t_multi_release_env_split.html`](./doc/gr00t_multi_release_env_split.html)。
 
 
