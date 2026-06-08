@@ -25,9 +25,9 @@
 [submodule "dependencies/MimicKit"]
 	path = dependencies/MimicKit
 	url = https://github.com/xbpeng/MimicKit.git
-[submodule "dependencies/GR00T-WholeBodyControl"]
-	path = dependencies/GR00T-WholeBodyControl
-	url = https://github.com/NVlabs/GR00T-WholeBodyControl
 [submodule "dependencies/starVLA"]
 	path = dependencies/starVLA
 	url = https://github.com/starVLA/starVLA.git
+[submodule "LeSONIC"]
+	path = LeSONIC
+	url = git@github.com:vitorcen/LeSONIC.git
