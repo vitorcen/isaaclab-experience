@@ -27,6 +27,20 @@ multipart 在 TUN 下 commit 阶段整条连接掉 → 注定失败**（用户�
 
 **判据**：`upload-large-folder` 的优势是省事，但它把整个 dir 当一个 commit batch，**任一文件断连可能拖垮整批**；逐文件每个是独立可续的小操作，**单点失败只影响单文件**。dir > ~几 GB（尤其有 >1.5GB shard + 走代理）一律走逐文件。
 
+## 0.05 ⚠️🔥 "卡 99%" 头号假象 = 自己手动杀进程造成同文件并发对传（2026-06-08 实测，最易复发）
+
+**`wsagi/GR00T-N1.7-G1-SONIC` bf16 重传(3×2.49/2.49/1.31G)实测**：3 个 shard 同样大小，shard1 单进程一次过，shard2 **稳定卡 92-97% 冻死、:443 堆到 140-150**——看着就是 §5.1 "TUN 诅咒卡 99%"。**真因不是文件大小，是我自己**：用 §4 `timeout N hf upload` 重试循环时**手动 `pkill` 掉挂着的 inner hf 进程** → `timeout` wrapper 没死、循环立刻 respawn 新尝试，**而被杀那次的 100+ :443 socket 还没回收** → **两个进程同时 PUT 同一个 shard，互相卡死在 ~95%**。
+
+**铁律**：
+1. **绝不在 `timeout`+retry 循环还活着时手动杀 inner 进程**——要么杀整个循环(`pkill -f <脚本名>` + 所有 `hf upload`)，要么别碰。半路杀 inner = 制造并发。
+2. **最稳上传形态 = 单进程、一次一个文件、全程 hands-off**：`HF_HUB_ENABLE_HF_TRANSFER=1 timeout 400 hf upload <repo> <file> <file>` 作为**一个**后台任务，让它自然跑完→`repo_info` 验大小→再下一个。同一个"卡死"的 2.49G shard 这样**一次过**。retry 循环看似省事，但叠加手误杀进程 = 并发地狱，单进程串行最不容易出错。
+3. **判 stall 真伪**：字节进度冻结 + `:443` 爬到 140+ 且 `pgrep -af "hf upload"` **看到同一文件 ≥2 个 python 进程** = 自造并发，杀光重来；只有**单进程**且字节冻在 ~99% 才是真 §5.1 诅咒。
+4. 文件间留 `sleep`，等 `:443` 排空到 <25 再传下一个，避免 §0.3 饱和导致下次 `/api/repos/create` preflight ConnectTimeout。
+
+## 0.06 ⚠️ `HF_HUB_DISABLE_XET=1` 不是万能药——在能正常 xet 传输的 TUN 下它卡 0%（2026-06-08）
+
+同 session：xet 默认路径**字节正常流动**(folder 模式 226MB/s、单 shard ~200MB/s)。但加 `HF_HUB_DISABLE_XET=1` 走标准 LFS → **开了 ~100 条 :443 但 120s 零字节**，死卡在 `0/1 [00:00]` 的 LFS-batch 协商阶段，一个 byte 都不传。**结论：DISABLE_XET 是 §0.2 那种"xet 传完 100% 但 commit_chunk 挂死"的专用解，不是通用解**；当 xet 本身在正常传字节时**别禁它**——禁了反而卡死 LFS batch 起步。判据：先看 xet 默认能不能流字节，能流就别动 xet；只有"字节到 100% 但 finalize 永挂"才上 DISABLE_XET。
+
 **✅ 2026-06-06 `wsagi/StarVLA-PickOrange` 9.98GB 单 monolith `.pt` 复现 + 关键洞察**：`upload-large-folder` commit 阶段挂死 450s（io 全 idle，repo 只落地 .gitattributes）= §4 curse。杀掉→清 `.cache`→改逐文件 `timeout 360 hf upload <repo> <file> <file>` 循环 → 小文件全过 + **9.98GB monolith attempt-1 60s 落地**。**关键：问题在"批量 commit"不在"文件大小"** —— 同一 9.98GB 文件（5GB 标准 2×、StarVLA `.pt` 单文件 checkpoint 无法 safetensors-reshard）用**单文件 `hf upload` 独立 commit 一次就过**。所以 **monolith 先试单文件 `hf upload`（hf_transfer + timeout 包裹），多半直接过，reshard 是单文件也挂时才用的下策**。脚手架 `/tmp/hf_perfile_upload.sh`（小文件 list 先传 + 大文件 `for a in seq 1 15: timeout 360 hf upload && break` + `${PIPESTATUS[0]}` 判 rc）值得留模板。
 
 **坑**：`upload-large-folder` 跑过会在目录里留 `.cache/huggingface/upload/`（resume 元数据 + `.lock`）。逐文件脚本 `os.walk` 必须 `dirs[:] = [d for d in dirs if d != ".cache"]` 跳过它，否则会试图上传 `.cache/…safetensors.lock` → HF 报 `cannot update files under a '.cache/' folder`。换方案前先 `rm -rf <ckpt>/.cache`。
@@ -42,6 +56,44 @@ for shard in model-*.safetensors; do
 done
 ```
 （纯 python 要 `multiprocessing`/`signal.alarm` 限时每个 `upload_file`；bash `timeout hf upload <repo> <file> <file>` 循环更省事，kill 也可靠。）
+
+## 0.07 ⚠️ XET delta 上传(替换已存在相似 blob)会**中途**卡 + 并发 puller 抢带宽是真凶(2026-06-09)
+
+`wsagi/DiffusionPolicy-PickOrange` 用 4ep ckpt(1.07GB model.safetensors)**替换**旧 70k ckpt(相似 blob)：xet 检测到旧 blob → 走 **delta 只传差异**("New Data Upload 530MB")→ **死卡 ~869MB/81%**（注意：**不是 §0.2 的 finalize 100% 挂，也不是 §0.06 的 0% LFS-batch 挂，而是传输中途冻结**）。单文件 `hf upload`、`upload-large-folder`、hf_transfer 0/1 **全卡同一点 ~869MB**。
+**两个新教训**：
+1. **真凶之一 = 并发 puller 抢家宽上传带宽**。杀掉卡死的上传后 `tx` 仍 ~1.1MB/s → 是 `master_pull_watcher` 在**循环重拉**(已在本地的 head 反复 pull，rsync/ssh 占上传方向)。**§0.3 的反向**：那里是 hf 上传饿死 SSH，这里是 puller 饿死 hf 上传。**大上传前先 `kill` 所有并发 rsync/ssh/puller**，腾出家宽上行。
+2. **替换已存在 blob 的 delta 上传，小到 1GB 也会中途卡**（不只 §0.2 的 17-18G finalize）→ 同样上 `HF_HUB_DISABLE_XET=1` 走**全量 LFS**（不走 delta），实测从死卡 → 7-10MB/s 稳传到 100% + 秒 commit。
+**判据**：上传字节冻在中途(非 0% 非 100%) + 多方法卡同点 + 杀上传后 tx 仍高 → 先停并发传输，再 `HF_HUB_DISABLE_XET=1` 全量重传。注意此案非 mihomo TUN 场景也复现，§0.06"xet 正常流字节就别禁"指的是**全量 xet 在流**；**delta-replace 卡中途时该禁**。
+
+## 0.2 ✅ `HF_HUB_DISABLE_XET=1` = 单大文件 commit-hang 的首选干净修法（2026-06-07 实测）
+
+`wsagi/StarVLA-Qwen3-VL-8B-PickOrange` 17.9G 单 `.pt`：**默认（xet 开）+ hf_transfer 上传，
+字节传完到 100% 但卡死在最后 commit**——`ss -tnp` 看到对 commit 端点 `CLOSE-WAIT`（服务器已
+FIN、客户端没回收）、进程所有线程 `futex_do_wait`、进度条还在 100% 重绘骗人“像在动”。重传后
+xet dedup 秒到 100% 又卡同一处。**根因 = mihomo TUN 代理把耗时的 xet `commit_chunk` 长连接掐断**
+（小文件 commit 快没事，§5.1 同源）。
+
+**修法（比 §5.1 reshard / §4 timeout-loop 都简单）= 禁用 xet 走普通 LFS：**
+```bash
+pkill -9 -f "hf upload <repo-substr>"
+HF_HUB_DISABLE_XET=1 HF_HUB_ENABLE_HF_TRANSFER=1 hf upload <repo> <file> <path-in-repo> --repo-type model
+```
+普通 LFS 多段（业界 5GB 分段）传输**流量可见**、commit 是快速 pointer 注册（和小文件/mp4 同一条
+能成的路径），**一次落地**。判据：传完字节后若 repo `list_repo_files` 长时间不出现该文件 + 进程
+线程全 futex_wait + CLOSE-WAIT → 是 xet-commit 挂死，别等，直接 `HF_HUB_DISABLE_XET=1` 重传。
+
+> **2026-06-08 复现 + 补充**:`wsagi/StarVLA-Qwen3-VL-8B-PI_v3` 18.9G 单 .pt 用 **python `HfApi.upload_file`(默认 xet 开)反复卡 18.7-18.8/18.9G finalize**(hf_transfer 和标准都卡)——同 §0.2 xet-commit 挂死。`upload_large_folder` 分片最终落地了但进度条 99% 假卡误判。**铁律:任何大单文件上传(CLI 或 python API)都先 `HF_HUB_DISABLE_XET=1`**。
+
+**monolith 上传顺序更新**：①先 `HF_HUB_DISABLE_XET=1`（最稳）→ ②不行再 §0 逐文件+timeout → ③最后才 §5.1 reshard。
+
+## 0.3 ⚠️ 大 hf_transfer 上传会饿死同代理的 cloud SSH（2026-06-07 实测）
+
+hf_transfer 多段上传开 **129-142 条并行 :443 连接**，全走本机 mihomo 代理（FakeIP 198.18.0.x）。
+**同时 ssh 到 AutoDL 云机（也走这代理）会被饿死，~全部失败/超时**——表现为 `sshpass ssh` 连环
+`Connection timed out / closed`，看着像云机挂了，其实是**本机代理连接表被上传打满**。上传一结束
+（`ss -tn|grep -c :443` 掉回 ~10）SSH 立即恢复。**教训**：大文件 upload 与 cloud-SSH 操作**别真并行**，
+要么等 upload 完再 SSH，要么 SSH 命令保持极短 + 重试到偶然成功一次（launch 这类一次性操作可接受）。
+另：短时间几十次快速 SSH 重试可能触发云机 sshd MaxStartups 限流，雪上加霜——重试间隔给够 5s+。
 
 ## 1. `--exclude` 是单 flag 多 value，**不是**重复 flag
 

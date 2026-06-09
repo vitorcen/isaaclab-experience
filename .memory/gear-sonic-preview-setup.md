@@ -10,9 +10,9 @@ NVIDIA GEAR-SONIC（`dependencies/GR00T-WholeBodyControl`，SONIC whole-body G1 
 （sample motion `walk_forward_amateur_001`，40s/2002 帧），GPU ~9.5G/35%。
 
 **两条预览路线**：
-- `scripts/gear_sonic_preview.sh` ← **默认，能跑**。`eval_agent_trl.py +checkpoint=sonic_release/last.pt
+- `LeSONIC/scripts/gear_sonic_preview.sh` ← **默认，能跑**。`eval_agent_trl.py +checkpoint=sonic_release/last.pt
   +headless=False ++num_envs=1 ...`，在 `isaaclab` conda env 跑，**无 DDS、无 C++ 二进制**。
-- `scripts/gear_sonic_preview_sim2sim.sh` ← 部署保真但重：要 C++ deploy 二进制（TensorRT+cmake，
+- `LeSONIC/scripts/gear_sonic_preview_sim2sim.sh` ← 部署保真但重：要 C++ deploy 二进制（TensorRT+cmake，
   `gear_sonic_deploy/` 只有源码没 build）+ `just` + `sudo ip link set lo multicast on`（否则
   CycloneDDS 在 loopback 上 "create domain error" 秒崩）。一般别用。
 
@@ -28,7 +28,7 @@ repo 根目录 path 上，没 pip install，也没 requirements 文件）。逐�
 - 已固化进 `gear_sonic_setup.sh` step 2/4（`conda run -n isaaclab pip install ...`）。
 
 **submodule + patch**：WBC 现为 submodule（pin `a9d20b2`），改动走 `patches/gear-sonic/` +
-`scripts/apply_gear_sonic_patches.sh`（幂等，照抄 leisaac）。
+`LeSONIC/scripts/apply_gear_sonic_patches.sh`（幂等，照抄 leisaac）。
 - `0001-download-symlink-into-hf-cache.patch`：`download_from_hf.py` 把 448M `last.pt` 从「拷进 repo」
   改成「symlink 指向 `~/.cache/huggingface/hub`」（`hf_hub_download` 本就下到 cache，旧脚本多 copy 一份）；
   只 symlink 大文件，`sample_data`(4M) 保持实体目录（gitignore `sample_data/` 带斜杠只匹配目录，

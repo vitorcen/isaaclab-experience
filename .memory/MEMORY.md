@@ -6,6 +6,12 @@
 - [benchmark 表格排序规则](feedback-benchmark-table-sort.md) — README leaderboard 排序：strict Rounds DESC → oranges DESC → time ASC
 
 ## Training discipline
+- [⏱️ smoke 用 ~500 步控制 20min 快判能动](feedback-smoke-500step-quick-gate.md)
+- [📐 best 通常 3-4 ep / 新训练默认 max ~6 ep](feedback-vla-epoch-budget-6ep.md) — 60-demo 小数据 VLA;max_steps=6×frames/batch,eval 从 3 ep 起;epoch 跨 run 比 — 新 backbone 起训前 smoke `MAX_STEPS=500 SAVE_INTERVAL=500` 只验"不崩+VRAM+臂会动",能力看全量 5k 起 sweep
+- [🚦 PI_v3 sweep 终态 + compact后4任务(2026-06-08)](three-box-sweep-live-state.md) — PI_v3-8B已发63.3%rank3;新env训DP/续训2B跨4.5ep/开训9B/监控4B;daemon重启+各机终态+XET上传坑
+- [🧬 冻结-VLM sweep 保全=抽head拉回](frozen-vlm-head-extraction-sweep.md) — 8B ckpt 92.7%是冻结VLM(每个相同)；box端mmap抽~1.4G可训head(action_model+project_layers)拉回，本地用一次性vlm_base合并还原；绕开全量拉不动+keep_last删峰值+ENOSPC
+- [🔁 StarVLA ckpt/resume/迁移规则](starvla-checkpoint-resume-migration.md) — ckpt只存模型权重(无optimizer);resume重建optim+快进scheduler;迁到别的机续训只需head+vlm_base合并(box可关机不丢能力);max_train_steps必须取save_interval整数倍否则最后epoch不存(9B设13610→6ep那个根本不存,白训610步)
+- [🧹 云端复用box起训前清死重+磁盘预检](feedback-cloud-env-reuse-disk-cleanup.md) — 旧base/smoke/旧run死重累积→训到中途torch.save ENOSPC崩(伪装flash-attn,签名=PytorchStreamWriter+unexpected pos+.tmp残片)；起训前du三处清死重+算(KEEP+1)×ckpt<盘；崩后RESUME=1从最新完整ckpt续
 - [🏆 MimicKit LAFAN G1 × 4 motion SHIPPED](mimickit-lafan-fight-training-plan.md) — 2026-06-02 fight/run/dance/jumps 15s 切段，4h pipeline，3/4 触顶 ≥98%，run plateau 63%；scripts/mimickit_train_{one,queue,pipeline}.sh + eval_chain.sh + g1_usd_recolor.py 全套；doc/mimickit_lafan_training.html
 - [🎨 MimicKit g1.usd 全白根因 + 修复](mimickit-g1-usd-material-fix.md) — MJCF per-geom rgba 转 USD 被压成单一 DefaultMaterial 白；scripts/g1_usd_recolor.py 反推 + per-mesh rebind；`MIMICKIT_G1_USD` env var 切入
 - [🧹 训练完 benchmark 后 outputs 清理](feedback-training-output-cleanup.md) — leaderboard 落地后每家族留 1 dir + 3-6 ckpts；负面家族也留 1 个存档；规则写入 `LeIsaac/CLAUDE.md`
@@ -20,6 +26,7 @@
 
 ## VLA — 架构侧 (SONIC WBC) 路线
 - [🕺 架构侧 GR00T×SONIC-WBC 路线 + 路 A 动作源](sonic-wbc-vla-route.md) — VLA 只吐 64 维 FSQ token，WBC 当平衡底座；**下一步走路 A**：本地 deploy demo(macarena/kick/dance 13条) 经 `convert_soma_csv_to_motion_lib.py --fps 50`(唯一坑) 转 robot_filtered，smpl=dummy，跑 eval 看 WBC 跟不跟得住踢/舞；评审验过 smpl_joints非坑、HF无多动作robot_filtered别下30G；doc/groot_sonic_wbc_route + sonic_dance_motion_source.html
+- [🔬 SONIC VLA 三模型联合评审 + P0-P4 roadmap](sonic-vla-critique-roadmap.md) — GR00T-N1.7-G1-SONIC HF页 9条共识缺陷(无held-out=记忆/FSQ离散码当连续回归/无记忆单帧闭环=本质缺陷/不摔疑RELAX-confound)；正序=先loss→history→数据；LeSONIC/doc/sonic_vla_critique_roadmap.html
 
 ## VLA distillation (planned)
 - [🧬 MimicKit→VLA 蒸馏路径计划](mimickit-to-vla-distill-plan.md) — DeepMimic PPO → prompt-conditioned 人形 VLA；基建优先于 expert，先补 recorder/modality.json/第三人称camera 跑 10ep×2motion sanity；doc/mimickit_to_vla_dataset.html
@@ -44,6 +51,9 @@
 - [🔧 本机 py3.10.20→import torch 间歇segfault + Wall-X env 配方](wallx-env-py310-torch-segfault.md) — **头号坑=python 3.10.20 conda构建让 import torch ~40%间歇段错误(C栈溢出,纯Python稳);根治=env换 python 3.11**(与torch/CUDA版本无关;100%相关实测);那些posixpath/sre/pyc诡异错全是同一堆腐蚀表象,非独立bug。wallx配方:py3.11+torch2.6cu124+transformers4.51.3(非4.49)+flash-attn cp311+TORCH_CUDA_ARCH_LIST=8.9编csrc;freeze_vlm训0.47B expert;底座wall-oss-0.5;脚手架 workspace/leisaac_pick_orange/
 - [☁️ Wall-X PickOrange 搬上 AutoDL 云端训练](wallx-autodl-cloud-training.md) — 本地kernel6.17腐蚀放弃→AutoDL(kernel5.15稳/4080-32G/CUDA12.4);env=torch2.5.1(非2.6)+nvidia库从base拷(triton别拷=cp312坑)+flash-attn torch2.5wheel;**启动铁律=用env二进制全路径别conda activate(非交互SSH会挂)**;`/root/train_cloud.sh`+`pass autodl/westd`;config路径已改云端;compact后续训看本文§当前状态
 - [🔌 Wall-X 闭环 eval serving 适配器 + 3坑](wallx-eval-serving-adapter.md) — serve_wallx.py(WallXPolicy+WebsocketPolicyServer,action_tokenizer传None非"")+WallXServicePolicyClient;**坑1**=bf16显存14.8G(fp32→bf16残留)→`torch.cuda.empty_cache()`掉到8.4G本地和Isaac共存;**坑2**=msgpack-numpy openpi(`__ndarray__`)vs标准(`nd`)不兼容→client override infer用标准codec;**坑3**=trainer step-save `data_config`+x2robot池索引在lerobot必崩→`hasattr(primary_pool_start_index)`守卫;真eval前要patch process_images硬编码256
+- [🧩 StarVLA 换 VLM 骨干 2B/4B/8B 零源码配方](starvla-vlm-variant-2b-4b-8b.md) — QwenGR00T runtime 对齐 hidden_size→换骨干只改 config;2B/4B hidden=2048 8B=4096;bs(8B=4其余8)+save密度(4B1500/8B6000/2B1000,峰是120k样本驱动);gradient_ckpt/flash-attn Qwen3死字段,真VRAM大头repeated_diffusion_steps;westd:15528-4090 / westc:31709-4080S
+- [🔢 大VLM本机24G必须8bit eval + 间歇载入堆腐蚀重试 + 单卡争用坑](starvla-8bit-eval-load-corruption.md) — 8B bf16+Isaac必OOM→8bit(VLM int8/head bf16,11G);8bit≈bf16实锤35.0%=35.0%;大ckpt load~40%间歇崩(段错误或'int'no stale_possible_simple_keys)→serve重试;wallx_sweep_supervisor while-true复活偷GPU→假0先杀supervisor
+- [📈 8B sweep 30k峰7/9后悬崖塌 + 2B live state + 下载finalize-hang](starvla-8b-2b-sweep-result.md) — 8B曲线0/0/1/4/7(30k峰)/0/0/0;watcher拉完即删云端防ENOSPC+self-heal+MIN_STEP;hf_transfer传完字节卡finalize→标准下载器秒rename;2B训练中westc~step1200/30000
 - [🌟 StarVLA(Qwen3-VL-4B)westc 云端训 SO-101 + eval-sweep](starvla-so101-cloud-training.md) — 第二台云机 westc:31709;env=py3.10+torch2.6cu124(aliyun无→pytorch.org代理)+transformers4.57.0+flash-attn cp310torch2.6;repo自带SO101Config+v2.1走v2.0路径+av1用torchvision_av;**四真坑=_pack_sample硬编码224死穴(改448)/build_dataloader硬编码16workers爆62G-cap-RAM(改4)/冒烟进程不退占24G显存(逐PID kill)/ckpt无裁剪填满60G盘ENOSPC崩(patch原子save+keep-last-N)**;Run1=QwenGR00T冻VLM只训head,GPU25/32G-97%util-1s/step;**eval方法论=先快速eval确认机械臂会动再auto-sweep**:本地clone wallx→starvla_eval(补rich/pytorch3d等),每ckpt rsync10GB回本地4090,serve_starvla(stateless+448+度转弧度)+StarVLAServicePolicyClient+starvla_sweep_watcher.sh GUI轮流用卡;脚手架examples/SO101_PickOrange/ + LeIsaac/scripts/evaluation/serve_starvla.py
 
 ## Negative archives (published to HF, 防止重踩)
@@ -53,9 +63,11 @@
 - [🇨🇳 PyTorch / pypi mirror 优先 aliyun](cn-pypi-mirror-aliyun.md) — `download.pytorch.org` 从本机 TLS handshake EOF；切 `mirrors.aliyun.com/pytorch-wheels/cu128` 14 MB/s 稳；`prefetch_uv_cache.sh` sed 替换不污染 git diff
 - [🔧 AutoDL × CN uv sync Isaac-GR00T 6-patch 配方](autodl-uv-sync-cn-strategy.md) — aliyun pypi default + 直接 URL torch + x86_64 only + 砍 tensorrt + no_proxy + flash-attn cxx11abiFALSE
 - [hf upload-large-folder 实战坑](hf-upload-tricks.md) — `pip install hf_transfer` + `HF_HUB_ENABLE_HF_TRANSFER=1` 5-10× 提速；`--exclude` 单 flag 多 value；resume cache `.cache/huggingface/upload/<file>.metadata`
+- [☁️ AutoDL box 直下 HF ~64MB/s](autodl-hf-download-speed.md) — network_turbo + hf_transfer 直下快(64MB/s,模型在box直下别本地下再传)；box→HF快 vs box→本机PULL才是~5MB/s瓶颈,别混淆
 - [💰 AutoDL 云端训练成本纪律](feedback-autodl-cost-discipline.md) — 每步先问"真的需要 GPU 模式吗"，无卡 ¥0.1/h vs GPU ¥6-8/h 差 60-80×
 - [HF README 项目链接按相关性](feedback-hf-readme-project-links.md) — model card 顶部插入与本 ckpt **任务相关**的 GitHub repo 链接（不是固定两个）；manipulation→两条都放，motion-tracking/locomotion→只放 isaaclab-experience；无关项目反向链接 = SEO 噪音 + 看着像 spam
 - [HF frontmatter 必填 datasets + base_model](feedback-hf-frontmatter-datasets-basemodel.md) — model card YAML 必须有 `datasets:` 和 `base_model:` (无则 `[]`)，否则 HF UI 不渲染数据集卡片 + 血缘关系；body 用 markdown 链接不算数
+- [📁 发布后自动归入对应 Collection](hf-collections-auto-place.md) — `scripts/hf_make_collections.py` 权威幂等；按任务族选 collection（PickOrange→LeIsaac PickOrange）；发完新 repo 加进 GROUPS 再跑
 
 ## Collab style
 - [HTML 文档样式规则](feedback-html-doc-rules.md) — 必须 `:root{color-scheme:light}` + body 显式 `background:#fff`；SVG/pre/table 都要成对显式 background+color；内嵌 SVG 不外链

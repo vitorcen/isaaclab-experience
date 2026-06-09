@@ -83,15 +83,21 @@ _20 episodes × 3 oranges = **60 oranges total** per row. Sort: E(🍊)/ep DESC.
 |---|---|---|---|---|---|---|---|
 | 🥇 | [`wsagi/GR00T-N1.7-PickOrange`](https://huggingface.co/wsagi/GR00T-N1.7-PickOrange) **自训 / ours** (h=40)                            | ~3B    | **68.3%** | 50% | 70% | 117s | 17.3 GB |
 | 🥈 | [`hi-space/GR00T-N1.7-3B-Pick-Orange`](https://huggingface.co/hi-space/GR00T-N1.7-3B-Pick-Orange) (h=40)                              | ~3B    | 66.7%     | 45% | 70% | 102s | 17.3 GB |
-| 🥉 | [`LightwheelAI/leisaac-pick-orange-v0`](https://huggingface.co/LightwheelAI/leisaac-pick-orange-v0) (N1.5, h=16)                      | ~3B    | 58.3%     | 40% | 65% | 47s  | 13.8 GB |
-| 4  | [`hi-space/GR00T-N1.6-3B-Pick-Orange`](https://huggingface.co/hi-space/GR00T-N1.6-3B-Pick-Orange) (h=40)                              | ~3B    | 48.3%     | 25% | 40% | 87s  | 14.9 GB |
-| 5  | [`wsagi/GR00T-N1.6-PickOrange`](https://huggingface.co/wsagi/GR00T-N1.6-PickOrange) **自训 / ours** (ckpt-6500, h=40)                  | ~3B    | 46.7%     | 20% | 45% | 66s  | 14.9 GB |
-| 6  | [`wsagi/ACT-PickOrange`](https://huggingface.co/wsagi/ACT-PickOrange) **自训 / ours** (lerobot v0.4.0 ckpt-18k, h=70)                  | ~52M   | 43.3%     | 30% | 40% | 151s | 9.5 GB  |
-| 7  | [`wsagi/StarVLA-PickOrange`](https://huggingface.co/wsagi/StarVLA-PickOrange) **自训 / ours** (QwenGR00T freeze-VLM, step-18k, h=16)    | ~4B    | 35.0%     | 10% | 35% | 170s | 16.7 GB |
-| 8  | [`shadowHokage/act_policy`](https://huggingface.co/shadowHokage/act_policy) (h=70)                                                    | ~52M   | 28.3%     | 10% | 20% | 169s | 8.6 GB  |
-| 9  | [`edge-inference/smolvla-so101-pick-orange`](https://huggingface.co/edge-inference/smolvla-so101-pick-orange) (h=50)                  | ~450M  | 25.0%     | 0%  | 20% | 179s | ~23 GB  |
-| 10 | [`wsagi/SmolVLA-PickOrange`](https://huggingface.co/wsagi/SmolVLA-PickOrange) **自训 / ours** (main=15k, h=50)                         | ~450M  | 25.0%     | 0%  | 15% | 176s | ~24 GB  |
-| 11 | [`wsagi/X-VLA-PickOrange`](https://huggingface.co/wsagi/X-VLA-PickOrange) **自训 / ours** (weakaug 17k, h=32)                          | 0.9B   | 6.7%      | 0%  | 0%  | 118s | 11.8 GB |
+| 🥉 | [`wsagi/StarVLA-Qwen3-VL-8B-PI_v3-PickOrange`](https://huggingface.co/wsagi/StarVLA-Qwen3-VL-8B-PI_v3-PickOrange) **自训 / ours** (QwenPI_v3 freeze-VLM, step-78000=4.3ep, h=16, 8bit eval) | ~8B    | **63.3%** | 40% | 55% | ~156s | 18.0 GB |
+| 4  | [`LightwheelAI/leisaac-pick-orange-v0`](https://huggingface.co/LightwheelAI/leisaac-pick-orange-v0) (N1.5, h=16)                      | ~3B    | 58.3%     | 40% | 65% | 47s  | 13.8 GB |
+| 5  | [`wsagi/StarVLA-Qwen3-VL-8B-PickOrange`](https://huggingface.co/wsagi/StarVLA-Qwen3-VL-8B-PickOrange) **自训 / ours** (QwenGR00T freeze-VLM, step-30k, h=16, 8bit eval) | ~8B    | **53.3%** | 35% | 45% | 156s | 18.0 GB |
+| 6  | [`hi-space/GR00T-N1.6-3B-Pick-Orange`](https://huggingface.co/hi-space/GR00T-N1.6-3B-Pick-Orange) (h=40)                              | ~3B    | 48.3%     | 25% | 40% | 87s  | 14.9 GB |
+| 7  | [`wsagi/GR00T-N1.6-PickOrange`](https://huggingface.co/wsagi/GR00T-N1.6-PickOrange) **自训 / ours** (ckpt-6500, h=40)                  | ~3B    | 46.7%     | 20% | 45% | 66s  | 14.9 GB |
+| 8  | [`wsagi/StarVLA-Qwen3.5-4B-PI_v3-PickOrange`](https://huggingface.co/wsagi/StarVLA-Qwen3.5-4B-PI_v3-PickOrange) **自训 / ours** (QwenPI_v3 freeze-VLM, step-21000=4.6ep, h=16) | ~4B    | **46.7%** | 20% | 45% | 147s | 17.5 GB |
+| 9  | [`wsagi/StarVLA-Qwen3.5-9B-PI_v3-PickOrange`](https://huggingface.co/wsagi/StarVLA-Qwen3.5-9B-PI_v3-PickOrange) **自训 / ours** (QwenPI_v3 freeze-VLM, step-10000=4.4ep, h=16, 8bit eval) | ~9B    | **45.0%** | 20% | 50% | 125s | 20.0 GB |
+| 10 | [`wsagi/ACT-PickOrange`](https://huggingface.co/wsagi/ACT-PickOrange) **自训 / ours** (lerobot v0.4.0 ckpt-18k, h=70)                  | ~52M   | 43.3%     | 30% | 40% | 151s | 9.5 GB  |
+| 11 | [`wsagi/StarVLA-Qwen3.5-2B-PI_v3-PickOrange`](https://huggingface.co/wsagi/StarVLA-Qwen3.5-2B-PI_v3-PickOrange) **自训 / ours** (QwenPI_v3 freeze-VLM, step-27k, h=16) | ~2B    | 43.3%     | 15% | 50% | 160s | 13.1 GB |
+| 12 | [`wsagi/StarVLA-PickOrange`](https://huggingface.co/wsagi/StarVLA-PickOrange) **自训 / ours** (QwenGR00T freeze-VLM, step-18k, h=16)    | ~4B    | 35.0%     | 10% | 35% | 170s | 16.7 GB |
+| 13 | [`shadowHokage/act_policy`](https://huggingface.co/shadowHokage/act_policy) (h=70)                                                    | ~52M   | 28.3%     | 10% | 20% | 169s | 8.6 GB  |
+| 14 | [`edge-inference/smolvla-so101-pick-orange`](https://huggingface.co/edge-inference/smolvla-so101-pick-orange) (h=50)                  | ~450M  | 25.0%     | 0%  | 20% | 179s | ~23 GB  |
+| 15 | [`wsagi/SmolVLA-PickOrange`](https://huggingface.co/wsagi/SmolVLA-PickOrange) **自训 / ours** (main=15k, h=50)                         | ~450M  | 25.0%     | 0%  | 15% | 176s | ~24 GB  |
+| 16 | [`wsagi/DiffusionPolicy-PickOrange`](https://huggingface.co/wsagi/DiffusionPolicy-PickOrange) **自训 / ours** (dp-grind step-18000=4ep；旧 ckpt-70k 过拟合=0%) | ~267M  | 8.3%      | 0%  | 0%  | 182s | 9.5 GB  |
+| 17 | [`wsagi/X-VLA-PickOrange`](https://huggingface.co/wsagi/X-VLA-PickOrange) **自训 / ours** (weakaug 17k, h=32)                          | 0.9B   | 6.7%      | 0%  | 0%  | 118s | 11.8 GB |
 
 > **Avg ep** = 平均每 episode wall-clock 时长（s），含 server inference + sim step；越短 = policy 越果断（早完成 or 早 stuck-out）。
 > **Peak VRAM** = `nvidia-smi` 总 GPU 内存峰值（含 Isaac Sim ~5-6 GB baseline + policy server）。
@@ -121,7 +127,9 @@ python3 scripts/benchmark/aggregate_strict_leaderboard.py \
 - **ACT 自训 (43.3%) > shadowHokage (28.3%) 53%**：锁版本 lerobot **v0.4.0** + ckpt-18k h=70 重训。原因 = v0.5 dataloader 行为漂移 (PR #3406 + #3442)；详见 [`LeIsaac/docs/training/act_framework_drift.html`](./LeIsaac/docs/training/act_framework_drift.html)。
 - **DP / OpenVLA / π0.5 自训 全 0/60**：50-60 demo 不够支撑这些 model class。DP 另有 lerobot async server bug — `predict_action_chunk` 不 `populate_queues`，已在 `lerobot-v040` editable 一行 patch 修复。
 - **X-VLA weakaug 17k 6.7%**：之前 single-run 9/18 是 small-N variance，strict 20-round 真实 P(≥1)=20%, P(≥2)=0%。
-- **StarVLA 自训 35.0% (step-18k)**：QwenGR00T 冻 VLM 只训 flow-matching head（云端 4080-32G）。云端 sweep 出倒 U 过拟合曲线，峰值 ~15k 步、>21k 塌陷（手臂晃动悬停）。主死因是慢（17/20 轮撞 180s 墙钟没放完 3 颗），非乱动。3-round 虚高 33% → strict 20-round 真值 P(3)=10%。提分杠杆 = 解冻 VLM 顶层 / 加 demo。
+- **StarVLA PI_v3 家族 2B/4B/9B 全量 sweep — 参数饱和在 ~46%，head 容量是天花板 / params saturate at ~46%, frozen-head is the ceiling**：QwenPI_v3（LayerwiseFM cross-DiT head，区别于 QwenGR00T flow-matching）冻 VLM 只训 head，三个骨干 20-round strict best：**4B/21000=46.7%（4.6ep）≈ 9B/10000=45.0%（4.4ep）> 2B/27000=43.3%（3.0ep）**。从 2B→4B 视觉红利 +3.4 点真实可见，但 **4B→9B 翻倍参数几乎零增益**（46.7%→45.0%，env_success 同 25%）—— 冻 VLM 时 action head 的表达力成瓶颈，堆 backbone 参数边际递减。每家族都坐实 **4-4.5ep sweet spot**：4B 三方 19k/20k/21k = 46.7%/31.7%/46.7%（19k 与 21k 铁板打平），9B 5-round 筛 9k-13k 后 top-2 各 20-round（10k 与 9k 又是 27/60 完全打平）。**3-round quick-eval 的"跨度差"几乎全是噪声**（σ=±16.8%；4B quick 曾报 21k=66.7% vs 19k=55.6%，20-round 下双双收敛到 46.7%）—— 选型必须 5-round 筛 + 20-round 定，不能信 quick。
+- **StarVLA Qwen3.5-2B + PI_v3 head 自训 43.3% (step-27k) > 4B Qwen3-VL 35.0% (step-18k) — 参数更少却反超 / smaller backbone, higher score**：换 VLM 家族（Qwen3.5-2B）+ 换 action head（QwenPI_v3 LayerwiseFM cross-DiT，区别于 QwenGR00T flow-matching），2B 量级即超过 4B Qwen3-VL —— **head 架构 + backbone 选型比单纯堆参数更关键**。20-round best=27000 (3.0ep)，35000 (3.85ep) 已过峰回落到 35.0%（**再次印证 3-4ep sweet spot**；其 3-round quick-eval 曾报 66.7%，但 σ=±16.8% 噪声，20-round 真值才 35.0%）。
+- **StarVLA 8B 自训 53.3% (step-30k) ≫ 4B 35.0% (step-18k)**：QwenGR00T 冻 VLM 只训 flow-matching head（4B 云端 4080-32G、8B 云端 4090-48G bs=4）。**换骨干零源码改动**（`cross_attention_dim` 运行时对齐到所载 VLM `hidden_size`：4B=2560 / 8B=4096）。**8B 的 vision dividend 实打实**：橙子率 35.0%→53.3% (+18 点)、P(3) 10%→35% (3.5×)，对 10-40px 小橙子，更大 VLM backbone 的视觉特征显著更强。两者同走倒 U 过拟合曲线（峰是 ~120k 样本驱动：4B 15k步×bs8、8B 30k步×bs4，过峰即悬崖塌陷）。8B 本机 24G 用 **8bit eval**（int8 ≈ bf16 实锤，serve+Isaac 共卡 18.0 GB）。提分杠杆 = 解冻 VLM 顶层 / 加 demo。
 
 - **GR00T 多 release env 隔离**：N1.5 / N1.6 / N1.7 各独立 submodule + venv (transformers 4.51.3 vs 4.57.3 ABI 冲突)；见 [`doc/gr00t_multi_release_env_split.html`](./doc/gr00t_multi_release_env_split.html)。
 

@@ -100,7 +100,7 @@ bash scripts/apply_leisaac_patches.sh
 `gear_sonic_setup.sh` 已自动调用（`submodule update --init` 之后）。
 
 ```bash
-bash scripts/apply_gear_sonic_patches.sh
+bash LeSONIC/scripts/apply_gear_sonic_patches.sh
 ```
 
 当前 patch：`0001-download-symlink-into-hf-cache.patch` —— `download_from_hf.py` 把 448MB

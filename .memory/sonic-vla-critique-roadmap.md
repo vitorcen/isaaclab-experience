@@ -37,4 +37,11 @@ Claude Opus 4.8 + codex gpt-5.5 + mimo-v2.5-pro 各独立批判再合并。文�
 ## 立刻可做(不需训练)
 页面诚实化:标题改"POC 7-trajectory memorization+WBC base";MSE 改"train-set reconstruction(no held-out)";每 demo 标 bootstrap/RELAX;F32→bf16;补最小复现包(WBC ckpt commit/env lockfile/ZMQ schema/抽token脚本/eval命令)。
 
+## P0 修复进度(2026-06-08,GPU占用→只做免GPU部分)
+- **✅ #3 bf16重存**:`LeSONIC/scripts/gr00t_resave_bf16.py`(纯CPU,保持原3-shard分组,只cast float→bf16,拷aux文件)→`outputs/gr00t_sonic_8k_bf16/` 1030 BF16 tensor/6.29G(原12.58G)。**待上传HF**(对外发布要确认)。
+- **✅ #1 snap-to-grid(推理侧免重训)**:铁证——录的`action.motion_token`精确落**17级均匀网格 k/16,k∈[-8,8],值域[-0.5,0.5]**(=FSQ量化码,decode不再量化直接吃token)。GR00T flow-matching吐连续值:实测预测**off-grid L1均值0.0158=半格的50.6%(≈格内随机)、60%维度偏离>0.01、值域出界[-0.812,0.688]**。修=`snap=clamp(round(t*16)/16,±0.5)`落两injector(`vla_live_injector.py`wrapped里snap`tok`/`vla_token_injector.py`load时snap),env`SONIC_SNAP_GRID`默认开,patch 0003/0004已重生成(reverse-apply验证==工作树)。**闭环关节增益待GPU A/B(SONIC_SNAP_GRID=0对照)**。
+- **✅ #2 held-out切分工具**:`LeSONIC/scripts/make_holdout_split.py` leave-one-motion-out(LOMO):丢1动作整ep,重写meta(episodes/tasks/info连续重索引)+rewrite parquet(episode_index/task_index/global index)+symlink视频(省GB)+**故意省stats.json让GR00T`generate_stats`按6-ep子集重算**(它只算lowdim float、缺则regen,见gr00t/data/stats.py)。已GPU-free验证(6ep/索引连续/3391=3815-424帧)。finetune脚本直接指dst即可。**重训+held-out eval是真go/no-go信号,待GPU**。
+- **⏳ #1' loss改per-dim CE/pre-quant latent**:训练侧根治,需重训(GPU);snap是其推理侧近似。
+- **📝 #4 页面诚实化**:草稿`/tmp/sonic_card_revised.md`就绪,**待确认上传**。
+
 关联 [[sonic-wbc-vla-route]] [[vla-distill-data-diversity-roi]] [[feedback-mimo-independent-review]] [[gr00t-multi-release-env-split]]。

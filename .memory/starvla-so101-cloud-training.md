@@ -22,6 +22,25 @@ metadata:
 - flash-attn:预编 wheel `flash_attn-2.7.4.post1+cu12torch2.6cxx11abiFALSE-cp310-cp310` 经代理 `--no-deps`。
 - `pip install -e . --no-deps`。
 - 启动铁律(同 wallx):**全用 env 二进制全路径,别 `conda activate`**(非交互 SSH 挂)。
+- 🔴🔴 **进程持久化铁律 = 必须 tmux,别 `setsid nohup … &`**(2026-06-07 westb:27361 实测血泪)。
+  这台 AutoDL 4090 上 `setsid nohup bash train.sh &` 启动的进程**随那条 SSH 会话关闭就被杀**
+  (设了 setsid+nohup 也没保住)→ 表现为 `pgrep` 总抓到一个 `etime≈0s` 的新 PID、log mtime 永远
+  不推进、GPU 一直 0 = 看着"启动了却没在跑"。**根治 = `tmux new-session -d -s <name> "bash train.sh"`**,
+  tmux 让进程脱离 SSH 会话生命周期,SSH 断开/抖动都不影响。检查用 `tmux ls` + log mtime 推进 + GPU。
+- 🔴 **AutoDL SSH（走本机 mihomo 代理 FakeIP 198.18.x）极不稳 + 易触发 sshd 限流**:
+  短时间几十次快速 SSH 重试会被云机限流 → 后续大面积 `Connection timed out/closed`(误判 box 挂)。
+  且**大 HF 上传(hf_transfer 129+连接)会饿死同代理的 SSH**(见 [[hf-upload-tricks]] §0.3)。
+  对策:① 重试间隔 ≥5s;② 重试函数**只在"输出为空"时重试,别在"退出码非零"时重试**——否则
+  `pkill`/`tmux kill-server` 返回非零会让你把整条命令(含刚建的 tmux 会话)反复重跑、自己杀自己;
+  ③ launch 这种一次性操作:**短命令 + tmux** 一次成功即可,不需要长会话保活。
+- 🔴🔴 **训练在固定 step 崩 `av.error.MemoryError [Errno 12]` = torchvision_av codec-context 泄漏(2026-06-07 westb PI_v3 实测，已验证修复)**。
+  症状:训练每次都**精确崩在同一 step（如 1654）**，traceback 在 `torchvision/io/video_reader.py → av/codec/context.pyx:238 CodecContext.open → MemoryError`；
+  **host RAM 一堆空闲（407G free）但仍 ENOMEM** = 不是 RAM 不够，是 `torchvision.io.VideoReader` 每次读视频泄漏 FFmpeg codec context（native mmap），
+  累积撞 `vm.max_map_count`（即便已是 655300=默认10×，~396 maps/read 也撑不住）→ `avcodec_open2` 失败。**误诊陷阱：别赖到 RAM/rsync/模型大小头上**（我先后错赖了并发 rsync、PI_v3 更占 RAM，都不对）。
+  **根因修复（零开销，已验证 1.91 it/s 不降）**：`starVLA/dataloader/gr00t_lerobot/video.py` 的 `get_frames_by_timestamps` torchvision_av 分支 `finally` 里，
+  在 close container 之后加 `reader=None; gc.collect(0)`（顶部 `import gc`）——**`gc.collect(0)` 只收第 0 代**（刚弃用的 reader 环就在 gen-0，便宜；别用全代 `gc.collect()`，`load_all_data` 下全代扫描会拖垮吞吐）。
+  本数据集视频是 **AV1 编码 → 只能用 torchvision_av，不能换 decord**（decord 0.6 解不了 AV1），所以必须就地修泄漏。patch 已在本地 `dependencies/starVLA` 同 commit 改好，scp 覆盖云端 video.py 即可（video.py 不在 _pack_sample448/workers 那些已知 patch 列表里，覆盖安全）。
+  **附带认知**:codec 泄漏是 step/读次数驱动 → bs 越小（步数越多）越早暴露；westd 的 8B GR00T(bs=4)没崩可能只是它的 box/epoch 边界凑巧没触发，不代表无泄漏。
 
 ## SO-101 适配(比 plan 预估小很多)
 - **repo 自带 `SO101Config`**(`examples/Franka/train_files/data_registry/data_config.py`,6-DOF joint:shoulder_pan/lift,elbow_flex,wrist_flex/roll,gripper)。

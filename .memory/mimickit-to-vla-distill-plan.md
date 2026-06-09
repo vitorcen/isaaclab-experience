@@ -37,7 +37,7 @@ ACT 10k 步训成（lerobot 0.5.2，chunk_size=16）：train loss→0.149，任�
 - mimo 其余：isotropic 噪声够用(别 per-joint)；clean+DART 混合别 DART-only；目标 50-100 DART/motion(少则升 σ 补)；DART-first 对(DAgger 要在线跑 student 更重)；go=DART 后存活≥50 则继续 DAgger，<5 帧改善则查 ACT 容量/action 表示/clean 数据质量。
 **驱动脚本**：`scripts/mimickit_vla_dart.sh`（SIGMA/NUM_DART/STEPS/STAGE 可调，record→merge clean+DART→train ACT chunk_size=16）。数据集 `datasets/g1-lafan-vla-dart-img`，ckpt `outputs/act_g1_lafan_dart`。闭环判定：mean 帧数 20→≥50 则 DART 有效继续 DAgger 到 300。
 **clean baseline 事实**：fight/dance 各 10ep，全 300 帧(dance 有 1 个 32 帧早摔)；现有 baseline ckpt = chunk_size=16/n_action_steps=16/n_obs_steps=1/dim_model=512。
-**另一条路（用户暂缓）架构侧 WBC+finetune**：`UNITREE-G1.ipynb` + `scripts/gear_sonic_{setup,preview}.sh` + `groot_n17_download.sh`，SONIC-encoder→latent label→finetune GR00T-N1.7。
+**另一条路（用户暂缓）架构侧 WBC+finetune**：`UNITREE-G1.ipynb` + `LeSONIC/scripts/gear_sonic_{setup,preview}.sh` + `groot_n17_download.sh`，SONIC-encoder→latent label→finetune GR00T-N1.7。
 **复用环境/坑全在 [[lerobot-v040-convert-segfault-fix]]**：视频 decode 必崩→image 数据集+num_workers=0；ACT 训练用 lerobot 0.5.2 不是 v040；闭环 recorder teardown 用 os._exit(0)；进程按 output_dir 名 pkill。
 
 ## 🔴 闭环 go/pivot 终判（2026-06-03）：pipeline GO，naive-BC 平衡 PIVOT
@@ -50,7 +50,7 @@ ACT 10k 步训成（lerobot 0.5.2，chunk_size=16）：train loss→0.149，任�
 - **下一步方向**（三模型调研定，2026-06-03 Opus×GPT-5.5×MiMo，doc/vla_data_expansion_covariate_shift.html）：
   **两条治本路互补**。① 数据侧（便宜、沿用现有 ACT）：**DART(录制时给 teacher 动作注入噪声 σ=0.02-0.05rad，label 存 clean teacher action) → 必须先 DART 再 DAgger** → RSI+push+dynamics-DR(非 visual)。半天出 go/pivot：mean 帧数 20→≥50 则 DART 有效继续 DAgger 到 300。② 架构侧（天花板高、架设重）：**GEAR-SONIC WBC 当平衡底座**。
   铁律：公开 humanoid 全身**无一靠纯离线 BC**（DeepMimic RSI / OmniH2O DAgger / HumanPlus teleop / PHC·PULSE latent+RL）。
-- **🏗️ 架构侧 = WBC + finetune（用户主推，2026-06-03 核实）**：`nvidia/GEAR-SONIC` 是 G1 全身控制器(WBC，会 walk/run/jump，encoder/decoder/planner ONNX，可 MuJoCo 键盘预览)。`UNITREE_G1`/`UNITREE_G1_SONIC` 是 GR00T 的**动作空间 tag(posttrain)不是模型**；**无现成微调好的 G1 VLA**，必须从 `nvidia/GR00T-N1.7-3B` base 自己 finetune。路线：SONIC encoder 把 motion 转 latent 当 label → 建 UNITREE_G1_SONIC LeRobot 数据集 → finetune GR00T → VLA 出 latent→WBC decode→不摔。脚手架：`UNITREE-G1.ipynb` + `scripts/gear_sonic_{setup,preview}.sh` + `groot_n17_download.sh`（GEAR-SONIC 安装重：TensorRT+C++ build+.venv_sim，首次需验证）。相机取景差（G1 占画面极小）也要修。
+- **🏗️ 架构侧 = WBC + finetune（用户主推，2026-06-03 核实）**：`nvidia/GEAR-SONIC` 是 G1 全身控制器(WBC，会 walk/run/jump，encoder/decoder/planner ONNX，可 MuJoCo 键盘预览)。`UNITREE_G1`/`UNITREE_G1_SONIC` 是 GR00T 的**动作空间 tag(posttrain)不是模型**；**无现成微调好的 G1 VLA**，必须从 `nvidia/GR00T-N1.7-3B` base 自己 finetune。路线：SONIC encoder 把 motion 转 latent 当 label → 建 UNITREE_G1_SONIC LeRobot 数据集 → finetune GR00T → VLA 出 latent→WBC decode→不摔。脚手架：`UNITREE-G1.ipynb` + `LeSONIC/scripts/gear_sonic_{setup,preview}.sh` + `groot_n17_download.sh`（GEAR-SONIC 安装重：TensorRT+C++ build+.venv_sim，首次需验证）。相机取景差（G1 占画面极小）也要修。
 - 脚手架：`scripts/act_policy_server.py` + `rollout_act_eval.py` + `mimickit_vla_act_closedloop.sh`（NACT=n_action_steps override）。
 踩坑全记在 [[lerobot-v040-convert-segfault-fix]]。
 
