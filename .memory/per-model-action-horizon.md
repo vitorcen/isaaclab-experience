@@ -34,9 +34,9 @@ eval 时 `ACTION_HORIZON` 不应统一写 16。N1.7 实测 h=40 (其训练值) >
 
 ## 建议落地位置
 
-1. **TSV lookup table** `scripts/benchmark/baselines_action_horizon.tsv`，benchmark/eval scripts 读它
+1. **TSV lookup table** `LeIsaac/scripts/benchmark/baselines_action_horizon.tsv`，benchmark/eval scripts 读它
 2. **eval_*.sh 内联**：每个 server eval 脚本头部贴自己的 `ACTION_HORIZON=<trained>` 默认（替代旧统一 16）
-3. **auto-detect helper** `scripts/benchmark/get_action_horizon.py model_id` → 输出 N，shell `$()` 即用
+3. **auto-detect helper** `LeIsaac/scripts/benchmark/get_action_horizon.py model_id` → 输出 N，shell `$()` 即用
 
 最稳：1 + 3 组合，benchmark 脚本不再 hardcode。
 

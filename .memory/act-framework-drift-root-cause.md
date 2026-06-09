@@ -55,7 +55,7 @@ ACT 是 80M 小模型 + 10k step + 60 episodes 低数据 regime，对 batch orde
 - torchvision==0.21+ 与 torch>=2.6 配对
 - lerobot v0.4.0 需 `pip install -e .` 自动拉 torch 满足 [2.2.1, 2.8.0) pin
 - async 推理需要补装 `grpcio==1.73.1 protobuf==6.31.0`
-- 推理用同 lerobot-v040 env (`LEROBOT_PYTHON=...envs/lerobot-v040/bin/python bash scripts/policy_server.sh start lerobot`)
+- 推理用同 lerobot-v040 env (`LEROBOT_PYTHON=...envs/lerobot-v040/bin/python bash LeIsaac/scripts/policy_server.sh start lerobot`)
 
 **最高 ROI 修复方案**：锁版本 lerobot v0.4.0 + torch 2.6+ 重训
 

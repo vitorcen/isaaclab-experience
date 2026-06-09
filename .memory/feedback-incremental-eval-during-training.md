@@ -15,7 +15,7 @@ metadata:
 
 **How to apply**:
 - 设 `STEPS=100000 SAVE_FREQ=10000`（10 等分）/ `STEPS=20000 SAVE_FREQ=2000` 类似
-- 每个新 ckpt 落地 → 立即跑 **X-VLA-style quick eval**: `EVAL_ROUNDS=3 EPISODE_S=60 MAX_ROUND_WALL_S=90`（3-5min/eval × 10 slice = 30-50min 总开销）。canonical 实现见 `scripts/auto_sweep_xvla_ckpts.sh`
+- 每个新 ckpt 落地 → 立即跑 **X-VLA-style quick eval**: `EVAL_ROUNDS=3 EPISODE_S=60 MAX_ROUND_WALL_S=90`（3-5min/eval × 10 slice = 30-50min 总开销）。canonical 实现见 `LeIsaac/scripts/auto_sweep_xvla_ckpts.sh`
 - 两个 abort 信号:
   1. **oranges placed = 0** 跨连续 3 个 slice（如 30%, 40%, 50%）→ abort
   2. **arm joint range < 0.1 rad / stuck < 30s/ep** 连续 3 slice → policy 学到退化先验，abort

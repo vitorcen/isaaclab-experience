@@ -64,7 +64,7 @@ def _to_ndarray(x):
         ...
 ```
 
-`server/eval_gr00t.sh` 加 `POLICY_TYPE` env, 默认 `gr00tn1.5` (与新 client 配套)。
+`LeIsaac/server/eval_gr00t.sh` 加 `POLICY_TYPE` env, 默认 `gr00tn1.5` (与新 client 配套)。
 
 ## 次生坑（也要记）
 

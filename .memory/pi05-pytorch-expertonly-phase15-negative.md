@@ -112,7 +112,7 @@ LeIsaac SO-101：
 `lerobot_finetune.sh` line 180: `nohup ... > $OUTPUT_DIR/auto_eval.log 2>&1 &` —— OUTPUT_DIR 还没建时 redirect 失败，watcher 静默死亡。修法：watcher launch 前 `mkdir -p "$OUTPUT_DIR"`。
 
 ### Bug 2: lerobot env mismatch (已修 watcher 调用)
-`eval_watcher.sh` 默认 `LEROBOT_PYTHON=/home/david/miniconda3/envs/lerobot-v040/bin/python`，但 pi05 训练用 `lerobot` env（新版 config 字段 `train_expert_only` v040 不认）。修法：手动传 `LEROBOT_PYTHON` + `LEROBOT_REPO`。
+`eval_watcher.sh` 默认 `LEROBOT_PYTHON=~/miniconda3/envs/lerobot-v040/bin/python`，但 pi05 训练用 `lerobot` env（新版 config 字段 `train_expert_only` v040 不认）。修法：手动传 `LEROBOT_PYTHON` + `LEROBOT_REPO`。
 
 ### Bug 3: 4B model serial eval OOM
 policy_server 不卸载旧 ckpt 直接加载新的 → 4B × 2 = 32G + Isaac Sim 6G 残留 → 24G OOM。修法：每 ckpt kill+restart server（写在 `/tmp/pi05_serial_eval.sh`）。

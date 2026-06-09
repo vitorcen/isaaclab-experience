@@ -236,7 +236,7 @@ show_next_steps() {
     log_info "下一步操作："
     echo ""
     echo "  1. 下载 LeIsaac 资产（新机器必做）:"
-    echo "     ./leisaac.sh"
+    echo "     bash LeIsaac/init.sh"
     echo ""
     echo "  2. 构建 IsaacSim:"
     echo "     cd dependencies/IsaacSim"

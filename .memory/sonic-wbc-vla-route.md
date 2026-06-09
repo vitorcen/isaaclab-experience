@@ -148,6 +148,18 @@ python gear_sonic/eval_agent_trl.py +checkpoint=sonic_release/last.pt +headless=
 - WBC submodule：`gear_sonic/data/vla_live_injector.py`(新,**被 data/ gitignore 吞,转 patch 要 force-add**,同 0003 套路 → 建 `LeSONIC/patches/gear-sonic/0004-vla-live-injector.patch`)。
 - 全局 skill/memory（在 `~/.claude/`，不在 repo）：`hf-publish-model` SKILL.md + scripts/publish.sh 已改;`hf-upload-tricks.md` 已补。
 
+## 🎬 时序 prompt 串接（2026-06-09，单会话多动作，免重启 GUI/server）
+**用户要"一句话序列驱动 squat→walk→kick、录像平滑"。已实现（GPU-free 全验，待显卡录像）。**
+- **底层支撑（实锤）**：GR00T server **无状态**，prompt 每 query 放在 obs 的 `language` 里 → 中途改 `self.prompt` 下次 query 即生效，**server/GUI 都不用重启**。这是时序换 prompt 能成立的根。
+- **能力边界（诚实，已写进 launcher 注释）**：这是**对记忆的 7-skill 模型做 prompt 编排（orchestration）**，不是复合 prompt 理解；仍 RELAX。**neutral-hub 串接只治 (A) 起姿 off-distribution，不治 (B) 从中性姿重新触发歧义** → one-shot 段（kick/walk/jump）仍需 per-segment bootstrap 才离开站姿。根治要 P1 相位/记忆。自持四动作（squat/lunge/dance/macarena）串接最干净。
+- **脚手架**：① `vla_live_injector.py` 升级为 **timeline 驱动**（向后兼容单 prompt = 单无限段）：构造器加 `timeline_json`；`_build_segments/_current_segment/_pick_source` 段内顺序 = settle(neutral 或 freeze last)→bootstrap→live；段切换在 `eval_step` 换 prompt+强制重 query。② `LeSONIC/scripts/gr00t_build_sequence.py`（纯 stdlib，`--seq squat,walk,kick` 或 `squat:150,kick:180`；ONESHOT={kick,walk,jump} 自动挂 bootstrap_npz=PRED_DIR/<key>.npz；emit `total_steps`）。③ `LeSONIC/scripts/gear_sonic_sequence.sh`（建 timeline→launch）。
+- **🔑 两个躲过的运行时坑**（grep 源码确认，非猜）：① **`time_out`**（`tracking_time_out`，单 motion 播完即重置）必须 `++manager_env.terminations.time_out=null`；② **`episode_length_s`**（`base_env.yaml:31`=10.0，IsaacLab **时间截断**，绕过 time_out！）必须按总步数拉长 = `++manager_env.config.episode_length_s=total_steps*0.02+5`（控制 dt=decimation4×sim_dt0.005=0.02s=50Hz；默认 10s 只够 500 步，600 步序列会砍在 kick 中段）。
+- **patch**：`vla_live_injector.py` 在 gitignore 的 `data/` → `0004-vla-live-injector.patch` 用 `git diff --no-index` 重生成。`manager_env_wrapper.py`(tracked) 的 **C 键近距视角** → `0005-viewer-snap-to-robot-key.patch`(普通 modification diff，`git apply --check --reverse` 验过)。
+- **一键编排 + notebook（2026-06-09 跑通验证）**：`scripts/gear_sonic_live_demo.sh` = **自动起 GR00T server(幂等,pgrep 查 port 5555,缺则 Isaac-GR00T/.venv 起+等"Loading checkpoint shards: 100%")→ 再开 viewer**(server/viewer 两 env 不同所以要编排);`scripts/gear_sonic_stop.sh` = 杀 viewer+server 释放显存(**bracket `[e]val` 防 pgrep 自匹配**)。`SONIC.ipynb` 加 **⑤ 区**(5.0 list / 5.1 @flow1 / 5.2 @flow2 / 5.3 即兴+视角键 / 5.4 stop)。
+- **视角/可视化坑(GUI demo 必调)**：① 默认 viewer 上帝视角太远 → launcher `++manager_env.config.viewer.eye/lookat` 改近距全身(`eye=[2.2,2.2,0.5] lookat=[0,0,-0.1]`,lookat z 偏低才看得到腿;CAM_EYE/CAM_LOOKAT env 可调);wrapper 加 **C 键 `snap_to_robot`**(非 toggle,SONIC_CAM_OFFSET 调)。② **黄/红球(goal/body marker)跟的是加载的 squat 参考(原地+8.5s循环复位),机器人被注入 token 驱动走开→对不上**,无轻量修法 → launcher 默认 `++manager_env.commands.motion.debug_vis=False` 隐藏。③ **`pgrep -f eval_agent_trl` 会匹配自己的诊断命令** 造成"进程反复重启"假象 → 用 `ps|grep '[e]val_agent_trl'` bracket 技巧。
+- **待 commit（用户自己）**：`scripts/{gear_sonic_sequence.sh,gr00t_build_sequence.py,sonic_demo_flows.json,gear_sonic_live_demo.sh,gear_sonic_stop.sh}` + `patches/gear-sonic/{0004,0005}` + `SONIC.ipynb`(⑤区) + `.memory`。
+- **待 GPU/录像**：`bash scripts/gear_sonic_live_demo.sh @flow2` 一键跑;平滑录像走 render-to-mp4(`render_results=true`+`save_rendering_dir`,避开 live viewer 的推理 stall);实时提速要 server bf16(动 Gr00tPolicy 加载)。held-out 闸门 + RELAX=0 严格重测仍是 go/no-go 主线。
+
 ## 架构侧 Stage C 要点（评审给的，等路 A 过了再用）
 - token 注入：`UniversalTokenModule.decode("g1_dyn",{token_flattened(64),proprioception})` 或 `forward(latent_residual_mode="pre_quantization_replace")`。in-process，免 C++。
 - **GR00T 训练目标用 pre-quantization 连续 latent**（非分类、非量化后值），推理时过 SONIC 同一 FSQ quantizer 再 decode（codex+mimo 一致）。

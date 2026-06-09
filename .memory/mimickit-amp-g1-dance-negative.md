@@ -46,7 +46,7 @@ dance 保真度 = phase-tracking，不是 AMP 分布匹配。
     --output dependencies/MimicKit/data/motions/g1/lafan_dance_30s.pkl \
     --start_frame 1521 --end_frame 2421
   bash scripts/mimickit_train_one.sh lafan_dance_30s 2500 \
-    /home/david/work/isaaclab-experience/dependencies/MimicKit/output/train_lafan_dance_15s/int_models/model_0000001500.pt
+    ~/work/isaaclab-experience/dependencies/MimicKit/output/train_lafan_dance_15s/int_models/model_0000001500.pt
   ```
 - **收敛曲线**（Test_Return，4096 envs，~50min）：
   0→11 / 500→147 / 1000→206 / 1500→225 / 2000→235 / **2500→244（平台）**。

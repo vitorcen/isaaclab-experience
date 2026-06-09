@@ -27,10 +27,8 @@ from lerobot.datasets.lerobot_dataset import LeRobotDataset
 
 
 def _ffmpeg_bin():
-    for f in ("/usr/bin/ffmpeg", "/home/david/miniconda3/envs/lerobot/bin/ffmpeg"):
-        if os.path.exists(f):
-            return f
-    return shutil.which("ffmpeg")
+    # prefer the active env's ffmpeg (PATH), fall back to system ffmpeg
+    return shutil.which("ffmpeg") or "/usr/bin/ffmpeg"
 
 
 def _patch_encode_cli():

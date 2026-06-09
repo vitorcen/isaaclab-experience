@@ -41,4 +41,4 @@ fi
 - [[feedback-incremental-eval-during-training]] 10-slice 规则 (CLAUDE.md)
 - [[compact-resume-2026-05-22]] DP-v040-fullres 真正配置
 - `LeIsaac/scripts/training/eval_watcher.sh` + `lerobot_finetune.sh` AUTO_EVAL hook
-- `scripts/auto_sweep_xvla_ckpts.sh` X-VLA 同款 sweep 但 post-hoc
+- `LeIsaac/scripts/auto_sweep_xvla_ckpts.sh` X-VLA 同款 sweep 但 post-hoc

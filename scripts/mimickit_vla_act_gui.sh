@@ -5,7 +5,7 @@
 #
 # Usage:  scripts/mimickit_vla_act_gui.sh [fight|dance] [num_episodes]
 set -uo pipefail
-ROOT=/home/david/work/isaaclab-experience
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MK=$ROOT/dependencies/MimicKit
 CKPT=${CKPT:-$ROOT/outputs/act_g1_lafan_sanity/checkpoints/last/pretrained_model}
 MOTION=${1:-fight}

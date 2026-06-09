@@ -5,7 +5,7 @@
 # checkpoint:
 #   1. (Re)start GR00T inference server via server/start_server.sh --gr00t-only
 #      with GR00T_MODEL_PATH=<ckpt> GR00T_EMBODIMENT_TAG=new_embodiment
-#   2. Run server/eval_gr00t.sh ($EVAL_ROUNDS round × $EPISODE_LENGTH s)
+#   2. Run LeIsaac/server/eval_gr00t.sh ($EVAL_ROUNDS round × $EPISODE_LENGTH s)
 #   3. Parse "Final success rate" line, append CSV row
 #   4. Kill server, wait for next ckpt
 #
@@ -85,7 +85,7 @@ eval_one_ckpt() {
         ACTION_HORIZON="$ACTION_HORIZON" \
         EVAL_ROUNDS="$EVAL_ROUNDS" EPISODE_LENGTH="$EPISODE_LENGTH" \
         MAX_ROUND_WALL_S="$MAX_ROUND_WALL_S" PROMPT="$PROMPT" \
-        timeout $tmo bash "$REPO_ROOT/server/eval_gr00t.sh" 2>&1 | tee "$eval_log" | \
+        timeout $tmo bash "$REPO_ROOT/LeIsaac/server/eval_gr00t.sh" 2>&1 | tee "$eval_log" | \
         grep -E "Evaluating episode|placed|Final|success rate" | tail -10 || true
 
     final_line=$(grep "Final success rate" "$eval_log" | tail -1 || echo "")

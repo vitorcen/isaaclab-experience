@@ -1,15 +1,16 @@
 # scripts/
 
-辅助脚本集合。两条领域线：
+伞仓辅助脚本集合（伞仓级通用工具）。
 
-1. **LeIsaac SO-101 PickOrange VLA 推理**（GR00T N1.5 / SmolVLA fine-tune）
-2. **GR1 双臂 robocasa tabletop 演示**（GR00T N1.6 base）
+- **GR1 双臂 robocasa tabletop 演示**（GR00T N1.6 base，与 LeIsaac 无关）
+- **通用 HF 模型下载器**
+- **LeIsaac / GEAR-SONIC submodule patch 维护**
 
-加上 LeIsaac submodule patch 维护与通用 HF 下载器。
+> **PickOrange SO-101 的 eval/benchmark/policy server 已迁入 `LeIsaac/`** —— 见 `LeIsaac/scripts/`（benchmark、policy_server、sweep、ckpt 工具）、`LeIsaac/server/`（SO-101 策略 server）、`LeIsaac/README`。
 
 ---
 
-## LeIsaac SO-101 PickOrange
+## 通用 HF 模型下载
 
 ### `download_hf_model.sh REPO_ID`
 
@@ -26,49 +27,6 @@ bash scripts/download_hf_model.sh edge-inference/smolvla-so101-pick-orange
 下载完之后下游代码直接用 repo_id 引用即可，例如 `AutoModel.from_pretrained("LightwheelAI/leisaac-pick-orange-v0")` 或 `--policy_checkpoint_path edge-inference/smolvla-so101-pick-orange`，HF 内部走 cache。
 
 查看缓存：`huggingface-cli scan-cache`；自定义路径：`export HF_HOME=/your/path`。
-
-### `policy_server.sh {start|stop} {gr00t-n15|lerobot} [MODEL_PATH]`
-
-统一管理 VLA 推理服务，幂等。
-
-| Backend | 端口 | 协议 | 模型加载方 | 默认 MODEL_PATH | 说明 |
-| --- | --- | --- | --- | --- | --- |
-| `gr00t-n15` | 5555 | ZMQ | **server** | `LightwheelAI/leisaac-pick-orange-v0` | Isaac-GR00T-N1.5 inference_service.py |
-| `gr00t-n16` | 5555 | ZMQ | **server** | `hi-space/GR00T-N1.6-3B-Pick-Orange` | Isaac-GR00T run_gr00t_server.py，embodiment_tag=NEW_EMBODIMENT |
-| `lerobot`   | 8080 | gRPC | **client** 通过 `--policy_checkpoint_path` 指定 | — | LeRobot async-inference policy_server，client 选 ckpt（SmolVLA / ACT / pi0 …） |
-
-⚠ `gr00t-n15` 和 `gr00t-n16` 共用 :5555，同时只能起一个。
-
-MODEL_PATH 可以是 HF repo_id（走默认 cache）或本地绝对路径。
-
-```bash
-# GR00T N1.5 默认 ckpt
-bash scripts/policy_server.sh start gr00t-n15
-bash scripts/policy_server.sh stop  gr00t-n15
-
-# GR00T N1.6 默认 ckpt
-bash scripts/policy_server.sh start gr00t-n16
-bash scripts/policy_server.sh stop  gr00t-n16
-
-# 切到其它 ckpt（repo_id 或本地路径都行）
-bash scripts/policy_server.sh start gr00t-n15 SomeOrg/some-other-n15-ckpt
-bash scripts/policy_server.sh start gr00t-n16 /abs/path/to/local/ckpt
-
-# LeRobot server，client 端通过 --policy_checkpoint_path 指定模型
-bash scripts/policy_server.sh start lerobot
-bash scripts/policy_server.sh stop  lerobot
-```
-
-已验证可用的 client checkpoint（搭 `lerobot` server）：
-- `edge-inference/smolvla-so101-pick-orange`（policy_type=`lerobot-smolvla`）
-- `shadowHokage/act_policy`（policy_type=`lerobot-act`）
-
-环境变量覆盖（gr00t-n15 专用）：
-- `GR00T_N15_DIR` — Isaac-GR00T-N1.5 仓库路径（默认 `../Isaac-GR00T-N1.5`）
-- `GR00T_N15_PYTHON` — conda env python（默认 `~/miniconda3/envs/gr00t-n15/bin/python`）
-- `GR00T_N15_HOST` / `GR00T_N15_PORT` — bind host/port
-
-日志：`logs/gr00t_n15_server.log` / `logs/lerobot_server.log`，PID 同名 `.pid`。
 
 ---
 

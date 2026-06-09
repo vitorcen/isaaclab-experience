@@ -432,7 +432,7 @@ for prim in stage.TraverseAll():
 python scripts/g1_usd_recolor.py
 
 # 2) point engine at it (no source edits to MimicKit submodule):
-export MIMICKIT_G1_USD=/home/david/work/isaaclab-experience/dependencies/MimicKit/data/assets/g1/g1_textured.usd
+export MIMICKIT_G1_USD=~/work/isaaclab-experience/dependencies/MimicKit/data/assets/g1/g1_textured.usd
 
 # 3) run eval — student now has per-link 黑灰两色, teacher 仍是绿
 bash scripts/mimickit_eval_chain.sh</code></pre>
@@ -443,7 +443,7 @@ bash scripts/mimickit_eval_chain.sh</code></pre>
 <h2 id="reproduce">4. 复现 <small class="en">— Reproduce</small></h2>
 
 <h3>训练（重训 4 motion）</h3>
-<pre><code>cd /home/david/work/isaaclab-experience
+<pre><code>cd ~/work/isaaclab-experience
 # 4 × 15 s 切段已落 dependencies/MimicKit/data/motions/g1/lafan_*_15s.pkl
 # 如需重新切，用:
 #   python scripts/lafan_g1_npz_to_mimickit.py --input npz --output pkl \

@@ -73,11 +73,11 @@ _Compare open-source VLA policies + our fine-tunes on the same task via remote i
 
 - **任务 / Task**：`Pick up the orange and place it on the plate` (3 oranges)
 - **机器人 / Robot**：SO-101 follower (5 关节 + gripper) · **观测**：front + wrist cam (480×640 RGB) + joint state
-- **入口 / Entry point**：📓 [LeIsaac.ipynb](./LeIsaac.ipynb) — 每子章节一键 cell
+- **入口 / Entry point**：📓 [LeIsaac.ipynb](./LeIsaac/LeIsaac.ipynb) — 每子章节一键 cell
 
 ### Strict 20-round Leaderboard
 
-_20 episodes × 3 oranges = **60 oranges total** per row. Sort: E(🍊)/ep DESC. Full distribution + per-episode raw data: [`scripts/benchmark/STRICT_LEADERBOARD.md`](./scripts/benchmark/STRICT_LEADERBOARD.md)._
+_20 episodes × 3 oranges = **60 oranges total** per row. Sort: E(🍊)/ep DESC. Full distribution + per-episode raw data: [`LeIsaac/scripts/benchmark/STRICT_LEADERBOARD.md`](./LeIsaac/scripts/benchmark/STRICT_LEADERBOARD.md)._
 
 | Rank | Model                                                                                                                              | Params | **E(🍊)/ep** | P(3) | P(≥2) | Avg ep  | Peak VRAM |
 |---|---|---|---|---|---|---|---|
@@ -105,7 +105,7 @@ _20 episodes × 3 oranges = **60 oranges total** per row. Sort: E(🍊)/ep DESC.
 > **E(🍊)/ep** = 每 episode 期望放置橙子数（满分 3）= total_oranges / N_episodes。
 > **P(k)** = single-episode placed=k 的概率；**P(≥2)** = 单 ep 至少 2 颗。
 >
-> _3 个 0/60 entries (DP / OpenVLA / π0.5 自训) 见完整榜单 [`scripts/benchmark/STRICT_LEADERBOARD.md`](./scripts/benchmark/STRICT_LEADERBOARD.md)。_
+> _3 个 0/60 entries (DP / OpenVLA / π0.5 自训) 见完整榜单 [`LeIsaac/scripts/benchmark/STRICT_LEADERBOARD.md`](./LeIsaac/scripts/benchmark/STRICT_LEADERBOARD.md)。_
 
 > **Strict counting**: snapshot at episode end — pre-step obs（避 auto-reset 假阴）+ dz_max=0.20 stacking-aware + plate_r=0.10 cylindrical + velocity-settled gate。
 >
@@ -115,10 +115,10 @@ _20 episodes × 3 oranges = **60 oranges total** per row. Sort: E(🍊)/ep DESC.
 
 ```bash
 ONLY=gr00t-n17,gr00t-n16-self,act-self STRICT_ROUNDS=20 \
-    bash scripts/benchmark/run_all_strict.sh
-python3 scripts/benchmark/aggregate_strict_leaderboard.py \
+    bash LeIsaac/scripts/benchmark/run_all_strict.sh
+python3 LeIsaac/scripts/benchmark/aggregate_strict_leaderboard.py \
     --results_dir results/benchmark \
-    --out scripts/benchmark/STRICT_LEADERBOARD.md
+    --out LeIsaac/scripts/benchmark/STRICT_LEADERBOARD.md
 ```
 
 ### 关键 Findings
@@ -179,7 +179,7 @@ _Our training recipes and scripts — see [vitorcen/LeIsaac](https://github.com/
 _Inference infrastructure_
 
 - **HF 默认 cache**：所有 ckpt 落 `~/.cache/huggingface/hub/`，`AutoModel.from_pretrained("repo_id")` 直接命中
-- **统一 server 管理**：`scripts/policy_server.sh start|stop {gr00t-n15|gr00t-n16|lerobot} [MODEL_PATH]`
+- **统一 server 管理**：`LeIsaac/scripts/policy_server.sh start|stop {gr00t-n15|gr00t-n16|lerobot} [MODEL_PATH]`
 - **通用 HF 下载器**：`scripts/download_hf_model.sh REPO_ID`（基于 `hf download`，幂等）
 - **client 端自动适配**：`policy_inference.py` 会读 ckpt 的 `config.json` 推断 image feature 名字，避免 SmolVLA base 时代的 `camera1/2/3` 硬编码污染 fine-tune 路径
 - **LeIsaac submodule patch 维护**：`patches/leisaac/*.patch` + `scripts/apply_leisaac_patches.sh`（幂等 apply）
@@ -258,13 +258,12 @@ cd dependencies/IsaacLab && python scripts/reinforcement_learning/rsl_rl/play.py
 
 快速体验（预训练策略，无需训练）：
 
-- 📓 [LeIsaac.ipynb](./LeIsaac.ipynb) — **LeIsaac SO-101 PickOrange VLA 推理对比**（GR00T N1.5/N1.6/N1.7 + LeRobot ACT/SmolVLA）
+- 📓 [LeIsaac.ipynb](./LeIsaac/LeIsaac.ipynb) — **LeIsaac SO-101 PickOrange VLA 推理对比**（GR00T N1.5/N1.6/N1.7 + LeRobot ACT/SmolVLA）
 - 📓 [DEMO.ipynb](./DEMO.ipynb) — 通用 server 后台启动 + GR1 robocasa tabletop demo
 
 完整演示列表和使用说明见：
 
-- 📘 [SCRIPTS.md](./SCRIPTS.md) — Markdown 文档
-- 📓 [SCRIPTS.ipynb](./SCRIPTS.ipynb) — 可直接执行的 Jupyter notebook
+- 📓 [SCRIPTS.ipynb](./SCRIPTS.ipynb) — IsaacLab 内置 RL 任务 play 画廊（可直接执行）
 
 ---
 

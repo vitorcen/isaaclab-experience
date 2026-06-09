@@ -43,11 +43,11 @@ svg { background:#fff; }
 <h2>1. 演化对比 — Before / After</h2>
 <table>
 <tr><th></th><th>Before (broken, 2026-05-24 早上)</th><th>After (current)</th></tr>
-<tr><td>N1.5 源码</td><td><code>/home/david/work/Isaac-GR00T-N1.5/</code> (外部 clone, untracked)</td><td><code>dependencies/Isaac-GR00T-N1.5/</code> (submodule @ <code>n1.5-release</code>)</td></tr>
+<tr><td>N1.5 源码</td><td><code>~/work/Isaac-GR00T-N1.5/</code> (外部 clone, untracked)</td><td><code>dependencies/Isaac-GR00T-N1.5/</code> (submodule @ <code>n1.5-release</code>)</td></tr>
 <tr><td>N1.5 env</td><td>conda <code>gr00t-n15</code> editable → 外部 clone</td><td>conda <code>gr00t-n15</code> editable → submodule (re-anchored)</td></tr>
 <tr><td>N1.6 源码</td><td>借 N1.7 .venv (transformers 4.57.3)</td><td><code>dependencies/Isaac-GR00T-N1.6/</code> (submodule @ <code>n1.6.1-release</code>)</td></tr>
 <tr><td>N1.6 env</td><td>共用 N1.7 venv → 4 个 cached code bug 接连崩</td><td>独立 venv，transformers <strong>4.51.3</strong></td></tr>
-<tr><td>N1.7 源码</td><td><code>/home/david/work/Isaac-GR00T/</code> (外部 clone, untracked N1.7 source code)</td><td><code>dependencies/Isaac-GR00T/</code> (submodule @ <code>n1.7-release-2</code>)</td></tr>
+<tr><td>N1.7 源码</td><td><code>~/work/Isaac-GR00T/</code> (外部 clone, untracked N1.7 source code)</td><td><code>dependencies/Isaac-GR00T/</code> (submodule @ <code>n1.7-release-2</code>)</td></tr>
 <tr><td>N1.7 env</td><td>外部 .venv (drifted to 4.57.3 单方面 pip install)</td><td>submodule .venv，transformers <strong>4.57.3</strong> (pyproject 锁定)</td></tr>
 </table>
 
@@ -57,7 +57,7 @@ svg { background:#fff; }
   <text x="490" y="25" font-size="16" text-anchor="middle" font-weight="bold">GR00T multi-release: submodule × venv routing</text>
   <!-- Top row: baselines.tsv -->
   <rect x="30" y="55" width="920" height="55" fill="#eef5ff" stroke="#2a78c8" stroke-width="1.5"/>
-  <text x="490" y="80" font-size="13" text-anchor="middle" font-weight="bold">scripts/benchmark/baselines.tsv (slug → policy_type=gr00t, server_kind=gr00t-n{15,16,17})</text>
+  <text x="490" y="80" font-size="13" text-anchor="middle" font-weight="bold">LeIsaac/scripts/benchmark/baselines.tsv (slug → policy_type=gr00t, server_kind=gr00t-n{15,16,17})</text>
   <text x="490" y="98" font-size="11" text-anchor="middle">gr00t-n15  •  gr00t-n16-self  •  gr00t-n16-hispace  •  gr00t-n17</text>
 
   <!-- Arrow to run_one -->
@@ -65,7 +65,7 @@ svg { background:#fff; }
 
   <!-- run_one.sh dispatch -->
   <rect x="280" y="135" width="420" height="50" fill="#fef5d8" stroke="#c80" stroke-width="1.5"/>
-  <text x="490" y="158" font-size="13" text-anchor="middle" font-weight="bold">scripts/benchmark/run_one.sh + policy_server.sh</text>
+  <text x="490" y="158" font-size="13" text-anchor="middle" font-weight="bold">LeIsaac/scripts/benchmark/run_one.sh + policy_server.sh</text>
   <text x="490" y="175" font-size="11" text-anchor="middle">case server_kind → export GR00T_DIR → exec server/start_server.sh</text>
 
   <!-- Three columns -->
@@ -121,7 +121,7 @@ svg { background:#fff; }
 
 <h2>3. 触发原因 — Why we had to split</h2>
 
-<p>当时（2026-05-24 早上）整个 GR00T 系列共用 <code>/home/david/work/Isaac-GR00T/.venv</code>，<code>transformers</code> 在某次手工 <code>pip install</code> 中飘到 <strong>4.57.3</strong>。运行 N1.6 server 暴露 cached HF code 与新版 transformers ABI 不兼容，连续 4 个 ImportError/AttributeError：</p>
+<p>当时（2026-05-24 早上）整个 GR00T 系列共用 <code>~/work/Isaac-GR00T/.venv</code>，<code>transformers</code> 在某次手工 <code>pip install</code> 中飘到 <strong>4.57.3</strong>。运行 N1.6 server 暴露 cached HF code 与新版 transformers ABI 不兼容，连续 4 个 ImportError/AttributeError：</p>
 
 <table>
 <tr><th>#</th><th>错误</th><th>位置</th><th>根因</th></tr>
@@ -151,7 +151,7 @@ svg { background:#fff; }
 <tr class="good"><td>1</td><td><code>.gitmodules</code> + <code>dependencies/Isaac-GR00T-N1.5/</code></td><td>root repo</td><td>新 submodule @ n1.5-release</td></tr>
 <tr class="good"><td>2</td><td><code>.gitmodules</code> + <code>dependencies/Isaac-GR00T-N1.6/</code></td><td>root repo</td><td>新 submodule @ n1.6.1-release</td></tr>
 <tr class="good"><td>3</td><td><code>server/start_server.sh</code> + <code>init_server.sh</code> + <code>scripts/{policy_server,realtime_gr00t_viewer,check_start_gr00t,preview_gr00t_inference}.sh</code></td><td>root repo</td><td>default GR00T_DIR 改指向 submodule；policy_server.sh 加 start/stop_gr00t_n17；run_one.sh 加 gr00t-n17 case</td></tr>
-<tr class="good"><td>4</td><td><code>scripts/benchmark/baselines.tsv</code></td><td>root repo</td><td>4 个 GR00T row：policy_type=<code>gr00t</code>；gr00t-n17 row server_kind=<code>gr00t-n17</code></td></tr>
+<tr class="good"><td>4</td><td><code>LeIsaac/scripts/benchmark/baselines.tsv</code></td><td>root repo</td><td>4 个 GR00T row：policy_type=<code>gr00t</code>；gr00t-n17 row server_kind=<code>gr00t-n17</code></td></tr>
 <tr class="good"><td>5</td><td><code>LeIsaac/scripts/evaluation/policy_inference.py</code></td><td>LeIsaac submodule</td><td>policy_type 接受 <code>gr00t</code> 别名（同时保留 <code>gr00tn1.5</code> 兼容）→ archived as <code>patches/leisaac/0003-*.patch</code></td></tr>
 </table>
 

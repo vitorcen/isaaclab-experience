@@ -31,7 +31,7 @@ finalize** 成正式文件。学术代理 network_turbo 对 xet 会 401,故走 h
 (model card + 60s demo mp4 `starvla-8b-pickorange.mp4`(webm 截前 60s,**conda ffmpeg libx264 坏→用
 `/usr/bin/ffmpeg`**)+ config.yaml(base_vlm 改成 `Qwen/Qwen3-VL-8B-Instruct`)+ 训练配方;
 ckpt `steps_30000_pytorch_model.pt` 17.9G hf_transfer 后台传)。三处 leaderboard 已加 8B **rank 4**:
-root `README.md` / `LeIsaac/README.md` / `scripts/benchmark/STRICT_LEADERBOARD.md`。video 嵌 model card 用
+root `README.md` / `LeIsaac/README.md` / `LeIsaac/scripts/benchmark/STRICT_LEADERBOARD.md`。video 嵌 model card 用
 HF resolve full URL `<video src=.../resolve/main/starvla-8b-pickorange.mp4>`。
 ⚠️ **footgun**:`starvla_strict_eval.sh` METRICS 文件名只按 ckpt+quant → 用同 ckpt 跑 3-round demo
 **会覆盖正式 strict json**(实测被 1/9 demo 覆盖,已从 README 里的 raw 重建)。已防呆:非 20-round 写

@@ -40,7 +40,7 @@ def predict_action_chunk(self, batch, noise=None):
     return actions
 ```
 
-已 apply 到 `/home/david/work/lerobot-v040/src/lerobot/policies/diffusion/modeling_diffusion.py`（editable install 立即生效）。
+已 apply 到 `~/work/lerobot-v040/src/lerobot/policies/diffusion/modeling_diffusion.py`（editable install 立即生效）。
 
 ## Verification
 
@@ -51,7 +51,7 @@ ckpt-10000 patched server 实测：
 
 ## How to apply
 
-- v0.4 editable: 改 `/home/david/work/lerobot-v040/src/.../modeling_diffusion.py` → 重启 server 即可
+- v0.4 editable: 改 `~/work/lerobot-v040/src/.../modeling_diffusion.py` → 重启 server 即可
 - v0.5 site-packages: 直接 patch `lerobot/policies/diffusion/modeling_diffusion.py`（或上游 PR）
 - Upstream: 应该提一个 PR，影响所有 n_obs_steps>1 的 lerobot policy
 

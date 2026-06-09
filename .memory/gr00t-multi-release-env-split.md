@@ -34,7 +34,7 @@ N1.7 1-round: hi-space ckpt → **3/3 oranges, 51.9s, 100% success** ✅。N1.6 
 | 1 | `.gitmodules` + `dependencies/Isaac-GR00T-N1.5/` | root |
 | 2 | `.gitmodules` + `dependencies/Isaac-GR00T-N1.6/` | root |
 | 3 | `server/start_server.sh` + `init_server.sh` + `scripts/{policy_server,run_one,realtime_gr00t_viewer,check_start_gr00t,preview_gr00t_inference}.sh` — GR00T_DIR default 改 submodule + 加 gr00t-n17 case | root |
-| 4 | `scripts/benchmark/baselines.tsv` — policy_type=`gr00t`，gr00t-n17 row server_kind=`gr00t-n17` | root |
+| 4 | `LeIsaac/scripts/benchmark/baselines.tsv` — policy_type=`gr00t`，gr00t-n17 row server_kind=`gr00t-n17` | root |
 | 5 | `LeIsaac/scripts/evaluation/policy_inference.py` — 加 `gr00t` 别名（同时增了 `DreamZeroServicePolicyClient` 79 行） | LeIsaac submodule，**直接 commit** `cf838c6 fix(gr00t): Use separate envs for GR00T N1.5, N1.6 and N1.7`（push 到 vitorcen/LeIsaac-Training 自己 fork） |
 
 ## 关键 gotcha

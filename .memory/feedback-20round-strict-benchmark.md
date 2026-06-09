@@ -15,7 +15,7 @@ metadata:
 
 **How to apply:** 任何要写 README leaderboard / HF model card / 横评结论的 ckpt，**必须**：
 1. 跑 20-round (EVAL_ROUNDS=20，~50min wall on RTX 4090) BENCH 标准 (EPISODE_LENGTH_S=120, MAX_ROUND_WALL_S=180, STEP_HZ=60 for GR00T)
-2. 用 `scripts/benchmark/aggregate_distribution.py` 出 P(placed=k) 表 + E(oranges) + 5-round sub-sample σ
+2. 用 `LeIsaac/scripts/benchmark/aggregate_distribution.py` 出 P(placed=k) 表 + E(oranges) + 5-round sub-sample σ
 3. 在 leaderboard 同时显示 mean ± σ，而不仅是 total oranges
 
 ## 关键事实（2026-05-23 实测，5090 + ckpt-6000）
@@ -27,8 +27,8 @@ metadata:
 
 ## 脚手架 (2026-05-23 已建)
 
-- `scripts/benchmark/aggregate_distribution.py` — 读 metrics.json → md + svg
-- `scripts/benchmark/run_one_strict.sh <slug>` — 一键 20-round + 自动 aggregate
+- `LeIsaac/scripts/benchmark/aggregate_distribution.py` — 读 metrics.json → md + svg
+- `LeIsaac/scripts/benchmark/run_one_strict.sh <slug>` — 一键 20-round + 自动 aggregate
 - 输出 → `results/benchmark/<slug>.distribution.md` + `.distribution.svg`
 
 ## 模板 (md 输出格式)
@@ -64,5 +64,5 @@ metadata:
 - [[feedback-5round-benchmark-standard]] — config 标准 (180s wall_cap, 120s ep, step_hz=60 N1.7)
 - [[eval-5round-mandatory]] — 5-round 是最低门槛（不是 3-round）；本文升级到 20-round 是更严格 layer
 - [[leisaac-5round-leaderboard-2026-05-21]] — 当前 leaderboard 多数 single 5-round，需要后续重测 20-round 才严格
-- 脚手架：`scripts/benchmark/aggregate_distribution.py` + `run_one_strict.sh`
+- 脚手架：`LeIsaac/scripts/benchmark/aggregate_distribution.py` + `run_one_strict.sh`
 - 实证：`results/benchmark/wsagi-n17-ckpt6000-20round.{metrics.json,distribution.md,.svg}` (2026-05-23)

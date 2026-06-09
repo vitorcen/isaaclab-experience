@@ -53,7 +53,7 @@ run plateau 原因：含连续 sprint + 蹦跳，single-task DeepMimic PPO (SGD 
 
 **Replay 命令（任何时候）：**
 ```bash
-cd /home/david/work/isaaclab-experience/dependencies/MimicKit
+cd ~/work/isaaclab-experience/dependencies/MimicKit
 source ~/miniconda3/etc/profile.d/conda.sh && conda activate isaaclab
 python mimickit/run.py --mode test --num_envs 4 \
   --engine_config data/engines/isaac_lab_engine.yaml \
@@ -88,9 +88,9 @@ python mimickit/run.py --mode test --num_envs 4 \
 **如何接力**（compact 后或人工 resume）：
 ```bash
 # 看进度
-cat /home/david/work/isaaclab-experience/dependencies/MimicKit/output/pipeline_summary.log
+cat ~/work/isaaclab-experience/dependencies/MimicKit/output/pipeline_summary.log
 # 单独 replay 任一 ckpt
-cd /home/david/work/isaaclab-experience/dependencies/MimicKit
+cd ~/work/isaaclab-experience/dependencies/MimicKit
 bash $REPO/scripts/mimickit_preview.sh lafan_fight_15s   # （但 preview 是 mocap 回放，不是 policy）
 # 直接 test mode 看 policy：
 python mimickit/run.py --mode test --num_envs 4 \
@@ -128,7 +128,7 @@ python mimickit/run.py --mode test --num_envs 4 \
 ### Step 1：5s pipeline 信心确认（30 min 训练）
 
 ```bash
-cd /home/david/work/isaaclab-experience/dependencies/MimicKit
+cd ~/work/isaaclab-experience/dependencies/MimicKit
 mkdir -p output/preview_envs output/train_lafan_fight_5s
 # 临时 env yaml，把 motion_file swap 到 5s 切段
 sed 's|data/motions/g1/g1_walk.pkl|data/motions/g1/lafan_fight_5s.pkl|' \

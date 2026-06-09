@@ -1,6 +1,6 @@
 ---
 name: feedback-5round-benchmark-standard
-description: 5-round leaderboard eval 的唯一权威 config 在 scripts/benchmark/，不是 server/eval_*.sh，不是临时改环境变量
+description: 5-round leaderboard eval 的唯一权威 config 在 LeIsaac/scripts/benchmark/，不是 LeIsaac/server/eval_*.sh，不是临时改环境变量
 metadata: 
   node_type: memory
   type: feedback
@@ -9,11 +9,11 @@ metadata:
 
 # 5-Round Benchmark 标准 (强制)
 
-任何 ckpt 跑 5-round leaderboard eval 必须用 `scripts/benchmark/run_one.sh` (或 `run_all_baselines.sh`)，**不要用** `server/eval_<model>.sh`。后者是 N1.6 时代的 ad-hoc 调试脚本，default config 跟 leaderboard 不一致。
+任何 ckpt 跑 5-round leaderboard eval 必须用 `LeIsaac/scripts/benchmark/run_one.sh` (或 `run_all_baselines.sh`)，**不要用** `LeIsaac/server/eval_<model>.sh`。后者是 N1.6 时代的 ad-hoc 调试脚本，default config 跟 leaderboard 不一致。
 
-**Why:** 2026-05-23 我自训 N1.7 ckpts (1200/2400/3600/4800/6000/7200/8400/9600) 跑了 11 次 5-round，全用 `server/eval_gr00t.sh` defaults，结果发现 `EPISODE_LENGTH=60` (benchmark 是 120) + `MAX_ROUND_WALL_S=120` (benchmark 是 180) — episode 只给一半时间 + wall_cap 砍掉 hi-space episode 3 那种 "180s 跑到 2/3" 的合法 case。所有数据**不能与 README leaderboard 14/15 直接对比**，浪费 ~2.5h × ¥4 GPU 钱重新打分。
+**Why:** 2026-05-23 我自训 N1.7 ckpts (1200/2400/3600/4800/6000/7200/8400/9600) 跑了 11 次 5-round，全用 `LeIsaac/server/eval_gr00t.sh` defaults，结果发现 `EPISODE_LENGTH=60` (benchmark 是 120) + `MAX_ROUND_WALL_S=120` (benchmark 是 180) — episode 只给一半时间 + wall_cap 砍掉 hi-space episode 3 那种 "180s 跑到 2/3" 的合法 case。所有数据**不能与 README leaderboard 14/15 直接对比**，浪费 ~2.5h × ¥4 GPU 钱重新打分。
 
-**How to apply:** 任何"5-round eval" / "横评" / "对比 hi-space" 任务，**第一件事**先看 `scripts/benchmark/run_one.sh` 默认 + `baselines.tsv` 对应 row 的 `extra_env` override，按那个跑。
+**How to apply:** 任何"5-round eval" / "横评" / "对比 hi-space" 任务，**第一件事**先看 `LeIsaac/scripts/benchmark/run_one.sh` 默认 + `baselines.tsv` 对应 row 的 `extra_env` override，按那个跑。
 
 ## Unified 标准（2026-05-23 当前）
 
@@ -32,8 +32,8 @@ metadata:
 
 ## 不要做的事
 
-- ❌ 用 `server/eval_gr00t.sh` / `server/eval_pi05.sh` / `server/eval_smolvla.sh` 跑横评 — 这些是 ad-hoc debug 脚本
-- ❌ 临时 `EVAL_ROUNDS=5 EPISODE_LENGTH=60 MAX_ROUND_WALL_S=120 ACTION_HORIZON=40 POLICY_TYPE=gr00tn1.5 bash server/eval_gr00t.sh` — 这就是 2026-05-23 翻车配方
+- ❌ 用 `LeIsaac/server/eval_gr00t.sh` / `LeIsaac/server/eval_pi05.sh` / `LeIsaac/server/eval_smolvla.sh` 跑横评 — 这些是 ad-hoc debug 脚本
+- ❌ 临时 `EVAL_ROUNDS=5 EPISODE_LENGTH=60 MAX_ROUND_WALL_S=120 ACTION_HORIZON=40 POLICY_TYPE=gr00tn1.5 bash LeIsaac/server/eval_gr00t.sh` — 这就是 2026-05-23 翻车配方
 - ❌ 改一两个 env var 就以为是 benchmark 标准 — 必须 **全部 4 项** 对齐
 
 ## 正确做法
@@ -41,10 +41,10 @@ metadata:
 ```bash
 # 1. 自训 ckpt 不在 HF？先加 baselines.tsv local-path entry 或临时 export 路径
 # 2. 直接调 run_one.sh
-EVAL_ROUNDS=5 bash scripts/benchmark/run_one.sh <slug>
+EVAL_ROUNDS=5 bash LeIsaac/scripts/benchmark/run_one.sh <slug>
 
 # 或者全跑：
-EVAL_ROUNDS=5 bash scripts/benchmark/run_all_baselines.sh
+EVAL_ROUNDS=5 bash LeIsaac/scripts/benchmark/run_all_baselines.sh
 ```
 
 baselines.tsv N1.7 row 给的 N1.7 family eval cfg:
@@ -62,6 +62,6 @@ gr00t-n17  gr00tn1.6  40  hi-space/GR00T-N1.7-3B-Pick-Orange  gr00t-n16  GR00T N
 - [[feedback-stuck-detector-off-act-dp]] — chunked policy 关 stuck detector
 - [[leisaac-5round-leaderboard-2026-05-21]] — 当前 leaderboard (hi-space N1.7=14/15 SOTA)
 - [[gr00t-n17-leisaac-wire-debug]] — N1.7 wire 协议 (baselines.tsv 上的 policy_type=gr00tn1.6 已经 stale，sim_wrapper 实际要走 gr00tn1.5 wire + observation envelope)
-- `scripts/benchmark/run_one.sh` — 权威 launcher
-- `scripts/benchmark/baselines.tsv` — per-model override
-- `scripts/benchmark/README.html` — 完整 baseline 文档
+- `LeIsaac/scripts/benchmark/run_one.sh` — 权威 launcher
+- `LeIsaac/scripts/benchmark/baselines.tsv` — per-model override
+- `LeIsaac/scripts/benchmark/README.html` — 完整 baseline 文档

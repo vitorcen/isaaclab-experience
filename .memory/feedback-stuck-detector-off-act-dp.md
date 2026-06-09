@@ -11,7 +11,7 @@ metadata:
 
 ## Rule
 
-`scripts/benchmark/run_one.sh` 已按 `POLICY_TYPE` 设默认：
+`LeIsaac/scripts/benchmark/run_one.sh` 已按 `POLICY_TYPE` 设默认：
 ```bash
 case "${POLICY_TYPE}" in
     lerobot-act|lerobot-diffusion)
@@ -26,7 +26,7 @@ esac
 
 **How to apply**:
 - Default 自动按 policy 切换，啥都不用做
-- 想强行打开：`STUCK_WINDOW_S=30 bash scripts/benchmark/run_one.sh ...`
+- 想强行打开：`STUCK_WINDOW_S=30 bash LeIsaac/scripts/benchmark/run_one.sh ...`
 - `episode_length_s` 是真上限（60/120s），cap 内跑满即可
 
 ## 关联

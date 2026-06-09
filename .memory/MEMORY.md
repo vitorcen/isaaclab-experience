@@ -1,6 +1,6 @@
 ## Benchmarking & eval standards
-- [📊 20-Round STRICT 统计基准](feedback-20round-strict-benchmark.md) — leaderboard/model card 必须用 20-round + P(placed=k) 分布 + 5-round sub-sample σ；脚手架 `scripts/benchmark/run_one_strict.sh` + `aggregate_distribution.py`
-- [📏 5-Round benchmark 唯一标准](feedback-5round-benchmark-standard.md) — `scripts/benchmark/run_one.sh` 是权威；EPISODE_LENGTH_S=120, MAX_ROUND_WALL_S=180, EVAL_ROUNDS=5, STEP_HZ=60 (N1.7), action_horizon per baselines.tsv col3
+- [📊 20-Round STRICT 统计基准](feedback-20round-strict-benchmark.md) — leaderboard/model card 必须用 20-round + P(placed=k) 分布 + 5-round sub-sample σ；脚手架 `LeIsaac/scripts/benchmark/run_one_strict.sh` + `aggregate_distribution.py`
+- [📏 5-Round benchmark 唯一标准](feedback-5round-benchmark-standard.md) — `LeIsaac/scripts/benchmark/run_one.sh` 是权威；EPISODE_LENGTH_S=120, MAX_ROUND_WALL_S=180, EVAL_ROUNDS=5, STEP_HZ=60 (N1.7), action_horizon per baselines.tsv col3
 - [每模型自己的 action_horizon](per-model-action-horizon.md) — N1.7=40, N1.6=50, ACT=100, SmolVLA=50, X-VLA=32, π0.5=50；TSV lookup + `get_action_horizon.py`
 - [eval ≥ 5 round 强制](eval-5round-mandatory.md) — 3 round variance 太大 (1/3-3/3, 67-89%, 51-133s)；强制 ≥ 5 round (15 ep) 降到 ±10%
 - [benchmark 表格排序规则](feedback-benchmark-table-sort.md) — README leaderboard 排序：strict Rounds DESC → oranges DESC → time ASC
@@ -15,6 +15,7 @@
 - [🏆 MimicKit LAFAN G1 × 4 motion SHIPPED](mimickit-lafan-fight-training-plan.md) — 2026-06-02 fight/run/dance/jumps 15s 切段，4h pipeline，3/4 触顶 ≥98%，run plateau 63%；scripts/mimickit_train_{one,queue,pipeline}.sh + eval_chain.sh + g1_usd_recolor.py 全套；doc/mimickit_lafan_training.html
 - [🎨 MimicKit g1.usd 全白根因 + 修复](mimickit-g1-usd-material-fix.md) — MJCF per-geom rgba 转 USD 被压成单一 DefaultMaterial 白；scripts/g1_usd_recolor.py 反推 + per-mesh rebind；`MIMICKIT_G1_USD` env var 切入
 - [🧹 训练完 benchmark 后 outputs 清理](feedback-training-output-cleanup.md) — leaderboard 落地后每家族留 1 dir + 3-6 ckpts；负面家族也留 1 个存档；规则写入 `LeIsaac/CLAUDE.md`
+- [💾 冻骨干 ckpt：best留full+其余抽delta(通用脚手架)](feedback-vla-ckpt-best-only-head-rest.md) — 权威=提交目录`LeIsaac/scripts/ckpt/`(prune_ckpts.py对base逐张量diff,通用覆盖StarVLA前缀+Wall-X/π0.5交错;全量FT自动REFUSE防呆;merge_ckpt.py字节重建);代码提交+大产物留gitignored outputs；每run只留best full+全部delta(可重建)；eval非best临时merge→完即删不覆盖best；GOLD门控删除；已处理StarVLA/Wall-X/π0.5,GR00T已发布跳过；判定见scripts/ckpt/README.md
 - [🎯 GPU util 是训练效率优化的判断锚](feedback-gpu-util-as-efficiency-anchor.md) — 不看 step/s 看 mid-window GPU util %；1Hz GPU+CPU 双采样 + per-phase profile + micro-bench 隔离；瓶颈分层判断表
 - [训练 = 训练 + 自动每阶段 eval](auto-eval-watcher-standard.md) — `lerobot_finetune.sh AUTO_EVAL=1` spawn `eval_watcher.sh` poll ckpts/ → 3 连 0 → `.eval_abort` SIGTERM；CSV 持久 dedup 保 resume
 - [长训练每 1/10 步 quick eval 强制](feedback-incremental-eval-during-training.md) — 总 step 10 等分，每格 1-round 3-ep quick eval；连续 3 slice 0 → abort + diff config。已写入 `LeIsaac/CLAUDE.md`
@@ -41,6 +42,7 @@
 - [LeIsaac eval timeout + DP DDIM swap](leisaac-eval-timeout.md) — DDPM 100-step → DDIM 32-step 不重训直接 swap，inference 393→147ms；4090 sweet spot 公式：`(target_ms - 36) / 3.3 ≈ 29 step`
 
 ## Current baseline architecture
+- [🧱 伞仓 vs LeIsaac submodule 职责边界](umbrella-leisaac-repo-boundary.md) — 通用 GR00T 基建(引擎`dependencies/Isaac-GR00T*`+`server/`launcher)在伞仓;PickOrange专属(benchmark/policy_server/serve_*/play notebook/ckpt工具)在LeIsaac;LeIsaac只经`../dependencies`取共享引擎、绝不调伞仓脚本(policy_server内联起GR00T/lerobot);robocasa也不调LeIsaac→两仓独立;坑=watchdog REPO_ROOT是伞仓非LeIsaac
 - [🦿 GEAR-SONIC G1 预览跑通配方](gear-sonic-preview-setup.md) — 走 `gear_sonic_preview.sh` 单进程 Isaac-eval（非 DDS/C++ sim2sim）；isaaclab env 补 easydict/loguru/open3d/vector_quantize_pytorch + **trl==0.28.0**（新版删了旧路径）；WBC 已 submodule + patches/gear-sonic symlink 448M ckpt 进 HF cache
 - [🤖 LAFAN G1 motion-tracking ecosystem 地图](lafan-g1-ecosystem.md) — 数据 + 现成 ckpt + retargeter 全集；结论 LAFAN_fight G1 ckpt 生态里 0 个，要么 ProtoMotions 不兼容，要么自训 (MimicKit)
 - [🏗️ GR00T N1.5/N1.6/N1.7 多 release 环境分离](gr00t-multi-release-env-split.md) — 3 submodule + 3 venv；transformers 4.51.3 (N1.5/N1.6) vs 4.57.3 (N1.7) 隔离；policy_type 统一 `gr00t`
@@ -74,3 +76,4 @@
 - [启动 GPU 任务前先检查显存](feedback-pre-run-gpu-check.md) — nvidia-smi + pgrep 残留进程，发现 >2GB 占用 / 老 server 状态错位先清理再启动
 - [协作风格偏好](feedback-style.md) — 设计文档先行（HTML+中文+SVG）、目录按语义不按工具、开源化是默认目标、本地优先、负面结果如实写、不问废话
 - [🔍 mimo 独立审查习惯](feedback-mimo-independent-review.md) — 关键设计/取舍前后习惯性开 `opencode run -m xiaomi/mimo-v2.5-pro` 拿第二意见；tmux 跑不阻塞、用完收 session
+- [🧹 重构方法论:路径卫生+分层冒烟](feedback-refactor-smoke-pathhygiene.md) — committed源码无本机路径(BASH_SOURCE/__file__算根+conda info base+$HF_HOME+$HOME;per-file算层数别盲sed,踩过run_leisaac.sh子串误伤+watchdog ROOT语义);分层冒烟=静态(bash -n+路径解析+无双前缀)→server起停(spare port不载模型)→全链路run_one_strict 1-round(单round是方差,确认策略健康要≥3round);密钥永不硬编码全`${VAR:?}`/sshpass -e;`/tmp/smoke_refactor.sh`

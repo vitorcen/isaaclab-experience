@@ -32,7 +32,7 @@ scaffold 要满足"方便别人复用"：pyproject.toml + LICENSE (Apache-2.0) +
 
 **Why:** 用户原话 "脚手架也合理整理存放，方便开源项目别人复用"
 
-**How to apply:** 看到 `scripts/foo.py` 散文件就考虑升级为 `src/<pkg>/foo.py`；硬编码 `/home/david/...` 路径全清掉，改 CLI args 或环境变量；模块顶层 docstring 写清 Usage 例子
+**How to apply:** 看到 `scripts/foo.py` 散文件就考虑升级为 `src/<pkg>/foo.py`；硬编码 `~/...` 路径全清掉，改 CLI args 或环境变量；模块顶层 docstring 写清 Usage 例子
 
 ## 本地优先，远程是补充
 
