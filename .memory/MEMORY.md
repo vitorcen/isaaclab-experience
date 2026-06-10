@@ -27,7 +27,7 @@
 
 ## VLA — 架构侧 (SONIC WBC) 路线
 - [🕺 架构侧 GR00T×SONIC-WBC 路线 + 路 A 动作源](sonic-wbc-vla-route.md) — VLA 只吐 64 维 FSQ token，WBC 当平衡底座；**下一步走路 A**：本地 deploy demo(macarena/kick/dance 13条) 经 `convert_soma_csv_to_motion_lib.py --fps 50`(唯一坑) 转 robot_filtered，smpl=dummy，跑 eval 看 WBC 跟不跟得住踢/舞；评审验过 smpl_joints非坑、HF无多动作robot_filtered别下30G；doc/groot_sonic_wbc_route + sonic_dance_motion_source.html
-- [🔬 SONIC VLA 三模型联合评审 + P0-P4 roadmap](sonic-vla-critique-roadmap.md) — GR00T-N1.7-G1-SONIC HF页 9条共识缺陷(无held-out=记忆/FSQ离散码当连续回归/无记忆单帧闭环=本质缺陷/不摔疑RELAX-confound)；正序=先loss→history→数据；LeSONIC/doc/sonic_vla_critique_roadmap.html
+- [🔬 SONIC VLA 三模型联合评审 + P0-P4 roadmap](sonic-vla-critique-roadmap.md) — GR00T-N1.7-G1-SONIC-BonesSeed HF页 9条共识缺陷(无held-out=记忆/FSQ离散码当连续回归/无记忆单帧闭环=本质缺陷/不摔疑RELAX-confound)；正序=先loss→history→数据；LeSONIC/doc/sonic_vla_critique_roadmap.html
 
 ## VLA distillation (planned)
 - [🧬 MimicKit→VLA 蒸馏路径计划](mimickit-to-vla-distill-plan.md) — DeepMimic PPO → prompt-conditioned 人形 VLA；基建优先于 expert，先补 recorder/modality.json/第三人称camera 跑 10ep×2motion sanity；doc/mimickit_to_vla_dataset.html

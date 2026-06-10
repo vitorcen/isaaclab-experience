@@ -13,7 +13,7 @@ metadata:
 
 ## 0. ⚠️ 硬规则：整个目录 > 几 GB 就别用 `upload-large-folder`，改逐文件 `upload_file` + 重试循环
 
-**2026-06-04 `wsagi/GR00T-N1.7-G1-SONIC` 12G(3×4.7/4.7/2.5G shard)实测**：在 **mihomo TUN**
+**2026-06-04 `wsagi/GR00T-N1.7-G1-SONIC-BonesSeed` 12G(3×4.7/4.7/2.5G shard)实测**：在 **mihomo TUN**
 （`getent hosts huggingface.co` → FakeIP `198.18.0.x`）下，`upload-large-folder` 和 python
 `HfApi.upload_folder` **都反复断连/卡死**，一个 shard 都没落地。**`upload-large-folder` 的批量并发
 multipart 在 TUN 下 commit 阶段整条连接掉 → 注定失败**（用户原话"注定失败"）。
@@ -29,7 +29,7 @@ multipart 在 TUN 下 commit 阶段整条连接掉 → 注定失败**（用户�
 
 ## 0.05 ⚠️🔥 "卡 99%" 头号假象 = 自己手动杀进程造成同文件并发对传（2026-06-08 实测，最易复发）
 
-**`wsagi/GR00T-N1.7-G1-SONIC` bf16 重传(3×2.49/2.49/1.31G)实测**：3 个 shard 同样大小，shard1 单进程一次过，shard2 **稳定卡 92-97% 冻死、:443 堆到 140-150**——看着就是 §5.1 "TUN 诅咒卡 99%"。**真因不是文件大小，是我自己**：用 §4 `timeout N hf upload` 重试循环时**手动 `pkill` 掉挂着的 inner hf 进程** → `timeout` wrapper 没死、循环立刻 respawn 新尝试，**而被杀那次的 100+ :443 socket 还没回收** → **两个进程同时 PUT 同一个 shard，互相卡死在 ~95%**。
+**`wsagi/GR00T-N1.7-G1-SONIC-BonesSeed` bf16 重传(3×2.49/2.49/1.31G)实测**：3 个 shard 同样大小，shard1 单进程一次过，shard2 **稳定卡 92-97% 冻死、:443 堆到 140-150**——看着就是 §5.1 "TUN 诅咒卡 99%"。**真因不是文件大小，是我自己**：用 §4 `timeout N hf upload` 重试循环时**手动 `pkill` 掉挂着的 inner hf 进程** → `timeout` wrapper 没死、循环立刻 respawn 新尝试，**而被杀那次的 100+ :443 socket 还没回收** → **两个进程同时 PUT 同一个 shard，互相卡死在 ~95%**。
 
 **铁律**：
 1. **绝不在 `timeout`+retry 循环还活着时手动杀 inner 进程**——要么杀整个循环(`pkill -f <脚本名>` + 所有 `hf upload`)，要么别碰。半路杀 inner = 制造并发。
@@ -332,3 +332,7 @@ shutil.move(str(SRC), str(CKPT_DIR/"model.safetensors.original"))  # 备份
 
 - [[xvla-best-inference-cfg]] X-VLA HF upload 历史踩坑
 - skill `hf-publish-model` 在 `~/.claude/skills/hf-publish-model/SKILL.md`（这次没用，但相关）
+
+**🆕 2026-06-10 `wsagi/GR00T-N1.7-G1-SONIC-LAFAN` 3-shard bf16:timeout 不是越短越好,要看路径**。本机 TUN 代理下 hf_transfer 传完字节后 finalize 连接被代理掐成 CLOSE-WAIT(无流量假死)→ **关 hf_transfer 用标准上传器**。但标准路径的 **LFS commit 实测要 ~15min**(2.49G shard;shard2 成功正好 ~15min)→ 之前"timeout 240-400s"经验是 hf_transfer/xet 路径的,**对标准上传器是自伤**:timeout 900s 每轮在 commit 将成时把自己杀掉,无限循环 98%。修:**标准上传器大 shard timeout≥1800s** + 重试循环(resume cache 让重试字节秒传只剩 commit);起步偶发 SSL UNEXPECTED_EOF 秒败=瞬时抖动,重试就过。判别:进度条卡 98-100% 且连接 ESTAB+进程有 CPU=正常 commit 等着别杀;CLOSE-WAIT=死了等 timeout。
+
+**🆕 2026-06-10 LeRobot 数据集加 README 预览视频必踩坑:Dataset Viewer 按"扩展名多数"猜 builder**。给 `wsagi/SONIC-VLA-LAFAN` 加 `media/*.mp4`(4个预览)后,mp4 总数(8 ego+4 media=12)> parquet(8) → Viewer 误判成 video 数据集只显示 12 rows;BonesSeed 7:7 平手侥幸判 parquet 显示 3.82k。**修=README frontmatter 显式声明**:`configs: [{config_name: default, data_files: [{split: train, path: "data/chunk-000/*.parquet"}]}]`。规则:**凡往 LeRobot 数据集仓库塞规范外的 mp4,必须同时声明 configs**。

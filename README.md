@@ -14,10 +14,10 @@ https://github.com/user-attachments/assets/57b8a651-7943-494c-a361-a0e77a0926f4
 _One model, prompt-switched motions. The VLA never emits joints — only SONIC's 64-dim motion token; the WBC keeps balance. The closed loop bridges two venvs over ZMQ — no C++/DDS._
 
 - **架构 / Arch**：prompt → GR00T N1.7 (2.5 Hz, ego-view + joint state) → `action.motion_token` (64) → SONIC decoder (50 Hz) → 29-DoF G1
-- **数据 / Data**：SONIC deploy demo → 录 token → LeRobot v2.1（7 动作 · 3815 帧）— [`wsagi/SONIC-VLA-LeRobot`](https://huggingface.co/datasets/wsagi/SONIC-VLA-LeRobot)
+- **数据 / Data**：SONIC deploy demo → 录 token → LeRobot v2.1（7 动作 · 3815 帧）— [`wsagi/SONIC-VLA-BonesSeed`](https://huggingface.co/datasets/wsagi/SONIC-VLA-BonesSeed)
 - **训练 / Train**：冻结 VLM，训 DiT 头 + projector（1.62B 可训），单 4090 × 8000 步；open-loop token MSE **0.0011**，比 per-motion-mean 基线 (0.039) 低 **35×**
 - **入口 / Entry point**：📓 [SONIC.ipynb](./SONIC.ipynb)（④ 区自训全流程一键）+ 📄 [`doc/groot_sonic_wbc_route.html`](./doc/groot_sonic_wbc_route.html) · [`doc/sonic_vla_closeloop_validation.html`](./doc/sonic_vla_closeloop_validation.html)
-- **HF model card / weights**：[`wsagi/GR00T-N1.7-G1-SONIC`](https://huggingface.co/wsagi/GR00T-N1.7-G1-SONIC)（checkpoint-8000 + 7 闭环 demo mp4）
+- **HF model card / weights**：[`wsagi/GR00T-N1.7-G1-SONIC-BonesSeed`](https://huggingface.co/wsagi/GR00T-N1.7-G1-SONIC-BonesSeed)（checkpoint-8000 + 7 闭环 demo mp4）
 
 ### 闭环 7 动作（dpose = 查询间关节位移 L2，判动/不动）
 
@@ -27,9 +27,18 @@ _One model, prompt-switched motions. The VLA never emits joints — only SONIC's
 | jump | 🟡 边缘 | 有 settle 倾向 |
 | kick · walk | 🟠 需 bootstrap | 一次性动作；`BOOTSTRAP=80` 触发式起步 → kick dpose 0.06→**1.42** |
 
-> **血缘 / Lineage**：`bones-studio/seed → nvidia/GEAR-SONIC → wsagi/SONIC-VLA-LeRobot → wsagi/GR00T-N1.7-G1-SONIC`
+> **血缘 / Lineage**：`bones-studio/seed → nvidia/GEAR-SONIC → wsagi/SONIC-VLA-BonesSeed → wsagi/GR00T-N1.7-G1-SONIC-BonesSeed`
 >
 > **诚实边界 / Honest scope**：当前为 7-ep 训练集（MSE 极低但 **held-out 泛化未测**，存在过拟合）；kick/walk 这类一次性动作闭环需触发式 bootstrap 起步；平衡兜底依赖 SONIC WBC 栈（VLA 本身不保证不摔）。
+
+### 🆕 LAFAN 变体（flow3）：手挑窗口 + 物理可行性筛查 → fight / run / dance 进同一 token 空间
+
+同管线、换动作源：从 **LAFAN1** clip 按秒手挑 10 个动作窗口，先过**物理可行性筛查**——让冻结 WBC 物理跟踪、只问「**到底有没有真摔**」（根高+躯干倾角），而非官方严格安全包络（快拳单帧越界即终止：严格闸门只过 2/10，真摔判据下 **6/10 全程不摔**）。8 个物理有效窗口（6 完整 + 2 前缀）录 token → finetune → flow3 循环 demo：**防守-蹬腿 → 转圈跑 → 搏击-连踢 → 快跑-倒跑 → 太空漫步 → 慢跑-倒跑**。
+_Same pipeline, LAFAN-sourced motions. Each hand-picked window passes a **physical-validity screen** ("did it actually fall?" — 6/10 never fall vs 2/10 under the strict safety envelope) before its tokens are recorded into the same VLA._
+
+- **HF 模型 / Model**：[`wsagi/GR00T-N1.7-G1-SONIC-LAFAN`](https://huggingface.co/wsagi/GR00T-N1.7-G1-SONIC-LAFAN)（bf16 + flow3 主视频 + 8 子窗口 demo）
+- **HF 数据集 / Dataset**：[`wsagi/SONIC-VLA-LAFAN`](https://huggingface.co/datasets/wsagi/SONIC-VLA-LAFAN)（LeRobot v2.1，8 窗口 · 5777 帧）
+- **原理 + 数据集管线 + 两道闸门**：📄 [`LeSONIC/doc/sonic_vla_principles.html`](https://github.com/vitorcen/LeSONIC)；跑法见 `LeSONIC/README.md`（🔁 离线 loop / 🛰️ live 实时）
 
 ---
 

@@ -1,13 +1,13 @@
 ---
 name: sonic-vla-critique-roadmap
-description: GR00T-N1.7-G1-SONIC HF 模型页三模型联合评审(2026-06-08)9条共识缺陷 + P0-P4 修复 roadmap;别重复评审
+description: GR00T-N1.7-G1-SONIC-BonesSeed HF 模型页三模型联合评审(2026-06-08)9条共识缺陷 + P0-P4 修复 roadmap;别重复评审
 metadata:
   type: project
 ---
 
-# GR00T-N1.7-G1-SONIC 三模型联合评审 + Roadmap(2026-06-08)
+# GR00T-N1.7-G1-SONIC-BonesSeed 三模型联合评审 + Roadmap(2026-06-08)
 
-评审对象 [`wsagi/GR00T-N1.7-G1-SONIC`](https://huggingface.co/wsagi/GR00T-N1.7-G1-SONIC)。
+评审对象 [`wsagi/GR00T-N1.7-G1-SONIC-BonesSeed`](https://huggingface.co/wsagi/GR00T-N1.7-G1-SONIC-BonesSeed)。
 Claude Opus 4.8 + codex gpt-5.5 + mimo-v2.5-pro 各独立批判再合并。文档 `LeSONIC/doc/sonic_vla_critique_roadmap.html`(单文件+SVG)。
 背景见 [[sonic-wbc-vla-route]](架构侧路线已 GO/已发布)。
 

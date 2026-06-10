@@ -42,10 +42,12 @@ GROUPS = [
      "MimicKit motion-tracking on Unitree G1 (LAFAN clips).",
      [(f"{NS}/MimicKit-G1-LAFAN", "model")]),
 
-    ("SONIC",
-     "GR00T-in-loop driving the SONIC whole-body controller on G1, plus the VLA dataset.",
-     [(f"{NS}/GR00T-N1.7-G1-SONIC", "model"),
-      (f"{NS}/SONIC-VLA-LeRobot", "dataset")]),
+    ("LeSONIC WBC",
+     "GR00T-in-loop driving the SONIC whole-body controller on G1, plus the VLA datasets.",
+     [(f"{NS}/GR00T-N1.7-G1-SONIC-BonesSeed", "model"),
+      (f"{NS}/GR00T-N1.7-G1-SONIC-LAFAN", "model"),
+      (f"{NS}/SONIC-VLA-BonesSeed", "dataset"),
+      (f"{NS}/SONIC-VLA-LAFAN", "dataset")]),
 
     # Optional 5th group for the two HumanoidBench RL baselines — comment out if unwanted.
     ("HumanoidBench",
