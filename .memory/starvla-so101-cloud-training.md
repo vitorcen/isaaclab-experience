@@ -39,7 +39,7 @@ metadata:
   累积撞 `vm.max_map_count`（即便已是 655300=默认10×，~396 maps/read 也撑不住）→ `avcodec_open2` 失败。**误诊陷阱：别赖到 RAM/rsync/模型大小头上**（我先后错赖了并发 rsync、PI_v3 更占 RAM，都不对）。
   **根因修复（零开销，已验证 1.91 it/s 不降）**：`starVLA/dataloader/gr00t_lerobot/video.py` 的 `get_frames_by_timestamps` torchvision_av 分支 `finally` 里，
   在 close container 之后加 `reader=None; gc.collect(0)`（顶部 `import gc`）——**`gc.collect(0)` 只收第 0 代**（刚弃用的 reader 环就在 gen-0，便宜；别用全代 `gc.collect()`，`load_all_data` 下全代扫描会拖垮吞吐）。
-  本数据集视频是 **AV1 编码 → 只能用 torchvision_av，不能换 decord**（decord 0.6 解不了 AV1），所以必须就地修泄漏。patch 已在本地 `dependencies/starVLA` 同 commit 改好，scp 覆盖云端 video.py 即可（video.py 不在 _pack_sample448/workers 那些已知 patch 列表里，覆盖安全）。
+  本数据集视频是 **AV1 编码 → 只能用 torchvision_av，不能换 decord**（decord 0.6 解不了 AV1），所以必须就地修泄漏。该泄漏修复已收编为 `LeIsaac/patches/starvla/0004-pyav-codec-context-leak-gc.patch`（LeSONIC 同源 0004），云端 apply 或 scp 覆盖 video.py 均可。
   **附带认知**:codec 泄漏是 step/读次数驱动 → bs 越小（步数越多）越早暴露；westd 的 8B GR00T(bs=4)没崩可能只是它的 box/epoch 边界凑巧没触发，不代表无泄漏。
 
 ## SO-101 适配(比 plan 预估小很多)

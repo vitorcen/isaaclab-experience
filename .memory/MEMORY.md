@@ -28,6 +28,12 @@
 ## VLA — 架构侧 (SONIC WBC) 路线
 - [🕺 架构侧 GR00T×SONIC-WBC 路线 + 路 A 动作源](sonic-wbc-vla-route.md) — VLA 只吐 64 维 FSQ token，WBC 当平衡底座；**下一步走路 A**：本地 deploy demo(macarena/kick/dance 13条) 经 `convert_soma_csv_to_motion_lib.py --fps 50`(唯一坑) 转 robot_filtered，smpl=dummy，跑 eval 看 WBC 跟不跟得住踢/舞；评审验过 smpl_joints非坑、HF无多动作robot_filtered别下30G；doc/groot_sonic_wbc_route + sonic_dance_motion_source.html
 - [🔬 SONIC VLA 三模型联合评审 + P0-P4 roadmap](sonic-vla-critique-roadmap.md) — GR00T-N1.7-G1-SONIC-BonesSeed HF页 9条共识缺陷(无held-out=记忆/FSQ离散码当连续回归/无记忆单帧闭环=本质缺陷/不摔疑RELAX-confound)；正序=先loss→history→数据；LeSONIC/doc/sonic_vla_critique_roadmap.html
+- [⚔️ StarVLA vs GR00T SONIC A/B 基线](starvla-sonic-ab-baseline.md) — Qwen3.5-4B PI_v3 冻VLM 训 LAFAN flow3 同数据同样本量;identity action 归一化(off-grid=0)+state min_max 46维+include_state 显式开;5坑(repeated_diffusion_steps 是 trainer 键默认16/state bins [-1,1] clip/全局索引≠轨迹序/...);脚手架 LeSONIC/scripts/starvla*;doc/sonic_starvla_swap_brainstorm.html §11
+- [🔭 SONIC-VLA 替代底座三方调研](sonic-vla-alternative-models-survey.md) — 任务本质=离散 motion-token 生成非操作臂VLA;Top3=StarVLA-CE深化/RDT2-VQ(目标同构,7B边缘)/小masked-transformer(空白生态位);FSQ实为每维32级非33;2560-AR-token闭环红线;Qwen-VLA权重未放(只论文+repo,放出后才是backbone升级件);doc/sonic_vla_alternative_models_survey.html
+- [🧱 路线B MaskBeT submodule 落地+Fable5修订](maskbet-route-b-submodule.md) — MaskBeT(BeT→VQ-BeT谱系,MIT)=LeSONIC/MaskBeT submodule;v0已重构:text条件双模式(查表/冻结文本塔embedding)+proprio history K=3内建+原子ckpt/resume,25.3M冒烟过;预训练路线判定=思路对但三gap(LeVERB是29维关节角须先过SONIC encoder tokenize/文本条件已修/域偏移);模型尺寸=flow3≤25M、全语料86M(d=768/12L)上限200M;待办=v0.1 data.py对接flow3
+- [🔴 P0 Masked CE + History 双负结果(死因鉴定)](sonic-masked-ce-p0-result.md) — 开环实测两个都比常数模板还差(0.0437/0.0472 vs CE v1 0.0174);死因=小数据撑不起联合分布+迭代解码幅度塌缩(std 68%GT)+history文本通路稀释;layerwise/masked/history三连负=瓶颈是数据非head;转P2扩数据;doc §11.5
+- [🎯 P0+History = 负结果](sonic-p0-history-result.md) — MSE64 0.0472 比模板差29%,详见 sonic-masked-ce-p0-result
+- [🐛 serve state 归一化置换bug(已修)](sonic-serve-state-permutation-bug.md) — concat-then-normalize 让 right_arm proprio 恒为常数(worst偏差1.057→0.0002);G1右臂是fight/dance主动肢=serve瞎一只手压低live幅度;修=散射回raw列再归一化;CE v1需重测拆bug vs head保真
 
 ## VLA distillation (planned)
 - [🧬 MimicKit→VLA 蒸馏路径计划](mimickit-to-vla-distill-plan.md) — DeepMimic PPO → prompt-conditioned 人形 VLA；基建优先于 expert，先补 recorder/modality.json/第三人称camera 跑 10ep×2motion sanity；doc/mimickit_to_vla_dataset.html
@@ -45,6 +51,7 @@
 - [🧱 伞仓 vs LeIsaac submodule 职责边界](umbrella-leisaac-repo-boundary.md) — 通用 GR00T 基建(引擎`dependencies/Isaac-GR00T*`+`server/`launcher)在伞仓;PickOrange专属(benchmark/policy_server/serve_*/play notebook/ckpt工具)在LeIsaac;LeIsaac只经`../dependencies`取共享引擎、绝不调伞仓脚本(policy_server内联起GR00T/lerobot);robocasa也不调LeIsaac→两仓独立;坑=watchdog REPO_ROOT是伞仓非LeIsaac
 - [🦿 GEAR-SONIC G1 预览跑通配方](gear-sonic-preview-setup.md) — 走 `gear_sonic_preview.sh` 单进程 Isaac-eval（非 DDS/C++ sim2sim）；isaaclab env 补 easydict/loguru/open3d/vector_quantize_pytorch + **trl==0.28.0**（新版删了旧路径）；WBC 已 submodule + patches/gear-sonic symlink 448M ckpt 进 HF cache
 - [🤖 LAFAN G1 motion-tracking ecosystem 地图](lafan-g1-ecosystem.md) — 数据 + 现成 ckpt + retargeter 全集；结论 LAFAN_fight G1 ckpt 生态里 0 个，要么 ProtoMotions 不兼容，要么自训 (MimicKit)
+- [📦 G1 text-motion 数据集 HF 调研](g1-text-motion-datasets-hf.md) — **hojjunekim/g1_sonic_*=HF唯一第三方SONIC token空间数据(~549k去重帧,schema与SONIC-VLA-LAFAN逐字段同构,零tokenize;fps30/文本3条/无LICENSE)**;LeVERB action=29维关节角非token+Apache-2.0+1069文本但域窄(坐立行走);排序=AMASS-G1主粮→hojjunekim即时→LeVERB文本→GeorgiaTech/g1_lafan1_50hz(50Hz正对口)收尾;LeVERB 62.8G里98.8%是mp4→`--exclude "*.mp4"`;AMASS=MPI NC
 - [🏗️ GR00T N1.5/N1.6/N1.7 多 release 环境分离](gr00t-multi-release-env-split.md) — 3 submodule + 3 venv；transformers 4.51.3 (N1.5/N1.6) vs 4.57.3 (N1.7) 隔离；policy_type 统一 `gr00t`
 - [🔧 GR00T-N1.7 × LeIsaac 4 层 wire 协议 debug](gr00t-n17-leisaac-wire-debug.md) — 剥洋葱 4 bug：missing observation envelope / 缺 T 轴 + float32 / msgpack-numpy bytes-key 漏解码 / mnp.decode 强制 bytes keys。fix 在 `service_policy_clients.py:Gr00tServicePolicyClient`
 - [🏆 ACT framework drift root cause 锁定 + 修复验证](act-framework-drift-root-cause.md) — lerobot v0.4→v0.5 间 PR #3406 (dataloader uint8/persistent_workers/prefetch) + PR #3442 (ACT padding loss fix) 是 root cause；锁版本 lerobot v0.4.0 + torch 2.7.1+cu126 → 3/15 → 8/15
@@ -72,6 +79,7 @@
 - [📁 发布后自动归入对应 Collection](hf-collections-auto-place.md) — `scripts/hf_make_collections.py` 权威幂等；按任务族选 collection（PickOrange→LeIsaac PickOrange）；发完新 repo 加进 GROUPS 再跑
 
 ## Collab style
+- [✍️ commit 单行 `type: xxx` + 只用户能 push](feedback-commit-message-oneline.md) — commit message 只写简短一行 `feat/fix/docs: xxx`，不换行/不带 Co-Authored 等任何作者后缀；push 铁律=只有用户能 push，我从不 push（fork 也不行），只准备工作区
 - [HTML 文档样式规则](feedback-html-doc-rules.md) — 必须 `:root{color-scheme:light}` + body 显式 `background:#fff`；SVG/pre/table 都要成对显式 background+color；内嵌 SVG 不外链
 - [启动 GPU 任务前先检查显存](feedback-pre-run-gpu-check.md) — nvidia-smi + pgrep 残留进程，发现 >2GB 占用 / 老 server 状态错位先清理再启动
 - [协作风格偏好](feedback-style.md) — 设计文档先行（HTML+中文+SVG）、目录按语义不按工具、开源化是默认目标、本地优先、负面结果如实写、不问废话
