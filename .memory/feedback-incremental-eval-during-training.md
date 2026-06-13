@@ -1,6 +1,6 @@
 ---
 name: feedback-incremental-eval-during-training
-description: 长训练默认按总步数 10 等分，每完成 1/10 跑一次 1-round quick eval，早发现配置错误避免白训
+description: 长训练默认按总步数 10 等分，每完成 1/10 跑一次 5-round quick eval（快筛=5round，2026-06-12 user 定，3-round variance 太大），早发现配置错误避免白训
 metadata: 
   node_type: memory
   type: feedback
@@ -9,13 +9,15 @@ metadata:
 
 # 长训练每 1/10 步必须 quick eval
 
-**Rule**: 任何 LeIsaac 训练任务（ACT / DP / SmolVLA / VLA / 任何 lerobot policy）默认按总 step 数 **10 等分**（e.g. 100k → 10k 一格，20k → 2k 一格）。每完成一格，对最新 ckpt 跑 **1-round 3-ep quick eval**（不需要 full 5-round 协议）确认 policy 真的在学任务，而不是只在降 loss。
+**Rule**: 任何 LeIsaac 训练任务（ACT / DP / SmolVLA / VLA / 任何 lerobot policy）默认按总 step 数 **10 等分**（e.g. 100k → 10k 一格，20k → 2k 一格）。每完成一格，对最新 ckpt 跑 **5-round quick eval** 确认 policy 真的在学任务，而不是只在降 loss。
+
+> **快筛轮数 = 5-round（2026-06-12 user 定，覆盖之前的 3-round）**：单次 3-round closed-loop variance ±20-40%（见 [[eval-5round-mandatory]]），用 3-round 做峰判定/abort 判定都不可靠 —— **训练过程中所有快筛默认 5-round**（sweep watcher / 增量 eval 一律）。
 
 **Why**: 2026-05-22 DP v0.4.0 实际事故 — 跑 10h 训到 100k step，loss 从 0.554 → 0.011 看着收敛，但 lerobot v0.4.0 的默认 `crop_shape=(84,84)` 从 480×640 帧切 84×84 块（**1.7% 视野**），policy 收敛到 "do nothing" 退化先验。每个 rollout 都 stuck @ 35s, 0/15 oranges。10h 全废 — 训练完才发现。**任何一次 10k 处的 1-round eval 都能立刻抓到**。
 
 **How to apply**:
 - 设 `STEPS=100000 SAVE_FREQ=10000`（10 等分）/ `STEPS=20000 SAVE_FREQ=2000` 类似
-- 每个新 ckpt 落地 → 立即跑 **X-VLA-style quick eval**: `EVAL_ROUNDS=3 EPISODE_S=60 MAX_ROUND_WALL_S=90`（3-5min/eval × 10 slice = 30-50min 总开销）。canonical 实现见 `LeIsaac/scripts/auto_sweep_xvla_ckpts.sh`
+- 每个新 ckpt 落地 → 立即跑 **X-VLA-style quick eval**: `EVAL_ROUNDS=5 EPISODE_S=60 MAX_ROUND_WALL_S=90`（5-8min/eval × 10 slice）。canonical 实现见 `LeIsaac/scripts/auto_sweep_xvla_ckpts.sh`；StarVLA sweep watcher 默认也已是 5-round（`scripts/evaluation/starvla_*sweep_watcher.sh` 的 `EVAL_ROUNDS:-5`）
 - 两个 abort 信号:
   1. **oranges placed = 0** 跨连续 3 个 slice（如 30%, 40%, 50%）→ abort
   2. **arm joint range < 0.1 rad / stuck < 30s/ep** 连续 3 slice → policy 学到退化先验，abort

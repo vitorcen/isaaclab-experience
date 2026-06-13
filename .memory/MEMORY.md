@@ -4,6 +4,7 @@
 - [每模型自己的 action_horizon](per-model-action-horizon.md) — N1.7=40, N1.6=50, ACT=100, SmolVLA=50, X-VLA=32, π0.5=50；TSV lookup + `get_action_horizon.py`
 - [eval ≥ 5 round 强制](eval-5round-mandatory.md) — 3 round variance 太大 (1/3-3/3, 67-89%, 51-133s)；强制 ≥ 5 round (15 ep) 降到 ±10%
 - [benchmark 表格排序规则](feedback-benchmark-table-sort.md) — README leaderboard 排序：strict Rounds DESC → oranges DESC → time ASC
+- [🎲 单次20-round仍是点估计→高方差多轮合并](eval-20round-still-noisy-combine-runs.md) — PI_v3-8B同字节ckpt两次20-round=63.3% vs 41.7%(差异全在wall_cap轮数12vs5非推理速度66.8≈67.7s/非截断轮)→高方差噪声非退化;5-round σ=18.4%单次20-round仍±~9%;诊断"掉分"拆avg_round_s分capped/非capped;高方差策略pool成40-round(=52.5%);榜单PI_v3-8B 63.3%是乐观抽样→改52.5% rank🥉→5,与GR00T head 53.3%打平(证伪"+10点")
 
 ## Training discipline
 - [⏱️ smoke 用 ~500 步控制 20min 快判能动](feedback-smoke-500step-quick-gate.md)
@@ -63,6 +64,7 @@
 - [🧩 StarVLA 换 VLM 骨干 2B/4B/8B 零源码配方](starvla-vlm-variant-2b-4b-8b.md) — QwenGR00T runtime 对齐 hidden_size→换骨干只改 config;2B/4B hidden=2048 8B=4096;bs(8B=4其余8)+save密度(4B1500/8B6000/2B1000,峰是120k样本驱动);gradient_ckpt/flash-attn Qwen3死字段,真VRAM大头repeated_diffusion_steps;westd:15528-4090 / westc:31709-4080S
 - [🔢 大VLM本机24G必须8bit eval + 间歇载入堆腐蚀重试 + 单卡争用坑](starvla-8bit-eval-load-corruption.md) — 8B bf16+Isaac必OOM→8bit(VLM int8/head bf16,11G);8bit≈bf16实锤35.0%=35.0%;大ckpt load~40%间歇崩(段错误或'int'no stale_possible_simple_keys)→serve重试;wallx_sweep_supervisor while-true复活偷GPU→假0先杀supervisor
 - [📈 8B sweep 30k峰7/9后悬崖塌 + 2B live state + 下载finalize-hang](starvla-8b-2b-sweep-result.md) — 8B曲线0/0/1/4/7(30k峰)/0/0/0;watcher拉完即删云端防ENOSPC+self-heal+MIN_STEP;hf_transfer传完字节卡finalize→标准下载器秒rename;2B训练中westc~step1200/30000
+- [🟠 GR00T_v2(QwenGR00T_N17) N1.7头=负面但混淆未控](starvla-gr00t-v2-n17-head.md) — strict 20-round 13.3%/P(3)=0 vs v1 53.3%;三方评审(Fable+codex+mimo)推翻"头不迁移":①特征取层错位hidden_states[-1]第36层 vs 真N1.7 select_layer=12中层(最可能根因,强耦合AlternateVLDiT只看image位)②部分解冻是静默no-op bug(build_param_lr_groups按freeze_modules剔整VLM+optimizer先于unfreeze构建)③解冻层裸bf16无fp32master;无bug项=路由/mask/repeat/flow-matching忠实移植;下一步E1=中层特征单变量复测(非解冻),E3=修bug+v1解冻对照才跑解冻;代码用N17名(上游.gitignore占QwenGR00T_v2)
 - [🌟 StarVLA(Qwen3-VL-4B)westc 云端训 SO-101 + eval-sweep](starvla-so101-cloud-training.md) — 第二台云机 westc:31709;env=py3.10+torch2.6cu124(aliyun无→pytorch.org代理)+transformers4.57.0+flash-attn cp310torch2.6;repo自带SO101Config+v2.1走v2.0路径+av1用torchvision_av;**四真坑=_pack_sample硬编码224死穴(改448)/build_dataloader硬编码16workers爆62G-cap-RAM(改4)/冒烟进程不退占24G显存(逐PID kill)/ckpt无裁剪填满60G盘ENOSPC崩(patch原子save+keep-last-N)**;Run1=QwenGR00T冻VLM只训head,GPU25/32G-97%util-1s/step;**eval方法论=先快速eval确认机械臂会动再auto-sweep**:本地clone wallx→starvla_eval(补rich/pytorch3d等),每ckpt rsync10GB回本地4090,serve_starvla(stateless+448+度转弧度)+StarVLAServicePolicyClient+starvla_sweep_watcher.sh GUI轮流用卡;脚手架examples/SO101_PickOrange/ + LeIsaac/scripts/evaluation/serve_starvla.py
 
 ## Negative archives (published to HF, 防止重踩)

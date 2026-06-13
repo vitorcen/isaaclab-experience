@@ -92,9 +92,9 @@ _20 episodes × 3 oranges = **60 oranges total** per row. Sort: E(🍊)/ep DESC.
 |---|---|---|---|---|---|---|---|
 | 🥇 | [`wsagi/GR00T-N1.7-PickOrange`](https://huggingface.co/wsagi/GR00T-N1.7-PickOrange) **自训 / ours** (h=40)                            | ~3B    | **68.3%** | 50% | 70% | 117s | 17.3 GB |
 | 🥈 | [`hi-space/GR00T-N1.7-3B-Pick-Orange`](https://huggingface.co/hi-space/GR00T-N1.7-3B-Pick-Orange) (h=40)                              | ~3B    | 66.7%     | 45% | 70% | 102s | 17.3 GB |
-| 🥉 | [`wsagi/StarVLA-Qwen3-VL-8B-PI_v3-PickOrange`](https://huggingface.co/wsagi/StarVLA-Qwen3-VL-8B-PI_v3-PickOrange) **自训 / ours** (QwenPI_v3 freeze-VLM, step-78000=4.3ep, h=16, 8bit eval) | ~8B    | **63.3%** | 40% | 55% | ~156s | 18.0 GB |
-| 4  | [`LightwheelAI/leisaac-pick-orange-v0`](https://huggingface.co/LightwheelAI/leisaac-pick-orange-v0) (N1.5, h=16)                      | ~3B    | 58.3%     | 40% | 65% | 47s  | 13.8 GB |
-| 5  | [`wsagi/StarVLA-Qwen3-VL-8B-PickOrange`](https://huggingface.co/wsagi/StarVLA-Qwen3-VL-8B-PickOrange) **自训 / ours** (QwenGR00T freeze-VLM, step-30k, h=16, 8bit eval) | ~8B    | **53.3%** | 35% | 45% | 156s | 18.0 GB |
+| 🥉 | [`LightwheelAI/leisaac-pick-orange-v0`](https://huggingface.co/LightwheelAI/leisaac-pick-orange-v0) (N1.5, h=16)                      | ~3B    | 58.3%     | 40% | 65% | 47s  | 13.8 GB |
+| 4  | [`wsagi/StarVLA-Qwen3-VL-8B-PickOrange`](https://huggingface.co/wsagi/StarVLA-Qwen3-VL-8B-PickOrange) **自训 / ours** (QwenGR00T freeze-VLM, step-30k, h=16, 8bit eval) | ~8B    | **53.3%** | 35% | 45% | 156s | 18.0 GB |
+| 5  | [`wsagi/StarVLA-Qwen3-VL-8B-PI_v3-PickOrange`](https://huggingface.co/wsagi/StarVLA-Qwen3-VL-8B-PI_v3-PickOrange) **自训 / ours** (QwenPI_v3 freeze-VLM, step-78000, h=16, 8bit; **40-round=2×20**：63.3%为乐观单抽，复测41.7%，高方差) | ~8B    | **52.5%** | 27.5% | 50% | ~115s | 18.0 GB |
 | 6  | [`hi-space/GR00T-N1.6-3B-Pick-Orange`](https://huggingface.co/hi-space/GR00T-N1.6-3B-Pick-Orange) (h=40)                              | ~3B    | 48.3%     | 25% | 40% | 87s  | 14.9 GB |
 | 7  | [`wsagi/GR00T-N1.6-PickOrange`](https://huggingface.co/wsagi/GR00T-N1.6-PickOrange) **自训 / ours** (ckpt-6500, h=40)                  | ~3B    | 46.7%     | 20% | 45% | 66s  | 14.9 GB |
 | 8  | [`wsagi/StarVLA-Qwen3.5-4B-PI_v3-PickOrange`](https://huggingface.co/wsagi/StarVLA-Qwen3.5-4B-PI_v3-PickOrange) **自训 / ours** (QwenPI_v3 freeze-VLM, step-21000=4.6ep, h=16) | ~4B    | **46.7%** | 20% | 45% | 147s | 17.5 GB |
@@ -105,8 +105,9 @@ _20 episodes × 3 oranges = **60 oranges total** per row. Sort: E(🍊)/ep DESC.
 | 13 | [`shadowHokage/act_policy`](https://huggingface.co/shadowHokage/act_policy) (h=70)                                                    | ~52M   | 28.3%     | 10% | 20% | 169s | 8.6 GB  |
 | 14 | [`edge-inference/smolvla-so101-pick-orange`](https://huggingface.co/edge-inference/smolvla-so101-pick-orange) (h=50)                  | ~450M  | 25.0%     | 0%  | 20% | 179s | ~23 GB  |
 | 15 | [`wsagi/SmolVLA-PickOrange`](https://huggingface.co/wsagi/SmolVLA-PickOrange) **自训 / ours** (main=15k, h=50)                         | ~450M  | 25.0%     | 0%  | 15% | 176s | ~24 GB  |
-| 16 | [`wsagi/DiffusionPolicy-PickOrange`](https://huggingface.co/wsagi/DiffusionPolicy-PickOrange) **自训 / ours** (dp-grind step-18000=4ep；旧 ckpt-70k 过拟合=0%) | ~267M  | 8.3%      | 0%  | 0%  | 182s | 9.5 GB  |
-| 17 | [`wsagi/X-VLA-PickOrange`](https://huggingface.co/wsagi/X-VLA-PickOrange) **自训 / ours** (weakaug 17k, h=32)                          | 0.9B   | 6.7%      | 0%  | 0%  | 118s | 11.8 GB |
+| 16 | 🟠 **StarVLA-Qwen3-VL-8B-GR00T_v2** **自训 / ours** (QwenGR00T_N17 头=N1.7设计移植, step-17500, 8bit；三方评审发现移植缺口=取VLM末层非N1.7中层select_layer=12，结论下调"待复测") | ~8B | 13.3% | 0% | 0% | 180s | 18.0 GB |
+| 17 | [`wsagi/DiffusionPolicy-PickOrange`](https://huggingface.co/wsagi/DiffusionPolicy-PickOrange) **自训 / ours** (dp-grind step-18000=4ep；旧 ckpt-70k 过拟合=0%) | ~267M  | 8.3%      | 0%  | 0%  | 182s | 9.5 GB  |
+| 18 | [`wsagi/X-VLA-PickOrange`](https://huggingface.co/wsagi/X-VLA-PickOrange) **自训 / ours** (weakaug 17k, h=32)                          | 0.9B   | 6.7%      | 0%  | 0%  | 118s | 11.8 GB |
 
 > **Avg ep** = 平均每 episode wall-clock 时长（s），含 server inference + sim step；越短 = policy 越果断（早完成 or 早 stuck-out）。
 > **Peak VRAM** = `nvidia-smi` 总 GPU 内存峰值（含 Isaac Sim ~5-6 GB baseline + policy server）。

@@ -24,6 +24,7 @@ variance 大到无法做模型横评。同一模型 env 1/3-3/3、oranges 67-89%
 
 **How to apply:**
 - leaderboard 所有 baseline 默认 ≥ **5 round**（最佳 6 round = `vla-eval-sweep` skill 已建议）
+- **训练过程中的快筛也是 5-round**（2026-06-12 user 定，覆盖之前的 3-round 增量/sweep 快筛）：3-round 用来判峰/判 abort 一样不可靠，所以 sweep watcher + 增量 eval 全部默认 5-round。见 [[feedback-incremental-eval-during-training]]
 - 复现 eval 用 `EVAL_ROUNDS=5`
 - 报告时给 `oranges_total / (rounds × 3)` 而非整 round 分数
 - N=5 round = 15 ep；variance 经验上能降到 ±10%
