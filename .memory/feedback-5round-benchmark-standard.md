@@ -57,6 +57,7 @@ gr00t-n17  gr00tn1.6  40  hi-space/GR00T-N1.7-3B-Pick-Orange  gr00t-n16  GR00T N
 
 ## 关联
 
+- [[feedback-headed-eval-default]] — **eval 一律有头(去 --headless 保 --enable_cameras)+ wall_cap 抬到不截断**(2026-06-13 定为标准;有头慢~2× 但 wall_cap 够则分数不变、与历史 headless 数据可比)
 - [[eval-5round-mandatory]] — ≥ 5 round 强制 (variance ±10%)
 - [[per-model-action-horizon]] — 各模型 horizon 不同，TSV lookup
 - [[feedback-stuck-detector-off-act-dp]] — chunked policy 关 stuck detector

@@ -1,6 +1,6 @@
 ---
 name: feedback-commit-message-oneline
-description: commit 注释只写简短一行 `type: xxx`，绝不换行/带作者后缀；且只有用户能 push，我从不 push
+description: commit 注释只写简短一行 `type(scope): xxx`（scope=具体改的模块,不用泛仓库名）,绝不换行/带作者后缀；且只有用户能 push,我从不 push
 metadata:
   type: feedback
 ---
@@ -10,6 +10,11 @@ metadata:
 用户要求：写 commit message **只能是简短一行**，形如 `feat: xxx` / `fix: xxx` /
 `docs: xxx`（Conventional Commits 前缀）。**不可以换行、不可以带 body、不可以带
 `Co-Authored-By` 或任何作者/工具署名后缀**。
+
+**`(scope)` 必须是这一笔实际改的模块，不能用太泛的仓库名**（2026-06-14 用户纠正）：
+在 FlowHeads 仓里写 `feat(flowheads): …` 是错的——整个仓就是 flowheads，等于没说。
+要写改了哪个子模块，如 `feat(dit,flowdit,flowditx): …`、`feat(flowdp,flowact): …`。
+一笔跨多个模块就逗号列出主要的几个；scope 的作用是「一眼看出动了哪块」。
 
 **push 铁律：只有用户能 push，我从不 push**（任何 repo、任何 remote、fork 也不行）。
 我最多把工作区/本地 commit 准备好，push 一律交给用户。

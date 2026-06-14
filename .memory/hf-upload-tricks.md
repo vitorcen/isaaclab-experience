@@ -65,6 +65,8 @@ done
 2. **替换已存在 blob 的 delta 上传，小到 1GB 也会中途卡**（不只 §0.2 的 17-18G finalize）→ 同样上 `HF_HUB_DISABLE_XET=1` 走**全量 LFS**（不走 delta），实测从死卡 → 7-10MB/s 稳传到 100% + 秒 commit。
 **判据**：上传字节冻在中途(非 0% 非 100%) + 多方法卡同点 + 杀上传后 tx 仍高 → 先停并发传输，再 `HF_HUB_DISABLE_XET=1` 全量重传。注意此案非 mihomo TUN 场景也复现，§0.06"xet 正常流字节就别禁"指的是**全量 xet 在流**；**delta-replace 卡中途时该禁**。
 
+> **🆕 2026-06-14 `wsagi/FlowHeads-DiffusionPolicy-PickOrange` 新 repo(非 delta) 1.07GB 单 safetensors → 铁律收紧**：mihomo TUN 下 `upload_folder`(批量+xet) 和单文件 `hf upload`(xet) **都传到 88%(934MB)中途冻结**(≈§0.07 的 869MB 同点;:443 仅 10、io idle = hang)。**全新 repo 无旧 blob,排除 delta-replace → 证明纯 xet 全量大单文件在 TUN 下也会中途挂**。`HF_HUB_DISABLE_XET=1 + hf_transfer + timeout 1800 hf upload`(标准 LFS) **attempt-1 秒落地**。**收紧:TUN 下 ≥1GB 单文件直接 DISABLE_XET,别先试 xet**(§0.06"xet 流就别禁"只适用小文件/数据集 mp4 预览)。最稳形态=**小文件+README+mp4 用 `upload_folder --exclude 大文件` 一笔小 commit 先落,大文件单独 DISABLE_XET 走**。
+
 ## 0.2 ✅ `HF_HUB_DISABLE_XET=1` = 单大文件 commit-hang 的首选干净修法（2026-06-07 实测）
 
 `wsagi/StarVLA-Qwen3-VL-8B-PickOrange` 17.9G 单 `.pt`：**默认（xet 开）+ hf_transfer 上传，

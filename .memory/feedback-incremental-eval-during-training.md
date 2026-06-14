@@ -1,6 +1,6 @@
 ---
 name: feedback-incremental-eval-during-training
-description: 长训练默认按总步数 10 等分，每完成 1/10 跑一次 5-round quick eval（快筛=5round，2026-06-12 user 定，3-round variance 太大），早发现配置错误避免白训
+description: 长训练默认按总步数 10 等分，每完成 1/10 跑一次 5-round quick eval（快筛=5round，2026-06-12 user 定，3-round variance 太大），早发现配置错误避免白训；步数定法=~6epoch(=6×frames/batch)、save_freq取整百≈steps/10→10个ckpt；DP从零训例外(6ep可能偏短,爬坡则resume到12ep)
 metadata: 
   node_type: memory
   type: feedback
@@ -24,6 +24,18 @@ metadata:
 - abort 后先 diff `train_config.json` 跟公开 baseline (shadowHokage/act_policy for ACT, wsagi/DiffusionPolicy-PickOrange for DP)，找配置差异
 
 **Cross-check 在 train start 前**: 启动长跑前先 diff 新 train_config.json vs 公开 baseline，任何字段差异都要 deliberately 判断是不是故意。DP 事故里 `crop_shape: [84,84]` (ours) vs `crop_shape: None` (wsagi) 就是 smoking gun，事前 diff 就能发现。
+
+## Step 总数 + save_freq 定法（2026-06-13 user 定）
+
+**总步数 = ~6 epoch**（小数据默认预算，见 [[feedback-vla-epoch-budget-6ep]]）；**save_freq 取整百，≈ 总步数/10 → 正好 ~10 个 ckpt**（10 等分对齐增量 eval）。
+
+公式：`steps_per_epoch = total_frames / batch_size`；`steps ≈ 6 × steps_per_epoch`（圆到整千/整百）；`save_freq = steps/10`（圆到**整百**，user 偏好整百好记）。
+
+**PickOrange 实例**（36293 frames, batch 16）：steps_per_epoch ≈ 2268 → 6 ep ≈ 13.6k → 取 **`--steps=14000 --save_freq=1400` = 10 ckpt（6.2 ep）**。lerobot 还会在末步额外存 final。整百备选：1000(14 ckpt 更密)/1500+steps15000(10 ckpt 更圆)。
+
+**别存太密**：DP/lerobot ckpt 含 optimizer state ~1.3GB/个，10 个≈13GB（够），20 个≈26GB 易 ENOSPC + eval 一遍更久。watcher "拉回本机即删云端" 防爆盘。
+
+**DP-from-scratch 例外**：DP 是从零训 CNN（非预训练 VLA），6 ep 可能偏短（原始 DP baseline 用 100k 步≈44ep）。先按 6ep/10ckpt 跑看 quick-eval 曲线；**若 ep6 仍爬坡(best 落最后一个 ckpt)→ resume 续到 12ep**；best 在中段就停。预训练 VLA 微调严守 ~6ep。
 
 **已写入** `LeIsaac/CLAUDE.md`（项目级强制 instruction，英文）+ 本 memory（feedback type，跨 session 持久化）。
 

@@ -61,6 +61,7 @@ metadata:
 
 ## 关联
 
+- [[feedback-headed-eval-default]] — eval 一律有头(2026-06-13 标准);strict 20-round 也用有头 + wall_cap 180(够则不截断、分数与历史 headless 可比)
 - [[feedback-5round-benchmark-standard]] — config 标准 (180s wall_cap, 120s ep, step_hz=60 N1.7)
 - [[eval-5round-mandatory]] — 5-round 是最低门槛（不是 3-round）；本文升级到 20-round 是更严格 layer
 - [[leisaac-5round-leaderboard-2026-05-21]] — 当前 leaderboard 多数 single 5-round，需要后续重测 20-round 才严格

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FlowHeads 七路对比 · 架构 × 目标矩阵 (PickOrange)</title>
+<style>
+:root{color-scheme:light}
+*{box-sizing:border-box}
+body{margin:0;background:#ffffff;color:#1a1a1a;font-family:-apple-system,"Segoe UI",Roboto,"Helvetica Neue","PingFang SC","Microsoft YaHei",sans-serif;line-height:1.65}
+.wrap{max-width:1080px;margin:0 auto;padding:32px 24px 80px}
+h1{font-size:26px;margin:0 0 4px;color:#111}
+h2{font-size:20px;margin:38px 0 12px;padding-bottom:6px;border-bottom:2px solid #e3e3e3;color:#111}
+h3{font-size:16px;margin:24px 0 8px;color:#222}
+.en{color:#6a6a6a;font-weight:400;font-size:.82em}
+.sub{color:#555;font-size:14px;margin:0 0 8px}
+p{margin:10px 0}
+code{background:#f3f3f3;color:#b5006a;padding:1px 5px;border-radius:4px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.88em}
+pre{background:#f7f7f8;color:#1a1a1a;border:1px solid #e3e3e3;border-radius:8px;padding:14px 16px;overflow:auto;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:13px;line-height:1.5}
+table{border-collapse:collapse;width:100%;margin:14px 0;background:#fff;color:#1a1a1a;font-size:14px}
+th,td{border:1px solid #ddd;padding:8px 11px;text-align:left;background:#fff;color:#1a1a1a}
+th{background:#f2f2f4;color:#111;font-weight:600}
+tr:nth-child(even) td{background:#fafafa}
+.win{background:#e8f7ec !important;font-weight:600}
+.mid{background:#fff7e6 !important}
+.bad{background:#fdecec !important}
+.tl{background:#eef4ff;border:1px solid #cfe0ff;border-radius:10px;padding:16px 18px;margin:16px 0}
+.tl b{color:#0b3d91}
+.flip{background:#fdeee0;border:1px solid #f0c89a;border-radius:10px;padding:16px 18px;margin:16px 0}
+.flip b{color:#9a4a00}
+.note{background:#fff8e6;border:1px solid #f0dca0;border-radius:10px;padding:14px 16px;margin:16px 0;font-size:14px}
+.kk{background:#f6f6f8;border-left:4px solid #888;border-radius:0 8px 8px 0;padding:12px 16px;margin:14px 0}
+svg{display:block;max-width:100%;height:auto;background:#fff}
+.cap{color:#666;font-size:13px;margin:6px 0 0;text-align:center}
+ul{margin:8px 0 8px 4px;padding-left:22px}
+li{margin:5px 0}
+.tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:20px;border:1px solid #ccc;color:#444;background:#f4f4f4;margin-left:6px;vertical-align:middle}
+.foot{color:#888;font-size:13px;margin-top:50px;border-top:1px solid #e3e3e3;padding-top:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>FlowHeads 架构 × 目标矩阵 — strict 20-round 定论</h1>
+<p class="sub">FlowHeads architecture × objective on LeIsaac PickOrange (SO-101, ~60 demos) — settled by strict 20-round</p>
+<p class="sub">2026-06-14 · 单臂抓橙放盘 · 60 演示小数据 · 橙子 10–40px</p>
+
+<div class="flip">
+<b>翻案警告 — quick-eval 误判了 flowdp。</b> <span class="en">A 90s wall-cap confound flipped the conclusion.</span><br>
+初版结论(基于 5-round quick-eval)说"生成式头全军覆没,只有 ACT 判别头能用"。<b>这是错的</b>:quick-eval 的 <code>wall_cap=90s</code> 系统性截断了 <b>慢但能干</b>的 flowdp——它的成功 episode 要 <b>~136s</b> 才完成 pick-place,90s 直接判死。改用 strict 20-round + <code>wall_cap=180s</code> 后,<b>flowdp 翻到 45.0% ≈ ACT 43.3%</b>。
+</div>
+
+<div class="tl">
+<b>TL;DR(定论).</b> 在 60-demo PickOrange 上,<b>决定成败的是骨干(backbone),不是动作头的目标(DDPM/flow/判别)</b>:
+<b>conv-UNet(flowdp 45.0%)与 ACT-transformer(43.3%)两条骨干都能干</b>且打平;<b>DiT 骨干(dit 15% / flowditx 10%)无论配 DDPM 还是 flow 都弱、且 strict 下从无满轮</b>。
+flow-matching 本身不弱——在能干的 conv-UNet 上 flowdp(flow)≈ ACT(判别头)。<span class="en">Backbone is decisive; flow ≈ discriminative on a working backbone; DiT fails regardless of objective.</span>
+</div>
+
+<h2>一、strict 20-round 定论数据 <span class="en">The settled numbers</span></h2>
+<p>三个生成式变体的 <b>best ckpt</b> 重跑 strict:<code>EVAL_ROUNDS=20</code>(60 episodes)· <code>EPISODE_LENGTH_S=120</code> · <code>MAX_ROUND_WALL_S=180</code> · headed · HORIZON=8。
+ACT 为既有 strict 锚。<b>满轮 rounds_succ = 一轮放满 3 颗的轮数(比橙子% 更硬的能力指标)</b>。</p>
+
+<table>
+<thead><tr><th>变体</th><th>骨干 × 目标</th><th>strict 20-round</th><th>满轮 /20</th><th>quick 峰值</th><th>判定</th></tr></thead>
+<tbody>
+<tr class="win"><td><b>flowdp</b></td><td>conv-UNet × flow</td><td><b>45.0%</b> (27/60)</td><td><b>3</b></td><td>46.7%</td><td>✅ ≈ ACT(翻案)</td></tr>
+<tr class="win"><td><b>ACT</b> <span class="tag">基线锚</span></td><td>Transformer × CVAE+L1</td><td><b>43.3%</b></td><td>有</td><td>—</td><td>✅ 强</td></tr>
+<tr class="bad"><td>dit</td><td>DiT × DDPM</td><td>15.0% (9/60)</td><td>0</td><td>20.0%</td><td>🔴 真弱(strict&lt;quick)</td></tr>
+<tr class="bad"><td>flowditx</td><td>DiT-crossattn × flow</td><td>10.0% (6/60)</td><td>0</td><td>26.7%</td><td>🔴 真弱(strict&lt;quick)</td></tr>
+</tbody>
+</table>
+
+<p class="note"><b>方向相反的两类偏差,正好证明 confound 是真的:</b>
+flowdp 的 quick(46.7%)≈strict(45%)——它本就强,quick 峰值靠运气抵消了 wall_cap 截断;而 <b>dit/flowditx 的 strict(15%/10%)比 quick 峰值(20%/26.7%)还<u>低</u></b>——它们的 quick"峰值"是 10-ckpt sweep 里挑出的<b>乐观抽样噪声</b>,20-round 一平均就掉回真实低水平。两种方向的偏差都指向:<b>quick-eval 峰值不可信,strict 才定论</b>。</p>
+
+<h2>二、骨干决定一切 <span class="en">Backbone is the lever</span></h2>
+<p>把四个 strict 点按 <b>骨干 × 目标</b> 摆开,绿=能干(≥43%)、红=弱(≤15%):</p>
+
+<svg viewBox="0 0 900 430" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Backbone x Objective strict matrix">
+  <rect x="0" y="0" width="900" height="430" fill="#ffffff"/>
+  <text x="450" y="28" text-anchor="middle" font-size="17" font-weight="700" fill="#111">strict 20-round oranges% · 行=骨干 决定档位</text>
+
+  <text x="300" y="70" text-anchor="middle" font-size="15" font-weight="700" fill="#333">判别 / DDPM 目标</text>
+  <text x="600" y="70" text-anchor="middle" font-size="15" font-weight="700" fill="#333">Flow-matching 目标</text>
+  <text x="40" y="170" font-size="15" font-weight="700" fill="#1b7a3d" transform="rotate(-90 40 170)">conv-UNet / ACT</text>
+  <text x="40" y="330" font-size="15" font-weight="700" fill="#b3261e" transform="rotate(-90 40 330)">DiT</text>
+
+  <!-- working-backbone row (green) -->
+  <rect x="150" y="92" width="290" height="135" rx="10" fill="#e8f7ec" stroke="#88c79b"/>
+  <text x="295" y="128" text-anchor="middle" font-size="14" font-weight="700" fill="#111">ACT（CVAE+L1 判别头）</text>
+  <text x="295" y="162" text-anchor="middle" font-size="26" font-weight="700" fill="#1b7a3d">43.3%</text>
+  <text x="295" y="190" text-anchor="middle" font-size="12" fill="#555">有满轮 · 锚基线</text>
+
+  <rect x="460" y="92" width="290" height="135" rx="10" fill="#e8f7ec" stroke="#88c79b"/>
+  <text x="605" y="128" text-anchor="middle" font-size="14" font-weight="700" fill="#111">flowdp（rectified flow 头）★</text>
+  <text x="605" y="162" text-anchor="middle" font-size="26" font-weight="700" fill="#1b7a3d">45.0%</text>
+  <text x="605" y="190" text-anchor="middle" font-size="12" fill="#555">3 满轮 · flow≈判别,翻案</text>
+
+  <!-- DiT row (red) -->
+  <rect x="150" y="252" width="290" height="135" rx="10" fill="#fdecec" stroke="#e0a3a3"/>
+  <text x="295" y="288" text-anchor="middle" font-size="14" font-weight="700" fill="#111">dit（DiT + DDPM）</text>
+  <text x="295" y="322" text-anchor="middle" font-size="26" font-weight="700" fill="#b3261e">15.0%</text>
+  <text x="295" y="350" text-anchor="middle" font-size="12" fill="#555">0 满轮 · 180s 墙下仍 0</text>
+
+  <rect x="460" y="252" width="290" height="135" rx="10" fill="#fdecec" stroke="#e0a3a3"/>
+  <text x="605" y="288" text-anchor="middle" font-size="14" font-weight="700" fill="#111">flowditx（DiT + flow）</text>
+  <text x="605" y="322" text-anchor="middle" font-size="26" font-weight="700" fill="#b3261e">10.0%</text>
+  <text x="605" y="350" text-anchor="middle" font-size="12" fill="#555">0 满轮</text>
+
+  <text x="450" y="415" text-anchor="middle" font-size="13" fill="#444">同一列(同目标)上下天差地别 → <tspan font-weight="700">分档线在行(骨干)上,不在列(目标)上</tspan></text>
+</svg>
+<p class="cap">图 1 · strict 20-round 结果按骨干分档:上行(conv-UNet/ACT)绿,下行(DiT)红;左右列(目标)无分档作用</p>
+
+<h2>三、四条定论 <span class="en">Findings</span></h2>
+
+<div class="kk"><b>① 骨干 = 一阶因素,目标/头 = 二阶。</b>
+<span class="en">Backbone first-order, objective second-order.</span><br>
+能干的两条骨干 conv-UNet(flowdp 45%)和 ACT-transformer(43.3%)打平;DiT 骨干无论 DDPM(dit 15%)还是 flow(flowditx 10%)都弱。<b>分档线画在骨干上,不在目标上</b>——花哨的 DiT adaLN-Zero 去噪器在 60-demo 上就是不灵。</div>
+
+<div class="kk"><b>② flow-matching 不比判别头弱(在能干的骨干上)。</b>
+<span class="en">Flow ≈ discriminative, given a working backbone.</span><br>
+flowdp(conv-UNet × <b>flow</b>)45% ≈ ACT(<b>CVAE+L1 判别</b>)43.3%。把生成目标(rectified flow)换成判别回归并没带来优势——初版"判别头才是制胜关键"被推翻。<b>真正的杠杆是骨干能不能把视觉 ground 住,不是用什么 loss。</b></div>
+
+<div class="kk"><b>③ DiT 即便 strict 仍弱,且从无满轮。</b>
+<span class="en">DiT stays weak even at strict; never a full round.</span><br>
+dit/flowditx 的 strict(15%/10%)甚至<b>低于</b> quick 峰值(20%/26.7%)——证明它们的 quick"峰值"是乐观抽样噪声而非被截断。两者 <code>rounds_succ=0/20</code>:能零星碰到单颗橙子,但从没在一轮里放满 3 颗。<b>满轮数是比橙子% 更硬的能力分水岭——只有 flowdp(3)和 ACT 有满轮。</b></div>
+
+<div class="flip"><b>④ 方法学教训:quick-eval 的 wall_cap 会系统性误判慢策略。</b>
+<span class="en">A tight wall-cap systematically misjudges slow-but-capable policies.</span><br>
+flowdp 的成功 episode 要 ~136s,quick-eval 的 90s 墙把它全截成 0,导致"flowdp≈DP 档、生成头全失败"的错误初判。<b>定论性比较必须用 strict 长 wall_cap(≥180s)</b>;quick-eval 只配做"能不能动"的快筛,不能用它的峰值下结论。<u>推论</u>:本研究里只用 quick-eval 的 flowact(ACT×flow 13.3%)、DP-hires(13.3%)同样可能被 wall_cap 压低,要 strict 复测才能定其档位。</div>
+
+<h2>四、诚实声明 <span class="en">Caveats</span></h2>
+<ul>
+<li><b>strict 仅覆盖 3 个 best:</b>flowdp-9800 / dit-14000 / flowditx-11200。flowact、DP-hires/lowres、flowdit 仍是 quick-eval 数,按 ④ 的教训其慢策略可能被低估,<b>未 strict 复测前不下定档</b>。</li>
+<li><b>single 20-round 仍是点估计:</b>5-round σ≈18%,单次 20-round 仍 ±~9%(见 memory eval-20round-still-noisy)。flowdp 45% vs ACT 43.3% 的 1.7 点差<b>在噪声内,判定为"打平"不是"flowdp 更强"</b>。</li>
+<li><b>best-ckpt 选择偏差:</b>strict 跑的是各家 quick 峰值 ckpt,本身是乐观选点;但 flowdp 的 quick≈strict 说明其 best 选得稳。</li>
+<li>结论限定 <b>60-demo + 橙子 10–40px 的 PickOrange</b>;大数据/大目标物下 DiT 可能反转。</li>
+</ul>
+
+<h2>五、产物与复现 <span class="en">Artifacts</span></h2>
+<pre>FlowHeads 伞包       LeIsaac/FlowHeads/{flowdp,flowact,flowdit,flowditx,dit}/
+strict runner        LeIsaac/scripts/evaluation/strict20_best.sh
+                     (EVAL_ROUNDS=20 EPISODE_LENGTH_S=120 MAX_ROUND_WALL_S=180 HORIZON=8)
+quick sweep          LeIsaac/scripts/evaluation/flow_sweep_watcher.sh + dp_quick_eval.sh
+strict 指标          LeIsaac/results/benchmark/{flowdp-9800,dit-14000,flowditx-11200}-s20.metrics.json
+eval env             本机 lerobot-v044 + DP async patch（py3.10 import-torch 间歇段错误→6 次重试）
+共享 GPU 纪律        flock /tmp/leisaac_gpu_eval.lock 单 GPU 串行 + GPU<2G 门 → 与邻居 starvla eval 自动错峰
+best ckpt            flowdp@9800 · dit@14000 · flowditx@11200（各家 quick 峰值步)</pre>
+
+<p class="foot">FlowHeads 架构×目标研究 · LeIsaac PickOrange · 2026-06-14 · strict 20-round 定论版(推翻 quick-eval 初判)。单文件可离线浏览,内嵌 SVG 不外链。</p>
+
+</div>
+</body>
+</html>
