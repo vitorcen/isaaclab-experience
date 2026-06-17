@@ -59,10 +59,28 @@ flow-matching velocity loss 会一直降(误导),但采样动作质量(eval 才�
 - 评分器实测 ckpt @16.7ep(旧粗run):macro-MSE 路径 step1000 frame-MSE=0.0116 beat 模板(per-motion-mean 0.0396)3.4×
   (GR00T 0.0011)→ 证明 motion-onehot conditioning 学到了,7动作 token 分布可区分。
 
-## live-state（2026-06-14 晚,重启后）
-- 训练:`sonic_flowdp_watchdog.sh` 跑着,`outputs/flowdp_sonic`,**2400步/batch64/save120**,~2.2 step/s,**ETA~18min**,GPU 9G。
-- 自动评分:`sonic_flowdp_eval_watcher.sh` 跑着→`outputs/flowdp_sonic/{openloop_eval.csv,leaderboard.md}` 实时更新。
-- 日志:/tmp/flowdp_sonic_{train,watchdog,evalwatch}.log。
-- serve 端到端已验(真 ckpt-1000):wire/7动作可区分/fail-closed 都过。
-- 待办:① 看 leaderboard 挑 best ckpt;② best 跑 `@flow2` GUI 目检串联(最终交付,需 GUI,等训完腾卡)。
+## ✅ 训练完成 + 终态（2026-06-14 晚）
+- **100ep 跑完**(STEPS=6000/batch64/save240=25 ckpt),3 层自愈栈(watchdog resume + 纯-bash patrol 重拉 + eval-watcher 自动评分)全程扛住 kernel-6.17 间歇崩溃(多次 burst,patrol 解了 MAX_RETRIES 耗尽风险)。
+- **best = step 6000(100.7ep):frame-MSE 0.00059 / macro 0.00059,skill 64.7×,7/7 全破模板**。**比 GR00T 0.0011 还低 ~2×**(同 raw token 口径)。
+- **曲线实证甜点**:4ep=0.33垃圾→12ep首破模板→单调降→88-100ep plateau~0.0006。**SONIC flowdp 甜点在 ~90-100ep(记忆任务无held-out,过拟合即目标),不是 PickOrange flowdp 的 4.3ep(那有held-out)**。这条曲线就是"必须带评分扫epoch"的最佳证据。
+- 产物:`outputs/flowdp_sonic/{checkpoints/*(25个),openloop_eval.csv,leaderboard.md}`。**25 ckpt×3G=75G 待裁**(留 best 6000 + 几个邻居,删其余,确认后)。
+- FlowHeads doc 新增:`dependencies/FlowHeads/doc/flowdp_diffusion_to_flow_matching.html`(DP→flow 原理,3 SVG,中英)。
+- 待办:① best ckpt 跑 `bash scripts/gear_sonic_flowdp_demo.sh @flow2` GUI 目检串联(需 GUI);② 裁 ckpt;③ 提交(见下迁移)。
+
+## 🎯🎯 实时闭环 = 一个数据 bug,非模型脆(2026-06-15 重大翻案)
+live 部署 flowdp(`gear_sonic_flowdp_demo.sh squat`)**机器人秒倒**;查了一整轮(IID 增强/per-step clamp/codex+mimo 评审"需 DAgger+相位条件")**全是误判,追错症状**。真凶 = **数据集 `observation.projected_gravity` 全是 [0,0,0]**(录制时没采 gravity)→ MIN_MAX stats 退化(min==max==0)→ **lerobot 退化归一化把 min→-1,但任何非零输入算成 `2x/eps-1`≈±1e8**;部署时 injector 发真实 gravity(z≈-1)→ 归一化成 **~-2e8** → 喂进模型输出爆炸 |chunk|~5 → 倒。
+- **诊断铁证**:同一帧 live-obs,gravity 原值 |chunk|=4.82 vs gravity 置零 |chunk|=1.06;50 帧真实 live-obs(GT回放捕获)gravity 原值 **47/50 爆**,置零 **0/50 爆**(全 |chunk|~1.07)。关节其实完美匹配(漂移仅 0.006),模型对真实漂移**完全鲁棒**(归一化空间 σ=0.2 都没事;之前"σ=0.15爆"是 raw-space 扰动对紧关节≈归一化σ~1.0 的口径错配)。
+- **修复 = serve 一行:`pg3 = np.zeros(3)`**(匹配训练的全零 gravity → 归一化成 -1,模型本来就没用 gravity 信息)。**无需重训,best ckpt 6000 直接可用**。已在 `serve_flowdp_sonic.py` get_action 修。
+- **教训**:① degenerate(min==max)归一化维在部署遇非训练值会**爆 1e8**,不是 clamp 到常数——务必检查 dataset stats 有无退化维;② "脆"先量真实 obs 漂移(GT回放捕获 live-obs 离线喂模型),别凭 raw-space 扰动猜 σ;③ 多专家评审也会被错误的问题框定带偏(我把"爆炸"当成 flow 脆性,其实是归一化 bug)。
+- **次级限制(真·no-memory,gravity修后才暴露)**:不倒但**幅度小/初动后趋静** = 单帧 n_obs_steps=1 无相位/速度 → 退化成姿态条件均值 token。GR00T(3B VLM)单帧能自持,flowdp(小+ego看地面)需 **history 条件(n_obs_steps≥2)+ serve 缓冲多帧**(评审也指此)或 bootstrap 带入。**待办(用户暂搁)**:n_obs_steps≥2 重训治本。
+- **serve 其余修(评审 P0/P1,已做)**:FSQ-snap token→k/16 格点 + off-grid 率;`import os` 移出热循环;per-step clamp 安全网(env FLOWDP_SAMPLE_CLAMP)+ proprio 噪声增强(env FLOWDP_STATE_NOISE,默认关——其实不需要了,gravity 才是真因)。
+- **诊断脚手架(都在/tmp,可重建)**:GT-token dump `datasets/sonic_vla_gt/<KEY>.npz`(录制真token);serve `SONIC_GT_DIR`(GT回放,robot正确不倒,捕获live-obs)+`SONIC_CAPTURE_LOG`(记raw state)。BonesSeed.ipynb §5.2b/5.2c 加了 flowdp flow2 + 7动作单独 live cell。
+- **本机 Isaac GUI 坑**:反复起 Isaac 后 Vulkan 崩(`VkResult NOT_READY`/weakly-ref);harness Bash 工具沙箱杀 detached GUI 进程(空日志秒死)→ 用户自己 notebook kernel 跑才稳(等~70s server+Isaac加载)。
+
+## 📦 submodule 迁移（2026-06-14,用户要求,工作区已备,用户提交）
+- `LeIsaac/FlowHeads` → **`LeIsaac/dependencies/FlowHeads`**(`git mv`,gitlink+worktree+doc 都迁;LeIsaac 内已 staged)。
+- 新增 **`LeSONIC/dependencies/FlowHeads`** submodule(`git submodule add` 远端 a3001a4 克隆,**不含未提交的 doc**——需先在 LeIsaac 那份 commit+push FlowHeads,LeSONIC 再 `submodule update --remote` 同步)。
+- `LeSONIC/MaskBeT` → **`LeSONIC/dependencies/MaskBeT`**(手动迁移:MaskBeT 之前是 orphan 缺 gitlink → git mv 拒绝;移 worktree + 修 `.git`指针(`../../.git/modules/MaskBeT`)+ `core.worktree`(`../../../dependencies/MaskBeT`)+ 改 .gitmodules path + `git add` 补 gitlink b21cf15。**顺带修好了它的 orphan**)。metadata 留 `.git/modules/MaskBeT` 不动(按 name 不按 path)。
+- LeSONIC 脚本引用全改:flowdp 脚本 `FLOWHEADS=$REPO_ROOT/dependencies/FlowHeads`(自包含不再向上够 LeIsaac);MaskBeT 脚本 `$REPO_ROOT/dependencies/MaskBeT`。import 冒烟过。
+- 提交顺序(用户做):先 FlowHeads(commit doc+README→push)→ LeIsaac(submodule mv+指针)→ LeSONIC(MaskBeT mv+FlowHeads add+脚本)→ 伞仓指针。见 [[git-submodule-gitlink-gotcha]] [[feedback-commit-message-oneline]]。
 - starVLA 子模块已 `pull --rebase` 到最新 59faca5。

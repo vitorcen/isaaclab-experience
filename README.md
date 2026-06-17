@@ -86,14 +86,14 @@ _Compare open-source VLA policies + our fine-tunes on the same task via remote i
 
 ### Strict 20-round Leaderboard
 
-_20 episodes × 3 oranges = **60 oranges total** per row. Sort: E(🍊)/ep DESC. Full distribution + per-episode raw data: [`LeIsaac/scripts/benchmark/STRICT_LEADERBOARD.md`](./LeIsaac/scripts/benchmark/STRICT_LEADERBOARD.md)._
+_20 episodes × 3 oranges = **60 oranges total** per row (**top-3 复测 5×20=100 episodes / 300 oranges** 切单跑乐观抽样)。Sort: E(🍊)/ep DESC. Full distribution + per-episode raw data: [`LeIsaac/scripts/benchmark/STRICT_LEADERBOARD.md`](./LeIsaac/scripts/benchmark/STRICT_LEADERBOARD.md)._
 
 | Rank | Model                                                                                                                              | Params | **E(🍊)/ep** | P(3) | P(≥2) | Avg ep  | Peak VRAM |
 |---|---|---|---|---|---|---|---|
-| 🥇 | [`wsagi/GR00T-N1.7-PickOrange`](https://huggingface.co/wsagi/GR00T-N1.7-PickOrange) **自训 / ours** (h=40)                            | ~3B    | **68.3%** | 50% | 70% | 117s | 17.3 GB |
-| 🥈 | [`hi-space/GR00T-N1.7-3B-Pick-Orange`](https://huggingface.co/hi-space/GR00T-N1.7-3B-Pick-Orange) (h=40)                              | ~3B    | 66.7%     | 45% | 70% | 102s | 17.3 GB |
-| 🥉 | [`wsagi/StarVLA-Qwen3.5-4B-GR00T_v2-PickOrange`](https://huggingface.co/wsagi/StarVLA-Qwen3.5-4B-GR00T_v2-PickOrange) **自训 / ours** (QwenGR00T_N17 head, **midlayer L12 + 解冻顶4层截断**, step-21000=2.3ep, h=16) | ~4B    | **66.7%** | 35% | 75% | 127s | ~17 GB |
-| 4 | [`LightwheelAI/leisaac-pick-orange-v0`](https://huggingface.co/LightwheelAI/leisaac-pick-orange-v0) (N1.5, h=16)                      | ~3B    | 58.3%     | 40% | 65% | 47s  | 13.8 GB |
+| 🥇 | [`wsagi/GR00T-N1.7-V2-PickOrange`](https://huggingface.co/wsagi/GR00T-N1.7-V2-PickOrange) **自训 / ours** (v10-4500: warm head + frozen vision + batch48, h=40, **5×20=100-round**) | ~3B | **81.0%** | 63% | 87% | 80s | 17.3 GB |
+| 🥈 | [`hi-space/GR00T-N1.7-3B-Pick-Orange`](https://huggingface.co/hi-space/GR00T-N1.7-3B-Pick-Orange) (h=40, **5×20=100-round**)           | ~3B    | **67.0%** | 49% | 70% | 85s | 17.3 GB |
+| 🥉 | [`wsagi/StarVLA-Qwen3.5-4B-GR00T_v2-PickOrange`](https://huggingface.co/wsagi/StarVLA-Qwen3.5-4B-GR00T_v2-PickOrange) **自训 / ours** (QwenGR00T_N17 head, **midlayer L12 + 解冻顶4层截断**, step-21000=2.3ep, h=16, **5×20=100-round**) | ~4B    | **59.7%** | 32% | 61% | 128s | ~17 GB |
+| 4 | [`LightwheelAI/leisaac-pick-orange-v0`](https://huggingface.co/LightwheelAI/leisaac-pick-orange-v0) (N1.5, h=16, **2×20=40-round**)  | ~3B    | 59.2%     | 42% | 62% | 47s  | 13.8 GB |
 | 5  | [`wsagi/StarVLA-Qwen3-VL-8B-PickOrange`](https://huggingface.co/wsagi/StarVLA-Qwen3-VL-8B-PickOrange) **自训 / ours** (QwenGR00T freeze-VLM, step-30k, h=16, 8bit eval) | ~8B    | **53.3%** | 35% | 45% | 156s | 18.0 GB |
 | 6  | [`wsagi/StarVLA-Qwen3-VL-8B-PI_v3-PickOrange`](https://huggingface.co/wsagi/StarVLA-Qwen3-VL-8B-PI_v3-PickOrange) **自训 / ours** (QwenPI_v3 freeze-VLM, step-78000, h=16, 8bit; **40-round=2×20**：63.3%为乐观单抽，复测41.7%，高方差) | ~8B    | **52.5%** | 27.5% | 50% | ~115s | 18.0 GB |
 | 7  | [`hi-space/GR00T-N1.6-3B-Pick-Orange`](https://huggingface.co/hi-space/GR00T-N1.6-3B-Pick-Orange) (h=40)                              | ~3B    | 48.3%     | 25% | 40% | 87s  | 14.9 GB |
@@ -135,8 +135,9 @@ python3 LeIsaac/scripts/benchmark/aggregate_strict_leaderboard.py \
 
 ### 关键 Findings
 
-- **GR00T 系列三连霸**：N1.7 (68.3%) ≈ hi-space N1.7 (66.7%)；N1.5 LightwheelAI 58.3% 仍能打；自训 N1.6 ckpt-6500 (46.7%) 接近 hi-space N1.6 (48.3%)。
-- **🥉 解冻 VLM 顶层破天花板（StarVLA-4B GR00T_v2，66.7% = rank 3）**：同 4B / 同数据 / 同 QwenGR00T_N17 head，**冻结 head-only 48.9% 池化 → 解冻 LLM 顶 4 层 61.7% 池化 / 66.7% best，+12~18 点**。坐实"解冻 VLM 顶层"是冻结派 ~48% 天花板之上的真杠杆（PI_v3 家族曾观察"冻 VLM 时 4B≈9B、堆 backbone 零增益"）,StarVLA 家族首次进前三。同时**翻案 8B GR00T_v2 13.3% 负面 = `select_layer` porting bug（读末层 vs 真 N1.7 中层 L12）而非头设计**——中层 `select_layer=12` + GR00T 截断重跑即恢复。HF: [`wsagi/StarVLA-Qwen3.5-4B-GR00T_v2-PickOrange`](https://huggingface.co/wsagi/StarVLA-Qwen3.5-4B-GR00T_v2-PickOrange)。
+- **🥇 GR00T-N1.7 V2（warm 头 + 冻视觉 + batch48）= 81.0%@100-round = 新 SOTA，超 hi-space N1.7 67% +14 点**：推翻起点的"batch/jitter/bf16 三项配方"假设，真根因 = 我们 cold-start 用了**半尺寸从零动作头**，warm-start 载入 GR00T-N1.7-3B 完整 32 层预训练头后，**冻视觉 + batch48（v10-4500）登顶**。跑满 **batch × freeze 2×2 网格**发现**真交叉**：batch48 帮冻视觉（70→81）、害解冻视觉（74→69），解冻视觉天花板 ~72-75% 加大 batch 救不了。全程见 [`LeIsaac/docs/training/gr00t_n17_recipe_alignment_experiments.html`](./LeIsaac/docs/training/gr00t_n17_recipe_alignment_experiments.html)。
+- **rank 2-4 在 100-round 收敛、彼此死平**：hi-space N1.7 **67.0%**（P(3)=49%、avg 85s 最快）> 自训 StarVLA-4B GR00T_v2 **59.7%** ≈ N1.5 LightwheelAI **59.2%**（差 &lt;1 点、名次随单跑翻转 = "样本越大越逼近真值、单跑必多轮合并"的活体注脚）。旧 wsagi N1.7 v1（cold-start 60.0%）已被 V2 取代、归档 `n1.7-v1` 分支。自训 N1.6 ckpt-6500 (46.7%) 接近 hi-space N1.6 (48.3%)。
+- **🔓 解冻 VLM 顶层破天花板（StarVLA-4B GR00T_v2，100-round 59.7% = rank 3）**：同 4B / 同数据 / 同 QwenGR00T_N17 head，**冻结 head-only 48.9% 池化 → 解冻 LLM 顶 4 层 5×20=100round 59.7%**，坐实"解冻 VLM 顶层"是冻结派 ~48% 天花板之上的真杠杆（PI_v3 家族曾观察"冻 VLM 时 4B≈9B、堆 backbone 零增益"）——"非 GR00T-N1.7 骨干打平 GR00T-N1.7 published"100-round 后依然成立。**续训 30k→54k(5.94ep) 20-round 证伪"二次爬升"**：5-round 的 30k=80/42k=86.7 是噪声尖峰，20-round 下 30k=63.3/42k=60 均未超 21k=66.7，21k(2.3ep) 仍是 best。同时**翻案 8B GR00T_v2 13.3% 负面 = `select_layer` porting bug（读末层 vs 真 N1.7 中层 L12）而非头设计**——中层 `select_layer=12` + GR00T 截断重跑即恢复。HF: [`wsagi/StarVLA-Qwen3.5-4B-GR00T_v2-PickOrange`](https://huggingface.co/wsagi/StarVLA-Qwen3.5-4B-GR00T_v2-PickOrange)。
 - **ACT 自训 (43.3%) > shadowHokage (28.3%) 53%**：锁版本 lerobot **v0.4.0** + ckpt-18k h=70 重训。原因 = v0.5 dataloader 行为漂移 (PR #3406 + #3442)；详见 [`LeIsaac/docs/training/act_framework_drift.html`](./LeIsaac/docs/training/act_framework_drift.html)。
 - **DP / OpenVLA / π0.5 自训 全 0/60**：50-60 demo 不够支撑这些 model class。DP 另有 lerobot async server bug — `predict_action_chunk` 不 `populate_queues`，已在 `lerobot-v040` editable 一行 patch 修复。
 - **X-VLA weakaug 17k 6.7%**：之前 single-run 9/18 是 small-N variance，strict 20-round 真实 P(≥1)=20%, P(≥2)=0%。

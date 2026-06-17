@@ -27,4 +27,9 @@ metadata:
 - **防呆默认**：CLAUDE.md「Post-training cleanup」已写入「每个新 run 训完无脑跑 `prune_ckpts.py`」—— 冻骨干自动塌缩，全量 FT 自动跳过。**无损 + 续训不受影响**：工具只删 `model.safetensors`，**从不碰 `training_state/optimizer_state.safetensors`**；续训被抽 head 的 step = merge 还原 model + 现成 optimizer。**optimizer_state 是续训料一律保留，别为省盘删**（用户 2026-06-09 明确）。
 - GR00T N1.6/N1.7 **跳过**：已发布 HF（有副本）+ 每 run 仅 2 ckpt + HF 分片 safetensors 格式摩擦，只留 best。OpenVLA/dreamzero LoRA adapter 65–208M 已极小，无需。
 
+**`vlm_base_*.pt` 基座 = 可再生 cache，结题即删（2026-06-16 补缺口）**：
+- 两层临时文件，**只有一层有人自动管**：① 每步 merge 出的 full ckpt = 真临时，三个 watcher（`eval_queue.sh` / `qwen35_sweep.sh` / `starvla_n17_sweep_watcher.sh`）evar 完都 `rm -f "$full"`（含失败路径兜底）—— **已自动**；② `outputs/_head_sweep_tools/vlm_base_*.pt`（一族一份，sweep 期 store-once-reuse-many cache）**没有任何"sweep 结题→删基座"的钩子** → 一个个躺着累到 ~92G（2026-06-16 手动清空，free 145G→236G）。
+- **基座是可再生的，不是不可逆资产**：每个 `vlm_base_*.pt` 都能用 `extract_vlm_base.py` + HF cache 里的基座 VLM（Cosmos/Qwen3.5-*/Qwen3-VL-* 都在）现场重建；`base_*.safetensors`（pi05_expert/wallx_oss05）是抽出的 expert 子集（大小≠HF blob，**不能 ln 软链 HF**，只能重建）。
+- **GC 工具 = `scripts/ckpt/gc_head_tools.sh` + `head_tools_manifest.tsv`（committed）**：manifest 把每个 base 文件映射到"证明 sweep 结题的已发布 HF repo"（guardian）或字面量 `LIVE`。规则：guardian 在 Hub 存在（`HfApi().repo_exists`）→ sweep 结题 → base 死重 → 删；`LIVE` → 留；不在 manifest → 留+warn（永不误删未知文件）；Hub 查询失败 → 留（fail-safe，只在正信号下删）。默认 dry-run，`--apply` 才删，幂等。新铸一个 base 就往 manifest 加一行。
+
 关联：[[feedback-training-output-cleanup]]（一族一 dir + 3-6 ckpt）、[[feedback-cloud-env-reuse-disk-cleanup]]（起训前清死重防 ENOSPC）、[[starvla-checkpoint-resume-migration]]（ckpt 只存权重 + 迁移靠 head+vlm_base）。

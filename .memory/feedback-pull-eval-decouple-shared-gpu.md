@@ -22,5 +22,17 @@ metadata:
 - 被要求"先清显存"时:杀自己的 serve+eval+watcher(**setsid serve 是独立 session,杀 watcher 进程组带不走它,要按 :端口/进程名 PID 单独 kill -9**),只留邻居;再用硬化门重启 watcher → 拉取继续、eval 自动排队等空隙。
 - 本机 GPU 任务铁律:**setsid 完全 detach + Bash 工具 dangerouslyDisableSandbox**,否则在工具调用里同步跑会被 exit 144 杀(零输出);别前台同调用 `pkill -f`/`sleep`(也触发 144)。
 
+## 推广:抽取+拉取 ∥ 训练,同 box 也不冲突（2026-06-15 用户点明,该并行别串）
+
+**三条路占的是三种不冲突的资源**:抽 delta=**CPU+RAM**、拉 ckpt=**网络**、训练=**GPU**。所以在**同一台还在训练的 box 上**,
+完全可以一边训练一边抽 head delta + rsync 拉回本地——**别等训练结束再串行做**(白白多花 ~拉取耗时,如 11×2G delta ÷13MB/s≈28min)。
+教训:我一度想"训完再拉",用户纠正"抽取拉取和训练不冲突可以并行"。**默认:长训练期间就并行起归档 daemon**,训练满时 delta 多半已在本地,收尾即时。
+- **唯一真冲突 = 磁盘**:抽 delta 写盒上 `heads/` 会吃盘,且 `keep_last` 只裁 `checkpoints/` 的 full **不裁 `heads/`**。
+  对策=**抽一个→拉一个→删盒上那个 delta**(pull 后即删,盒上 heads/ 不累积),box 盘维持精简。
+- **⚠️ 无卡模式 RAM=2G 抽不动**:AutoDL 无卡模式 cgroup `memory.max`=2GB,torch.load 6.5G ckpt 必被 OOM-Killed(`Killed`,非报错)。
+  抽 delta 要么**有卡模式**(RAM 拉到几十G)在 box 抽,要么把 full 拉回**本地**抽(本地 RAM 足)。切回有卡=重启,**端口可能变**(也可能不变,实测一次没变)。
+- **keep_last 与归档的赛跑**:`keep_last=N` 在每次 save 时裁最旧 full。想归档**早期**(被裁区间)ckpt 的 delta 要赶在裁前抽;
+  但**好区间(末 N 个)训练完天然全在 box**,不用抢——清晰更差的早期 ckpt 直接让它裁(分数已在 `openloop_eval.csv`),只归档 best+邻居。
+
 脚手架实例:`LeIsaac/outputs/starvla-qwen35-4b-gr00t-v2-midlayer/e1_gap_sweep.sh`。
 关联:[[e1-midlayer-sweep-live-state]]、[[starvla-av1-dav1d-thread-leak-enomem]]、[[feedback-vla-ckpt-best-only-head-rest]](抽 head/merge 机制)、[[eval-20round-still-noisy-combine-runs]]。

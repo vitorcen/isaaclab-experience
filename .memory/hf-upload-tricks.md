@@ -1,6 +1,6 @@
 ---
 name: hf-upload-tricks
-description: hf upload-large-folder 实战坑：--exclude argparse 陷阱、resume cache、branch SHA 验证、worker 并发、mihomo TUN 卡 99% / commit_chunk → reshard 救场
+description: hf 上传实战坑。**第一铁律:大文件(≥1GB,尤其代理/TUN下)上传卡死/无流量/卡99% → 立刻 HF_HUB_DISABLE_XET=1 + HF_HUB_ENABLE_HF_TRANSFER=1 走经典LFS,别先试xet(hub≥0.36默认xet会hang)**。另:--exclude argparse陷阱、resume cache、branch SHA验证、逐文件+timeout、ffmpeg转码用/usr/bin/ffmpeg(conda缺libx264)
 metadata: 
   node_type: memory
   type: reference
@@ -66,6 +66,8 @@ done
 **判据**：上传字节冻在中途(非 0% 非 100%) + 多方法卡同点 + 杀上传后 tx 仍高 → 先停并发传输，再 `HF_HUB_DISABLE_XET=1` 全量重传。注意此案非 mihomo TUN 场景也复现，§0.06"xet 正常流字节就别禁"指的是**全量 xet 在流**；**delta-replace 卡中途时该禁**。
 
 > **🆕 2026-06-14 `wsagi/FlowHeads-DiffusionPolicy-PickOrange` 新 repo(非 delta) 1.07GB 单 safetensors → 铁律收紧**：mihomo TUN 下 `upload_folder`(批量+xet) 和单文件 `hf upload`(xet) **都传到 88%(934MB)中途冻结**(≈§0.07 的 869MB 同点;:443 仅 10、io idle = hang)。**全新 repo 无旧 blob,排除 delta-replace → 证明纯 xet 全量大单文件在 TUN 下也会中途挂**。`HF_HUB_DISABLE_XET=1 + hf_transfer + timeout 1800 hf upload`(标准 LFS) **attempt-1 秒落地**。**收紧:TUN 下 ≥1GB 单文件直接 DISABLE_XET,别先试 xet**(§0.06"xet 流就别禁"只适用小文件/数据集 mp4 预览)。最稳形态=**小文件+README+mp4 用 `upload_folder --exclude 大文件` 一笔小 commit 先落,大文件单独 DISABLE_XET 走**。
+
+> **🆕 2026-06-17 `wsagi/GR00T-N1.7-V2-PickOrange` 发布(v10-4500,2×5G shard)再次实证 + recall 失败教训**:连续 4 次尝试全卡(`api.upload_folder`+xet 卡97% finalize / `upload-large-folder`+xet 早期卡 / 自以为关了 hf_transfer 的"standard"其实仍被 xet 接管也卡 / 全程误以为是"家宽 5MB/s 上行瓶颈")。**真因 = XET(hub 0.36 默认),与网络无关——`HF_HUB_DISABLE_XET=1` 一禁立刻 38MB/s 经典 LFS attempt-1 落地**。**教训:这条铁律本文档早有(§0.2/§0.06/06-14),但上传前没 recall→白绕半小时。≥1GB 上传第一步就 DISABLE_XET,别等卡了再想起**。发布流程脚手架(可复用):①`create_branch` 归档旧 main 到分支 ②`HF_HUB_DISABLE_XET=1 hf upload-large-folder`(排训练态)传模型 ③`upload_file` 传 README+mp4 ④`delete_file` 删旧图/漏网 trainer_state/training_args ⑤`HfApi.move_repo(from_id,to_id)` 改名(分支随迁,旧URL重定向)。
 
 ## 0.2 ✅ `HF_HUB_DISABLE_XET=1` = 单大文件 commit-hang 的首选干净修法（2026-06-07 实测）
 

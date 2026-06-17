@@ -113,3 +113,46 @@ checkpoint-6000（6000 步×global batch 4=24k 样本≈4.15 epoch，loss 0.052�
   只留 .tmp 残片）。**根治姿势=`scripts/starvla_sonic_watchdog.sh`**（用户提议参照
   [[feedback-training-save-policy]]）：SAVE_INTERVAL=250 密滚动 + KEEP=3 + pgrep 互斥 +
   60×60s 重试 + 自动 RESUME + 清 .tmp；MAX_STEPS 必须整除 SAVE_INTERVAL。
+
+## 🤖 GR00T_v2 头(QwenGR00T_N17)× BonesSeed 7动作(2026-06-15,云端 bjb1)
+用户要求云端训 **StarVLA-Qwen3.5-4B-GR00T_v2 于 BonesSeed**(7动作/3815帧/fps50,数据集
+`sonic_vla_lerobot`,**非 flow3**;modality.json 与 flow3 同构→data_config 直接复用,只加
+`sonic_bonesseed` mix)。**镜像已发布的获胜 PickOrange 配方**(见 [[e1-midlayer-sweep-live-state]]
+[[starvla-gr00t-v2-n17-head]]):GR00T N1.7 头(DiT-N17 16层+VLLN+AlternateVLDiT+无future tokens)+
+`select_layer=12` + `truncate_to_select_layer=true`(pop LLM 32→12,解冻层 8-11)+ `tune_top_llm_layers=4`。
+SONIC 维度:action **78**/state **46**/horizon **40**/action **identity** 归一化(保 FSQ 网格)/state min_max。
+- box bjb1(4090-48G,`-p 57282` 重启后新端口)。bs4/rep_diffusion_steps=4(horizon40 是 PickOrange 的2.5×,
+  rep 从默认8降4),**6000 步(6.3ep)/save600/keep10**。VRAM **29.6G/49G(60%,余量大)**,~1.7it/s,~58min。
+- 脚手架:`scripts/starvla/configs/sonic_qwen3_5_4b_gr00t_v2.yaml` + data_config `sonic_bonesseed` mix +
+  **`scripts/sonic_starvla_openloop_eval.py`**(LeSONIC 标准多-ckpt 扫:macro/frame token-MSE + per-motion-mean
+  模板 + skill + beat n/7 + CSV/leaderboard.md;在 box 上跑=训练完 GPU 空,纯前向无需 Isaac)。box 启动器
+  `/root/sonic_{smoke,full,sweep}.sh` 走 `/root/run_train.sh`(KEEP env 必传否则默认2 覆盖 config)。
+- **结果(open-loop token-MSE,raw FSQ,扫全10 ckpt)**:**best=step6000(6.3ep)= macro 0.02425 / frame
+  0.02147 / skill 1.5× / beat 6-7/7 / bin_acc 0.358**。曲线单调降:600(0.6ep)0.0486(skill0.8×欠训)→
+  3600(0.0258 beat7/7)→ 4800(0.0246)→ **6000(0.0243 最低)**,4800-6000 plateau(0.024-0.026,末端仍微降1%)。
+- **判读**:① **GR00T_v2 头真学到了**(skill 1.5×,7动作各破 per-motion-mean 模板)——**明显优于 PI_v3 头**
+  (flow3 上塌成模板 skill~1.0,见上 §结果)。② **但远逊**:GR00T N1.7 frame **0.0011**(=我们 ~19.5×优)、
+  FlowDP conv-UNet frame **0.00059**(=36×优,见 [[flowdp-sonic-bonesseed-live-state]])。
+- **⚠️ 根因修正(2026-06-15,用户揪错)**:我一度写"GR00T 全量微调骨干"=**错,已撤回**。代码实证:
+  `Isaac-GR00T/gr00t/configs/finetune_config.py:48,51` + `model/gr00t_n1d7.py:45,46` 默认 **`tune_llm=False`/`tune_visual=False`**,
+  且 `scripts/gr00t_sonic_finetune.sh` 注释 "freeze VLM, train DiT head" —— **GR00T N1.7 微调也冻整个 Cosmos-Reason2 VLM,只训 projector+DiT head**,
+  和我们一样冻 VLM(我们还多解冻顶4层,训得更多反而更差)。所以 **19.5× 差距 ≠ "冻 vs 全量"**,真因两条:
+  (a) **骨干质量** Cosmos-Reason2-2B(GR00T 专调的具身 VLM,冻结特征贴近 motion)vs Qwen3.5-4B(通用 VLM,冻结特征不对口);
+  (b) **head 预训练(大概率主因)**:GR00T 的 head 是 **GR00T 基础模型海量机器人数据预训练**过再微调=调一个已会动的头;
+  我们把 N1.7 头**结构**照搬、权重**从 3815 帧从零学**。**这是 StarVLA-from-scratch 路线的硬限制**:motion-token 任务拿不到现成预训练 head 迁移。
+- **结论**:换 N1.7 头设计 + 中层特征 + 解冻只把 StarVLA 从"塌模板(PI_v3)"救到"有结构(skill 1.5×)",
+  但**通用冻骨干 + head 从零**追不平"具身骨干 + head 预训练"的 GR00T。瓶颈=骨干对口度 + head 预训练迁移,**非**冻结本身、**非** epoch(续训 plateau 已证)。
+- 产物 box:`/root/autodl-tmp/starvla-outputs/sonic_qwen3_5_4b_gr00t_v2/`(leaderboard.md + openloop_eval.csv + config.yaml + dataset_statistics.json)。
+- **🎮 GUI live flow2 实测(2026-06-15)**:`scripts/starvla_sonic_gr00t_v2_demo.sh @flow2`(serve_starvla_sonic + gear_sonic 12段 dance→walk→…→macarena)。**机器人直立不倒 + 实时逐 chunk 推理(非回放)**:root z~0.72-0.79、dpose~2.0、tok_std~0.13。**无 FlowDP 那个 gravity 爆炸 bug**——serve 的 `_norm` 对退化维(BonesSeed gravity 3/3 min==max=0)mask→0,与训练一致。单帧(proprio_history=0)幅度一般(与开环 0.024/skill1.5× 一致)。serve 5.8G + Isaac ~8G 共存 14G/24G。
+- **🔁 续训 6→12.6ep 判定 = 真 plateau,续训无用(2026-06-15)**:用户问"6000 best 是否该续训",resume 6000→12000(切回有卡模式,端口没变;RESUME=1 重建 optimizer+快进 cosine)。全 600→12000 曲线:**6000→12000 macro-MSE 在 0.0244-0.0273 震荡零下降,6000(0.02425)仍 best,10200/11400 与它打平(噪声内)**。→ **坐实架构天花板(冻VLM+head容量)非 undertraining**:翻倍 epoch 综合保真零改善。细节:frame-MSE 末端微降(12000=0.02136)+ bin_acc 升(.358→.375)= 多训只把高频 token 记更准,难动作(dance/kick/jump)没进步,macro 不动。**全局 best = step 6000(6.3ep,最省,本地有 full)**。
+- **归档(冻骨干 delta,见 [[feedback-pull-eval-decouple-shared-gpu]] 推广节)**:本地 `outputs/starvla/sonic_qwen3_5_4b_gr00t_v2/`=base(`vlm_base_sonic_gr00t_v2_trunc12.pt` 5.0G,12层 trunc 冻结部分)+ 13 delta(4800→12000,2.04G/个,289 张量=head+层8-11,GOLD✓)+ steps_6000 full。早期 600-4200(更差,分在 CSV)未归档。**抽delta+拉+训练三路并行**(CPU/网络/GPU 不冲突)实测跑通。
+- **🔬 select_layer ±平移 sweep(2026-06-15,用户提议)**:固定头/截断/解冻4层,只移 select_layer(=读取层+截断顶+解冻窗一起平移)。各训 9000 步开环扫:
+  | 变体 | 解冻层 | read@ | best | macro-MSE | skill | beat |
+  |---|---|---|---|---|---|---|
+  | sl10 | 6-9 | 10 | 4800 | 0.0246 | 1.5× | 5/7 |
+  | sl12(基线) | 8-11 | 12 | 6000 | 0.0243 | 1.5× | 6/7 |
+  | **sl14** | **10-13** | **14** | **6000** | **0.0236** | **1.6×** | **7/7** |
+  | sl15_uf6(6层) | 9-14 | 15 | 5400 | 0.0247 | 1.5× | 6/7 |
+  **结论:read@14(解冻10-13)最优**(0.0236,唯一 7/7)。趋势=读取层 10→12→14 单调改善、**14 见顶**,再深(15)+ 加宽到 6 层反退回 0.0247。N1.7 字面 select_layer=12 不是 Qwen-32 的最优,**14 更好但只 +2.6%**;全程差异 ~4.5% 小,**不改大局**(仍比 GR00T 0.0011 差 ~19×,架构天花板)。开环 MSE 确定性(teacher-forcing 无 rollout 噪声)→ 这 2.6% 真。脚手架:configs/sonic_qwen3_5_4b_gr00t_v2_sl{10,14,15_uf6}.yaml + 边训边拉归档(extract CPU∥pull 网络∥train GPU,见 [[feedback-pull-eval-decouple-shared-gpu]])。
+- **归档(全 5 个 run 本地 delta+base,box 可关)**:每 run base(~5G)+ deltas(2G/个),merge_ckpt 重建。**坑:边训边拉的"扫"误写成 wait 拉完才扫**——扫在 box 用 full 不需本地 delta,应与拉并行(踩了2次:sl14/sl15 都改成扫与拉并行省~80min)。**多 rsync 跨 box 共享本地下行带宽**(SONIC bjb1 + GR00T-v3 westd watchdog)→拉慢但不丢。
+- **待用户定**:best=sl14(0.0236)是否发 HF(学习型,参照 [[pi05-pytorch-expertonly-phase15-negative]])/或仅归档;box 关机。
