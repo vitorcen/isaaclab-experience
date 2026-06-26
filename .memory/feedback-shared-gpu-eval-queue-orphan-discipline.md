@@ -23,3 +23,6 @@ metadata:
 5. **load>~50 持续不降 + GPU 已空**:基本是 orphan/D 态,清不动就如实告诉用户、让其从交互终端 `htop`/`pkill` 清(交互终端比沙箱 Bash 响应快得多),**别建议重启**(那会杀会话);重启是用户的最后手段。
 
 关联:[[feedback-pull-eval-decouple-shared-gpu]]、[[feedback-headed-eval-default]]、[[e1-midlayer-sweep-live-state]]、[[starvla-8bit-eval-load-corruption]](serve 大 ckpt load 间歇段错误,要 3×重试)。
+
+## 🚀 长GPU任务启动机制(2026-06-26补): 别 setsid&disown,用 run_in_background
+`setsid bash driver.sh & disown` 启长任务**经常启不起来**(无进程/无日志/wrapper exit1)=backgrounded setsid 随工具 shell 退出被回收。**可靠法**:①最稳 `run_in_background:true` 直接跑(阻塞到完成,harness 保活+完成通知);②次选 `nohup ... >log 2>&1 </dev/null &`。pgrep 判进程务必 `grep -v "bash -c"` 滤自身工具命令(假阳性)。本机 py3.10 import-torch 间歇 segfault([[wallx-env-py310-torch-segfault]])→ eval driver 每格重试3次(检"核心已转储/已中止"=crash 重试)。

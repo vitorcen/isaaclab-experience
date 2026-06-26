@@ -1,6 +1,6 @@
 ---
 name: hf-upload-tricks
-description: hf 上传实战坑。**第一铁律:大文件(≥1GB,尤其代理/TUN下)上传卡死/无流量/卡99% → 立刻 HF_HUB_DISABLE_XET=1 + HF_HUB_ENABLE_HF_TRANSFER=1 走经典LFS,别先试xet(hub≥0.36默认xet会hang)**。另:--exclude argparse陷阱、resume cache、branch SHA验证、逐文件+timeout、ffmpeg转码用/usr/bin/ffmpeg(conda缺libx264)
+description: hf 上传实战坑。**第一铁律:大文件(≥1GB,尤其代理/TUN下)上传卡死/无流量/卡99% → 立刻 HF_HUB_DISABLE_XET=1 + HF_HUB_ENABLE_HF_TRANSFER=1 走经典LFS,别先试xet(hub≥0.36默认xet会hang)**。另:--exclude argparse陷阱、resume cache、branch SHA验证、逐文件+timeout、ffmpeg转码用/usr/bin/ffmpeg(conda缺libx264)。**数据集发布=LeRobot v2.1 原样上传(它本身已是标准parquet+mp4旁挂+meta/modality.json),别拆扁平parquet(丢modality.json训练管线读不了+丢Viewer);塞预览mp4必加frontmatter configs块**
 metadata: 
   node_type: memory
   type: reference
@@ -340,5 +340,7 @@ shutil.move(str(SRC), str(CKPT_DIR/"model.safetensors.original"))  # 备份
 **🆕 2026-06-10 `wsagi/GR00T-N1.7-G1-SONIC-LAFAN` 3-shard bf16:timeout 不是越短越好,要看路径**。本机 TUN 代理下 hf_transfer 传完字节后 finalize 连接被代理掐成 CLOSE-WAIT(无流量假死)→ **关 hf_transfer 用标准上传器**。但标准路径的 **LFS commit 实测要 ~15min**(2.49G shard;shard2 成功正好 ~15min)→ 之前"timeout 240-400s"经验是 hf_transfer/xet 路径的,**对标准上传器是自伤**:timeout 900s 每轮在 commit 将成时把自己杀掉,无限循环 98%。修:**标准上传器大 shard timeout≥1800s** + 重试循环(resume cache 让重试字节秒传只剩 commit);起步偶发 SSL UNEXPECTED_EOF 秒败=瞬时抖动,重试就过。判别:进度条卡 98-100% 且连接 ESTAB+进程有 CPU=正常 commit 等着别杀;CLOSE-WAIT=死了等 timeout。
 
 **🆕 2026-06-10 LeRobot 数据集加 README 预览视频必踩坑:Dataset Viewer 按"扩展名多数"猜 builder**。给 `wsagi/SONIC-VLA-LAFAN` 加 `media/*.mp4`(4个预览)后,mp4 总数(8 ego+4 media=12)> parquet(8) → Viewer 误判成 video 数据集只显示 12 rows;BonesSeed 当时 7:7 平手侥幸判 parquet 显示 3.82k。**修=README frontmatter 显式声明**:`configs: [{config_name: default, data_files: [{split: train, path: "data/chunk-000/*.parquet"}]}]`。规则:**凡往 LeRobot 数据集仓库塞规范外的 mp4,必须同时声明 configs**。
+
+**🆕 2026-06-26 发布数据集 = 上传标准 Parquet,但「LeRobot v2.1 本身已是标准 Parquet」别再拆扁平**:`wsagi/SONIC-VLA-BonesSeed-V2` 发布时用户问"直接打包标准 parquet 是不是更好"——**伪命题**。LeRobot v2.1 底层 = `data/chunk-*/*.parquet`(标准 Apache Parquet) + `videos/.../*.mp4`(图像不内联,旁挂 mp4,parquet 存帧索引) + `meta/*.json(l)`(schema 旁车,含 GR00T 训练必需的 `modality.json` 把 state/action 切模态组)。**拆成扁平/单一 parquet = 净损失**:① 视频内联→文件爆炸;② 丢 `modality.json`→GR00T 数据管线加载不了;③ 丢 HF Dataset Viewer。**铁律:LeRobot 数据集就原样上传(它就是 parquet)+ frontmatter 加 configs 块声明 `data/chunk-000/*.parquet`(见下条),不要为"标准化"重打包。** 只有自定义/非 LeRobot 表格数据才需显式转 parquet 再传。
 
 **🆕 2026-06-12 BonesSeed 复现 + 确认规则(那个"侥幸"靠不住)**:给 `wsagi/SONIC-VLA-BonesSeed` 加 7 个 `videos/BonesSeed-*.mp4` 预览(README `<video src=.../resolve/main/videos/...mp4 controls>` 嵌入)后,mp4 变 14(7 ego+7 media) > parquet(7) → Viewer 失灵,正是 06-10 那条预言的"平手不再"。同一个 configs 块(`data/chunk-000/*.parquet`)修好。**铁律固化**:LeRobot 数据集只要往里塞任何规范外 mp4(预览/封面),**当场就把 configs 块写进 frontmatter**,别赌 ego:media 数量平手。另:HF 视频内嵌确认可用 `<video controls src="https://huggingface.co/datasets/<repo>/resolve/main/<path>.mp4">`(full-path resolve URL),实测 dataset card 能渲染播放;转码用系统 `/usr/bin/ffmpeg`(conda 自带的 libx264.so.138 常缺)`-c:v libx264 -pix_fmt yuv420p -vf scale=trunc(iw/2)*2:trunc(ih/2)*2 -movflags +faststart`。
