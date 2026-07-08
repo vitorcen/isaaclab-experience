@@ -67,6 +67,7 @@
 - [LeIsaac eval timeout + DP DDIM swap](leisaac-eval-timeout.md) — DDPM 100-step → DDIM 32-step 不重训直接 swap，inference 393→147ms；4090 sweet spot 公式：`(target_ms - 36) / 3.3 ≈ 29 step`
 
 ## Current baseline architecture
+- [🦾 本机SO-101主从臂上手](so101-leader-follower-hardware-setup.md) — leader=ttyACM0(5V)/follower=ttyACM1(12V)靠电压分;坑=david不在dialout无串口权限+lerobot env缺feetech-servo-sdk;校准/遥操走lerobot0.5.2 CLI;doc so101_real_arm_bringup.html
 - [🧱 伞仓 vs LeIsaac submodule 职责边界](umbrella-leisaac-repo-boundary.md) — 通用 GR00T 基建(引擎`dependencies/Isaac-GR00T*`+`server/`launcher)在伞仓;PickOrange专属(benchmark/policy_server/serve_*/play notebook/ckpt工具)在LeIsaac;LeIsaac只经`../dependencies`取共享引擎、绝不调伞仓脚本(policy_server内联起GR00T/lerobot);robocasa也不调LeIsaac→两仓独立;坑=watchdog REPO_ROOT是伞仓非LeIsaac
 - [🦿 GEAR-SONIC G1 预览跑通配方](gear-sonic-preview-setup.md) — 走 `gear_sonic_preview.sh` 单进程 Isaac-eval（非 DDS/C++ sim2sim）；isaaclab env 补 easydict/loguru/open3d/vector_quantize_pytorch + **trl==0.28.0**（新版删了旧路径）；WBC 已 submodule + patches/gear-sonic symlink 448M ckpt 进 HF cache
 - [🤖 LAFAN G1 motion-tracking ecosystem 地图](lafan-g1-ecosystem.md) — 数据 + 现成 ckpt + retargeter 全集；结论 LAFAN_fight G1 ckpt 生态里 0 个，要么 ProtoMotions 不兼容，要么自训 (MimicKit)

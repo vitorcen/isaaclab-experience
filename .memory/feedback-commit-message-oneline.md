@@ -25,7 +25,9 @@ metadata:
 **How to apply**：
 - 我代为 `git commit` 时（如给 fork 批量打 patch commit），`-m "feat: 简短描述"` 一条到底，
   英文、祈使句、聚焦单一改动；**不加 `-m` 第二段、不加 trailer**。
-- 一个改动 = 一个聚焦 commit（见 [[feedback-refactor-smoke-pathhygiene]] 的「逐 patch」纪律）。
+- **粒度 = 一类事情一笔,别过度拆细碎**（2026-07-08 用户纠正）：一个逻辑工作单元就一笔,
+  哪怕它同时动了「子模块 bump + 配套 memory + 文档」也合成一笔（如 `feat(so101): real-arm bring-up — bump LeIsaac + memory`）。
+  别机械地按「机制」拆(bump 一笔、memory 一笔),按「做的是不是同一件事」拆。跨真正无关的两件事才分开。
 - 同样适用于 PR 标题；PR body 才可展开。
 - **从不执行 `git push`**：连「push 一个 fork 分支」这种也只给用户命令、由用户跑。
 
