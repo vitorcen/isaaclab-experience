@@ -26,3 +26,10 @@ metadata:
 
 ## 🚀 长GPU任务启动机制(2026-06-26补): 别 setsid&disown,用 run_in_background
 `setsid bash driver.sh & disown` 启长任务**经常启不起来**(无进程/无日志/wrapper exit1)=backgrounded setsid 随工具 shell 退出被回收。**可靠法**:①最稳 `run_in_background:true` 直接跑(阻塞到完成,harness 保活+完成通知);②次选 `nohup ... >log 2>&1 </dev/null &`。pgrep 判进程务必 `grep -v "bash -c"` 滤自身工具命令(假阳性)。本机 py3.10 import-torch 间歇 segfault([[wallx-env-py310-torch-segfault]])→ eval driver 每格重试3次(检"核心已转储/已中止"=crash 重试)。
+
+## ⚡ kill -9 CUDA 进程会楔死驱动(2026-07-12 血案)
+- 对**正在 CUDA 内核调用中的进程** `kill -9` → 进程变僵尸(init 都收不了尸,卡内核态)+ **显存永久泄漏**(18.8G 锁死,nvidia-smi 显示 [No data] 持有者);`nvidia-smi --gpu-reset` 对主显卡(带桌面)无效 → **只能重启**。
+- 后果链:泄漏显存 → 后续训练/大 eval 全部秒死(显存不足)→ 看起来像"连崩几十次"实际是显存没了。诊断锚:`nvidia-smi --query-compute-apps` 出现 [No data] 进程 + `ps` 显示 Z 状态。
+- 纪律:对 GPU 进程先 **SIGTERM 等 30s** 再考虑 -9;挂死守卫(ckpt 长时间不涨自动杀)必须用 SIGTERM。
+- 另:驱动楔死状态下 py3.10 堆腐蚀从间歇 40% 恶化到 ~100%(torch no attribute Buffer/locale.locale/CPython 内部断言级胡话)——这时别再重试,直接重启。
+- **升级版惨案(2026-07-12 下午)**:watchdog 换代窗口 CUDA teardown churn(旧 attempt 异常退出显存未释放+新 attempt OOM 撞车反复重试)→ 任务楔死内核不可中断路径 → **RCU stall 冻死整机**(rcu_preempt stalls 持续 1h,systemd 连软重启都超时,只能硬重启;全程无 Xid=非显卡硬故障)。嫌疑主犯=unattended-upgrades 塞进来的 **nvidia 580.159**(前任 580.126 扛过 orphan 风暴无事)→ 建议 `apt-mark hold 'nvidia-*' 'libnvidia-*'`。**watchdog 铁律:重启 attempt 前必须等显存真放掉(nvidia-smi used<2G 门控),别 sleep 5 就盲开下一个**。

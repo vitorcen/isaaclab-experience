@@ -83,6 +83,7 @@ _Compare open-source VLA policies + our fine-tunes on the same task via remote i
 - **任务 / Task**：`Pick up the orange and place it on the plate` (3 oranges)
 - **机器人 / Robot**：SO-101 follower (5 关节 + gripper) · **观测**：front + wrist cam (480×640 RGB) + joint state
 - **入口 / Entry point**：📓 [LeIsaac.ipynb](./LeIsaac/LeIsaac.ipynb) — 每子章节一键 cell
+- **🆕 真机 SO-101 / Real arm**：同任务搬到真机(30 集遥操数据,ACT / FlowDP / GR00T 三头横评)——**sim-warm-start 是决定性增益**:真机 best = FlowDP 续训 sim best **1.7 只/轮 = 56.7%**([`wsagi/FlowHeads-DiffusionPolicy-Real-PickOrange`](https://huggingface.co/wsagi/FlowHeads-DiffusionPolicy-Real-PickOrange)),ACT 续训 1.5 只/轮([`wsagi/ACT-Real-PickOrange`](https://huggingface.co/wsagi/ACT-Real-PickOrange)),从零 ACT 仅 0.8。详见 [LeIsaac README §2½](./LeIsaac/README.md) · 操作入口 📓 [SO-101.ipynb](./LeIsaac/SO-101.ipynb)
 
 ### Strict 20-round Leaderboard
 

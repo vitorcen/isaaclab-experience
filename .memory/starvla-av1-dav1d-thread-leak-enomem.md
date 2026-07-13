@@ -35,6 +35,8 @@ metadata:
 先看 `pids.current` 轨迹,基本就是这个;别去查 flash-attn/torch/磁盘。`resume_4b.sh` 这类 resume 脚本
 存在 = 当年可能也在靠 resume 顶过周期性崩溃,是同一病。
 
+**第二种表现 = 堆腐蚀段错误(非 ENOMEM;2026-07-10 flowdp 本机实锤)**:同一 AV1 dav1d 多线程解码,在**本机 lerobot `torchcodec`/`torchvision-VideoReader`** 路径下不是触顶 pids,而是**随机堆腐蚀**→症状=**段错误(rc=139)+ 诡异 `'_backward_hooks'`/`'NoneType' object is not callable`/`groups` 报错**(训练中途/推理中途随机崩,**py3.10 和 py3.11 都中招**——排除 py 版本因素)。**通用修 = torchcodec `VideoDecoder(file_handle, seek_mode="approximate", num_ffmpeg_threads=1)`**(`video_utils.py` 的 `VideoDecoderCache.get_decoder`)+ `OMP_NUM_THREADS=1`;实测段错误 22→2/轮、单线程 AV1 解码 8/8 绿。判据:AV1 数据 + 随机段错误/`_backward_hooks` 类怪错(不是 ENOMEM)→ 就是这个,别归咎 torch/py 版本。详见 [[so101-real-demo-recording-and-act]] flowdp 段。
+
 关联:[[lerobot-v040-convert-segfault-fix]](dual-ffmpeg 堆损坏,另一类视频后端坑)、
 [[starvla-so101-cloud-training]](av1 用 torchvision_av 的由来 + workers 调参)、
 [[feedback-cloud-env-reuse-disk-cleanup]](崩因伪装成 flash-attn/ENOSPC 的同类陷阱)

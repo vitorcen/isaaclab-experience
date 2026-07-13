@@ -49,3 +49,16 @@ SO-101 PickOrange 微调**已跑通并在训**：detached daemon（`setsid run_l
 - wall_x csrc 编译：**必须 `export TORCH_CUDA_ARCH_LIST="8.9"`**（4090），否则 setup.py 调 `torch.cuda.get_device_capability()` 失败 → `metadata-generation-failed`。`pip install ninja` 提速，`MAX_JOBS=4 pip install --no-build-isolation -e .`
 - 训练入口 `accelerate launch train_qact.py --config ...`（非 lerobot CLI）；**freeze_vlm: true** 只训 0.47B action expert ≈19G 进 4090；resolution face_view=-1（原生 640×480，不缩橙子）。
 - 脚手架：`workspace/leisaac_pick_orange/{config_qact_leisaac.yml, compute_norm_stats_leisaac.py, norm_stats.json, run_leisaac.sh}`；KEY_MAPPINGS/ACTION_DATASET_NAMES 已注册 `leisaac/pick-orange`。
+
+## ⚠️ 2026-07-12 修正:"解释器胡话错"两个真根因,python 版本可能只是相关非因果
+FlowDP 线在**全新 py3.11 env 复现同样胡话崩溃**('List' not callable/import torch 段错误/locale.locale)→ 单靠换 python 版本不是根治。实锤的两个独立根因:
+1. **陈旧/半写 .pyc**:硬重启(整机冻死硬断电)会留下半写字节码 → 之后该 env 进程启动期随机胡话错。**修=`find <env> -name __pycache__ -exec rm -rf` 清光(当次 1568 个)+ 关键任务 `python -B`**。症状签名=错误发生在 import/解析层、每次死法不同、同命令偶尔能过。
+2. **torchcodec 视频解码后端**(lerobot 0.4.x 装了就默认用)训练期进程内踩内存 → 每 500-1000 步随机崩;**同数据集同机器 pyav 后端零崩溃**(ACT 全程 pyav 稳,FlowDP 切 pyav 后 6000 步零崩)。**修=数据集/eval 全钉 `video_backend="pyav"`**(offline_action_mse.py 已钉,resume 时注意 ckpt train_config.json 里存的 backend)。
+另:新建 env 记得移植 populate_queues 补丁(lerobot 0.4/0.5 的 predict_action_chunk bug,见 [[lerobot-dp-async-server-bug]]),否则 flowdp eval 报 stack expects non-empty TensorList。
+
+## 🔴 2026-07-12 终审:第三个真根因 = aliyun 镜像 torch 2.7.1+cu126 wheel 的 CUDA 宿主侧有毒
+二分定案(decode-only/forward-only/CPU/换env 四象限):**py311+torch2.7.1cu126(aliyun wheel)纯 GPU 前向(无视频无数据集)几分钟必炸**(CPython 帧损坏:Module._call_impl 里 self 未绑定/CUBLAS_STATUS_NOT_SUPPORTED/段错误);同 env 纯 CPU 前向 670 次零崩;同驱动同卡 py312+torch2.10.0cu128 前向 3831 次零崩。**换 torch==2.10.0(pypi 标准源,自带 cu128)后 8905 次零崩痊愈**。教训:aliyun pytorch-wheels 的 cu126 旧 wheel 别再用;装 torch 优先 pypi 标准源新版。eval 数字跨 torch 版本可比(同 fp32 权重,统计等价)。
+
+## ✅ 2026-07-13 完结:第四因素 + 最终稳定配方(eval 侧全愈)
+换 torch 2.10 后 eval 仍偶发腐蚀 → 最后一块拼图=**libav(pyav)与 torch CUDA 同进程交替仍互踩**(四象限:decode-only 稳/forward-only 稳/合并炸)。**终修=进程隔离**:`offline_action_mse.py` 把 CUDA 前向放 spawn worker 子进程(主进程只碰数据集+pyav 解码,永不碰 CUDA),①IPC 只传 **numpy**(torch 张量 pickle 走 /dev/shm 共享内存有竞态)②`recv` 必须带 worker 活性轮询(worker 段错误时裸 recv 永久阻塞,实测主进程挂 36 分钟)。终态=24 ckpt 双侧 sweep 一口气磨完。
+**新 env 建成清单(lerobot 0.4.4 复现用)**:py3.11 + torch==2.10.0(pypi 标准源)+ **datasets==4.1.1 + pandas==2.3.3**(datasets 4.8.5 有 `Value.__call__` API break 载不了 v3.0 数据集)+ av 15.1 + torchcodec 不装(dual-ffmpeg 冲突源)+ populate_queues 补丁 + `python -B`。
