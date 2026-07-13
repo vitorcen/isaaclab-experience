@@ -1,0 +1,33 @@
+From 377835b90a506618bf1205f0ccd6b4364939313c Mon Sep 17 00:00:00 2001
+From: vitorcen <vitorcen@gmail.com>
+Date: Mon, 13 Jul 2026 10:58:35 +0800
+Subject: [PATCH] fix(diffusion): stack queued keys in predict_action_chunk so
+ warm-up synthesized observation.images reaches generate_actions
+
+---
+ src/lerobot/policies/diffusion/modeling_diffusion.py | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/src/lerobot/policies/diffusion/modeling_diffusion.py b/src/lerobot/policies/diffusion/modeling_diffusion.py
+index 9fbe1f70..4b896644 100644
+--- a/src/lerobot/policies/diffusion/modeling_diffusion.py
++++ b/src/lerobot/policies/diffusion/modeling_diffusion.py
+@@ -102,8 +102,13 @@ class DiffusionPolicy(PreTrainedPolicy):
+     @torch.no_grad()
+     def predict_action_chunk(self, batch: dict[str, Tensor], noise: Tensor | None = None) -> Tensor:
+         """Predict a chunk of actions given environment observations."""
+-        # stack n latest observations from the queue
+-        batch = {k: torch.stack(list(self._queues[k]), dim=1) for k in batch if k in self._queues}
++        # patched: if queues empty (async server skipped select_action), warm up via select_action
++        if any(len(self._queues[k]) == 0 for k in self._queues if k != "action"):
++            _ = self.select_action(dict(batch), noise=noise)
++        # stack n latest observations from the queue — iterate the queues (not the raw
++        # batch): select_action's warm-up inserts synthesized keys (observation.images)
++        # that never exist in the incoming batch, and generate_actions needs them.
++        batch = {k: torch.stack(list(self._queues[k]), dim=1) for k in self._queues if k != "action"}
+         actions = self.diffusion.generate_actions(batch, noise=noise)
+ 
+         return actions
+-- 
+2.43.0
+
