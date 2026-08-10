@@ -49,4 +49,11 @@ metadata:
 - **提交状态**:LeSONIC 已提交 **4 笔**(aug pipeline / eval scaffolding / docs / V2 publish+notebook,全 `feat|docs(sonic):` 单行,用户自 push)。**仍待处理(各自独立 repo)**:① `dependencies/GR00T-WholeBodyControl` injector 改动 gitignored → 重生成 patch `patches/gear-sonic/0004-vla-live-injector.patch`;② `dependencies/Isaac-GR00T:gr00t_n1d7.py`(ONSET_LOSS_WEIGHT);③ 伞仓 `.memory`(本文件已精简)。
 - **下一步(可选)**:多 stand episode 修 model-driven stand;history+CFG 压 onset 随机性求确定性。
 
+## 零微调对照:官方原版 GR00T-N1.7-3B 实测全失败(2026-08-10)
+- **结论**:官方 `nvidia/GR00T-N1.7-3B` 未经任何 SONIC 微调驱动 WBC → **7 动作全部失败**(四肢无序摆动,无一成形),token 为无结构噪声。即微调是 token 能力的**唯一**来源,FSQ token 空间没有可被通用预训练迁移的先验。
+- **官方权重开箱起不来**:`unitree_g1_sonic` 在官方 ckpt 里只是**预注册 modality config**,`embodiment_id.json`/`statistics.json` 里**没有该 embodiment**(我们微调才加,id=11)→ processor 建不起来。解法=`scripts/sonic_stage_official_base.sh` 拼可加载目录:官方权重+config 软链原封不动,**只借我们 ckpt 的 metadata**(processor_config/statistics/embodiment_id/experiment_cfg),零权重混合;已验证 shards 100% + `get_action` 返回 (1,40,64) token。
+- **⚠️ 判读陷阱**:该对照下 `stand` 仍能站住,**不能记作"官方模型会站"** —— `stand` 是哨兵,`vla_live_injector._is_idle()` 直接注入复位时抓拍的站立 token,**根本不查 VLA server**(见 [[sonic-live-switch-idle]])。反向证据:纯噪声 token 打乱后一个静态站立 token 就能被 WBC 拉回 = **乱的是 VLA 不是 WBC**。
+- 三级对照只测了两档:官方原版(全失败)/ V2(三动作可冷启动);**V1 那档未实测**(notebook 1.2a′ 启动器已就位,预期"自持动作能做、kick/walk/jump 冻")。
+- 脚手架:BonesSeed.ipynb `1.2a′`(V1)/ `1.2a″`(官方原版)两个对照启动器,与 1.2a 共用同一套动作单元,三选一起。
+
 关联 [[sonic-vla-critique-roadmap]]、[[sonic-masked-ce-p0-result]]、[[sonic-live-switch-idle]]、[[feedback-lesonic-similarity-leaderboard-standard]]、[[hf-collections-auto-place]]、[[feedback-hf-readme-project-links]]。

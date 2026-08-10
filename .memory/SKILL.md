@@ -55,6 +55,23 @@ What the repo already records: code structure, past fixes, git history, build st
 or anything only relevant to the current conversation. If asked to remember one of those,
 ask what was non-obvious about it and save *that* instead.
 
+## Committing
+
+- **No fragment commits.** While iterating (tuning, debugging, redeploying), keep changes
+  in the working tree. Commit once, atomically, when the feature module is field-tested
+  stable or the user says to wrap up. If fragment commits already happened and are not
+  pushed, `git reset --soft` them back and fold into one atomic commit — but do NOT go
+  the other way and bundle several unrelated feature blocks into one commit either:
+  **one commit = one verified feature/research block**.
+- **Memory commits ride with their feature.** Commit `.memory/` changes together with the
+  related code/docs change in the same commit — not as separate "update memory" commits.
+- **Message = one readable sentence, ≤30 words after the `x(x): ` prefix.** Say what the
+  block is, not the whole story — details/numbers/verdicts belong in `.memory/` and docs,
+  which the commit already carries. No walls of parenthesized findings in `-m`.
+- **Style follows the project's user guidance** (here: single-line `x(x): xxx`, no author
+  suffix, user pushes). Message language (English/Chinese) is not fixed by this
+  protocol — use whatever the project's user asks for.
+
 ## Secrets — hard rule
 
 `.memory/` is committed to the repo (a public repo is globally searchable; git history is
