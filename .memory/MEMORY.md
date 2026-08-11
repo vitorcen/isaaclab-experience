@@ -53,6 +53,7 @@
 - [📊 VLA 蒸馏数据多样性 ROI 排序](vla-distill-data-diversity-roi.md) — prompt侧 > DR/RSI/action-noise > multi-clip > 训更长；DR ≠ semantic diversity；clip 选择不同编舞>不同phrase>不同subject；2-3验证/4-6覆盖
 
 ## Training infra bugs (reusable)
+- [🧟 rerun 预览 num_workers>0 → D 状态孤儿](rerun-viz-numworkers-dstate-hang.md) — dataloader worker 卡 exit_mm 不可杀,连 ps/pgrep 都挂住 → "点停止没反应";一律 --num-workers 0
 - [🔒 共享GPU eval flock队列 + 防orphan爆炸纪律](feedback-shared-gpu-eval-queue-orphan-discipline.md) — 多eval任务共用 `/tmp/leisaac_gpu_eval.lock` flock排队(别各自N×N互判,FlowDP单向撞不住);**血教训:broken-bash下反复restart eval runner→kill没生效→~400 orphan→本地工作站load 142 wedge死→evals全失败,只能重启**;纪律=flock单实例/只读探活(/proc,nvidia-smi)/纯数字PID kill/不连环restart/load>50不降让用户htop清别建议重启
 - [🧵 AV1/dav1d 解码线程泄漏→确定性ENOMEM崩](starvla-av1-dav1d-thread-leak-enomem.md) — StarVLA video_backend=torchvision_av 读 AV1 时 VideoReader 不 join dav1d 解码线程→累积到 cgroup pids.max(20480)→pthread EAGAIN→报 av.error.MemoryError[Errno 12];特征=每次精确同一step崩+内存很低(非真OOM)+抬ulimit -n无效;诊断锚=盯 pids.current 是否爬向 pids.max;修=video_backend换pyav + pyav分支加 stream.thread_count=1;decord读不了AV1
 - [👁️ eval 一律有头(标准)+ wall_cap 给够](feedback-headed-eval-default.md) — 2026-06-13 定为 benchmark 口径标准:policy_inference 去 --headless 保留 --enable_cameras(DISPLAY=:0);wall_cap 抬到不截断→有头分数==无头分数(score=sim行为非渲染速度)→仍与 headless-180 v1/PI_v3 可比不必重跑;quick-sweep 90→150 strict 180;有头慢~2×(~125s/round)
